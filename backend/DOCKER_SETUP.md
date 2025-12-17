@@ -169,18 +169,27 @@ docker run -d \
 curl http://localhost:9000/minio/health/live
 ```
 
-### RAG 服务 (CT-RAG)
+### RAG 服务 (CT-RAG) - 可选
 
 ```bash
+# 注意：
+# 1. RAG 服务是可选的，不是必需的，可以先不安装
+# 2. 如果镜像不存在或需要认证，请使用其他可用的 RAG 服务镜像
+# 3. 或者联系项目维护者获取正确的镜像地址
+# 4. 在 docker-compose.yml 中，RAG 服务默认是注释掉的
+
 docker run -d \
   --name panda-wiki-ct-rag \
   --restart unless-stopped \
   -e API_KEY=sk-1234567890 \
   -p 5050:5050 \
-  chaitin/ct-rag:latest
+  YOUR_RAG_IMAGE:latest
 ```
 
-> **注意**: RAG 服务的镜像可能需要根据实际情况调整。如果使用其他 RAG 服务，请相应修改镜像和配置。
+> **重要提示**: 
+> - RAG 服务是可选的，如果镜像拉取失败，可以暂时跳过
+> - 在 `docker-compose.yml` 中，`ct-rag` 服务默认已被注释
+> - 如果需要使用 RAG 功能，请替换为实际可用的镜像
 
 ## 配置防火墙
 
@@ -295,6 +304,31 @@ sudo lsof -i :5432
 2. 检查服务是否正在运行: `docker ps`
 3. 检查端口是否正确映射: `docker port panda-wiki-postgres`
 4. 检查服务日志: `docker logs panda-wiki-postgres`
+
+### RAG 服务镜像拉取失败
+
+如果遇到 `ct-rag` 服务镜像拉取失败（如 `unauthorized: incorrect username or password`），这是正常的：
+
+1. **RAG 服务是可选的**：可以先跳过，只启动必需的服务
+2. **解决方案**：
+   ```bash
+   # 在 docker-compose.yml 中注释掉 ct-rag 服务
+   # 然后重新启动
+   docker compose down
+   docker compose up -d
+   ```
+3. **验证其他服务**：
+   ```bash
+   # 检查已启动的服务
+   docker compose ps
+   
+   # 应该能看到 postgres, redis, nats, minio 正常运行
+   # ct-rag 服务可以稍后单独配置
+   ```
+4. **如果需要 RAG 服务**：
+   - 联系项目维护者获取正确的镜像地址
+   - 或使用其他可用的 RAG 服务镜像
+   - 或使用外部 RAG 服务 API
 
 ## 生产环境建议
 

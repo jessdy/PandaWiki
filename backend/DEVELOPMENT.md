@@ -43,6 +43,12 @@ cd ~/panda-wiki-services
 docker compose up -d
 ```
 
+> **注意**: 
+> - 如果遇到 `ct-rag` 服务拉取失败，这是正常的，因为 RAG 服务是可选的
+> - RAG 服务镜像可能需要特殊权限或使用其他镜像
+> - 可以先注释掉 `docker-compose.yml` 中的 `ct-rag` 服务，只启动必需的服务
+> - 其他服务（PostgreSQL、Redis、NATS、MinIO）应该能正常启动
+
 4. **查看服务状态**
 
 ```bash
@@ -132,17 +138,25 @@ docker run -d \
   server /data --console-address ":9001"
 ```
 
-#### 安装 RAG 服务（CT-RAG）
+#### 安装 RAG 服务（CT-RAG，可选）
 
 ```bash
-# 注意：需要根据实际的 RAG 服务镜像调整
+# 注意：
+# 1. RAG 服务是可选的，不是必需的
+# 2. 需要根据实际的 RAG 服务镜像调整
+# 3. 如果镜像不存在或需要认证，请使用其他可用的 RAG 服务镜像
+# 4. 或者联系项目维护者获取正确的镜像地址
+
+# 示例（需要替换为实际可用的镜像）:
 docker run -d \
   --name panda-wiki-ct-rag \
   --restart unless-stopped \
   -e API_KEY=sk-1234567890 \
   -p 5050:5050 \
-  chaitin/ct-rag:latest
+  YOUR_RAG_IMAGE:latest
 ```
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+read_file
 
 ### 配置防火墙
 
