@@ -1,0 +1,72 @@
+# PandaWiki 配置文件示例
+# 复制此文件为 config.yml 并根据实际情况修改配置
+
+# 日志配置
+log:
+  level: 0  # -4: debug, 0: info, 4: warn, 8: error
+
+# HTTP 服务配置
+http:
+  port: 8000  # API 服务端口
+
+# 管理员密码（首次启动时设置）
+admin_password: ""
+
+# PostgreSQL 数据库配置
+# 格式: host=主机地址 user=用户名 password=密码 dbname=数据库名 port=端口 sslmode=disable TimeZone=Asia/Shanghai
+# 示例（连接远程 Linux 服务器）:
+#   host=192.168.1.100 user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai
+pg:
+  dsn: "host=localhost user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+
+# 消息队列配置
+mq:
+  type: "nats"
+  nats:
+    # NATS 服务器地址（连接远程 Linux 服务器）
+    # 示例: nats://192.168.1.100:4222
+    server: "nats://localhost:4222"
+    user: "panda-wiki"
+    password: ""
+
+# RAG 服务配置
+rag:
+  provider: "ct"
+  ct_rag:
+    # RAG 服务地址（连接远程 Linux 服务器）
+    # 示例: http://192.168.1.100:5050
+    base_url: "http://localhost:5050"
+    api_key: "sk-1234567890"
+
+# Redis 配置
+redis:
+  # Redis 地址（连接远程 Linux 服务器）
+  # 示例: 192.168.1.100:6379
+  addr: "localhost:6379"
+  password: ""
+
+# 认证配置
+auth:
+  type: "jwt"
+  jwt:
+    secret: ""  # JWT 密钥，建议使用环境变量设置
+
+# S3 对象存储配置（MinIO）
+s3:
+  # S3 服务地址（连接远程 Linux 服务器）
+  # 示例: 192.168.1.100:9000
+  endpoint: "localhost:9000"
+  access_key: "s3panda-wiki"
+  secret_key: ""
+
+# Sentry 错误监控（可选）
+sentry:
+  enabled: false
+  dsn: ""
+
+# Caddy API（通常用于生产环境）
+caddy_api: "/app/run/caddy-admin.sock"
+
+# 子网前缀（用于 Docker 网络，开发环境通常不需要）
+subnet_prefix: "169.254.15"
+
