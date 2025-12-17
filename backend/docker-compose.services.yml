@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: panda-wiki-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: panda-wiki
+      POSTGRES_PASSWORD: panda-wiki-secret
+      POSTGRES_DB: panda-wiki
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - panda-wiki-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panda-wiki"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: panda-wiki-redis
+    restart: unless-stopped
+    command: redis-server --requirepass panda-wiki-redis-password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - panda-wiki-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # NATS 消息队列
+  nats:
+    image: nats:2.10-alpine
+    container_name: panda-wiki-nats
+    restart: unless-stopped
+    command:
+      - "-js"
+      - "-m"
+      - "8222"
+      - "--user"
+      - "panda-wiki"
+      - "--password"
+      - "panda-wiki-nats-password"
+    ports:
+      - "4222:4222"   # 客户端连接端口
+      - "8222:8222"   # HTTP 监控端口
+    networks:
+      - panda-wiki-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO 对象存储 (S3 兼容)
+  minio:
+    image: minio/minio:latest
+    container_name: panda-wiki-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: s3panda-wiki
+      MINIO_ROOT_PASSWORD: panda-wiki-minio-secret
+    ports:
+      - "9000:9000"   # API 端口
+      - "9001:9001"   # 控制台端口
+    volumes:
+      - minio_data:/data
+    networks:
+      - panda-wiki-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # RAG 服务 (CT-RAG)
+  # 注意: 这个服务需要根据实际的 RAG 服务镜像进行调整
+  # 这里提供一个示例配置，你可能需要替换为实际的镜像
+  ct-rag:
+    image: chaitin/ct-rag:latest
+    container_name: panda-wiki-ct-rag
+    restart: unless-stopped
+    environment:
+      - API_KEY=sk-1234567890
+    ports:
+      - "5050:5050"
+    networks:
+      - panda-wiki-network
+    # 如果 RAG 服务需要持久化数据，可以添加 volumes
+    # volumes:
+    #   - rag_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  panda-wiki-network:
+    driver: bridge
+

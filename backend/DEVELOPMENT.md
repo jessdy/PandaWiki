@@ -12,6 +12,207 @@
   - RAG 服务（可选）
   - MinIO/S3（可选）
 
+## 在 Linux 服务器上使用 Docker 安装服务
+
+### 方式一：使用 Docker Compose（推荐）
+
+这是最简单的方式，一键启动所有服务：
+
+1. **在 Linux 服务器上创建服务目录**
+
+```bash
+# 在 Linux 服务器上执行
+mkdir -p ~/panda-wiki-services
+cd ~/panda-wiki-services
+```
+
+2. **创建 docker-compose.yml 文件**
+
+将项目中的 `backend/docker-compose.services.yml` 复制到服务器，或创建新文件：
+
+```bash
+# 从 Mac 复制到 Linux 服务器
+scp backend/docker-compose.services.yml user@your-linux-server:~/panda-wiki-services/docker-compose.yml
+```
+
+3. **启动所有服务**
+
+```bash
+# 在 Linux 服务器上执行
+cd ~/panda-wiki-services
+docker compose up -d
+```
+
+4. **查看服务状态**
+
+```bash
+docker compose ps
+```
+
+5. **查看服务日志**
+
+```bash
+# 查看所有服务日志
+docker compose logs -f
+
+# 查看特定服务日志
+docker compose logs -f postgres
+docker compose logs -f redis
+docker compose logs -f nats
+```
+
+6. **停止服务**
+
+```bash
+docker compose down
+```
+
+7. **修改配置后重启**
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+### 方式二：单独使用 Docker 命令
+
+如果不想使用 Docker Compose，也可以单独启动每个服务：
+
+#### 安装 PostgreSQL
+
+```bash
+docker run -d \
+  --name panda-wiki-postgres \
+  --restart unless-stopped \
+  -e POSTGRES_USER=panda-wiki \
+  -e POSTGRES_PASSWORD=panda-wiki-secret \
+  -e POSTGRES_DB=panda-wiki \
+  -e TZ=Asia/Shanghai \
+  -p 5432:5432 \
+  -v postgres_data:/var/lib/postgresql/data \
+  postgres:15-alpine
+```
+
+#### 安装 Redis
+
+```bash
+docker run -d \
+  --name panda-wiki-redis \
+  --restart unless-stopped \
+  -p 6379:6379 \
+  -v redis_data:/data \
+  redis:7-alpine \
+  redis-server --requirepass panda-wiki-redis-password
+```
+
+#### 安装 NATS
+
+```bash
+docker run -d \
+  --name panda-wiki-nats \
+  --restart unless-stopped \
+  -p 4222:4222 \
+  -p 8222:8222 \
+  nats:2.10-alpine \
+  -js -m 8222 --user panda-wiki --password panda-wiki-nats-password
+```
+
+#### 安装 MinIO
+
+```bash
+docker run -d \
+  --name panda-wiki-minio \
+  --restart unless-stopped \
+  -e MINIO_ROOT_USER=s3panda-wiki \
+  -e MINIO_ROOT_PASSWORD=panda-wiki-minio-secret \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -v minio_data:/data \
+  minio/minio:latest \
+  server /data --console-address ":9001"
+```
+
+#### 安装 RAG 服务（CT-RAG）
+
+```bash
+# 注意：需要根据实际的 RAG 服务镜像调整
+docker run -d \
+  --name panda-wiki-ct-rag \
+  --restart unless-stopped \
+  -e API_KEY=sk-1234567890 \
+  -p 5050:5050 \
+  chaitin/ct-rag:latest
+```
+
+### 配置防火墙
+
+确保 Linux 服务器开放了必要的端口：
+
+```bash
+# Ubuntu/Debian
+sudo ufw allow 5432/tcp  # PostgreSQL
+sudo ufw allow 6379/tcp  # Redis
+sudo ufw allow 4222/tcp  # NATS
+sudo ufw allow 9000/tcp  # MinIO API
+sudo ufw allow 9001/tcp  # MinIO Console
+sudo ufw allow 5050/tcp  # RAG Service
+
+# 或者一次性开放所有端口（仅开发环境）
+sudo ufw allow from YOUR_MAC_IP
+```
+
+### 验证服务运行
+
+在 Linux 服务器上验证服务是否正常运行：
+
+```bash
+# 检查 PostgreSQL
+docker exec panda-wiki-postgres pg_isready -U panda-wiki
+
+# 检查 Redis
+docker exec panda-wiki-redis redis-cli -a panda-wiki-redis-password ping
+
+# 检查 NATS
+curl http://localhost:8222/healthz
+
+# 检查 MinIO
+curl http://localhost:9000/minio/health/live
+
+# 检查所有容器状态
+docker ps | grep panda-wiki
+```
+
+### 默认服务配置
+
+使用上述 Docker 配置，服务的默认连接信息如下：
+
+- **PostgreSQL**: 
+  - 地址: `YOUR_LINUX_IP:5432`
+  - 用户: `panda-wiki`
+  - 密码: `panda-wiki-secret`
+  - 数据库: `panda-wiki`
+
+- **Redis**: 
+  - 地址: `YOUR_LINUX_IP:6379`
+  - 密码: `panda-wiki-redis-password`
+
+- **NATS**: 
+  - 地址: `nats://YOUR_LINUX_IP:4222`
+  - 用户: `panda-wiki`
+  - 密码: `panda-wiki-nats-password`
+
+- **MinIO**: 
+  - API 地址: `YOUR_LINUX_IP:9000`
+  - 控制台: `http://YOUR_LINUX_IP:9001`
+  - Access Key: `s3panda-wiki`
+  - Secret Key: `panda-wiki-minio-secret`
+
+- **RAG 服务**: 
+  - 地址: `http://YOUR_LINUX_IP:5050`
+  - API Key: `sk-1234567890`
+
+> **安全提示**: 生产环境请务必修改默认密码！
+
 ## 配置步骤
 
 ### 1. 创建配置文件

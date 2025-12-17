@@ -26,7 +26,7 @@ type BaseEditionLimitation struct {
 var baseEditionLimitationDefault = BaseEditionLimitation{
 	MaxKb:    1,
 	MaxAdmin: 1,
-	MaxNode:  300,
+	MaxNode:  0, // 0 表示无限制
 }
 
 func GetBaseEditionLimitation(c context.Context) BaseEditionLimitation {

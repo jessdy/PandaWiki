@@ -60,46 +60,100 @@ EOF
 source .env
 ```
 
-### 4. 确保 Linux 服务器服务可访问
+### 4. 在 Linux 服务器上安装服务
+
+#### 方式一：使用 Docker Compose（推荐）
 
 在 Linux 服务器上：
 
-#### PostgreSQL
 ```bash
-# 编辑 postgresql.conf
-sudo nano /etc/postgresql/*/main/postgresql.conf
-# 设置: listen_addresses = '*'
+# 1. 创建服务目录
+mkdir -p ~/panda-wiki-services
+cd ~/panda-wiki-services
 
-# 编辑 pg_hba.conf
-sudo nano /etc/postgresql/*/main/pg_hba.conf
-# 添加: host    all    all    0.0.0.0/0    md5
+# 2. 从 Mac 复制 docker-compose 文件到 Linux 服务器
+# 在 Mac 上执行：
+scp backend/docker-compose.services.yml user@YOUR_LINUX_IP:~/panda-wiki-services/docker-compose.yml
 
-# 重启 PostgreSQL
-sudo systemctl restart postgresql
+# 3. 在 Linux 服务器上启动所有服务
+cd ~/panda-wiki-services
+docker compose up -d
 
-# 开放防火墙端口
-sudo ufw allow 5432/tcp
+# 4. 查看服务状态
+docker compose ps
+
+# 5. 开放防火墙端口
+sudo ufw allow 5432/tcp  # PostgreSQL
+sudo ufw allow 6379/tcp  # Redis
+sudo ufw allow 4222/tcp  # NATS
+sudo ufw allow 9000/tcp  # MinIO
+sudo ufw allow 5050/tcp  # RAG
 ```
 
-#### Redis
+#### 方式二：单独安装服务
+
+如果不想使用 Docker Compose，可以单独安装：
+
+**PostgreSQL:**
 ```bash
-# 编辑 redis.conf
-sudo nano /etc/redis/redis.conf
-# 设置: bind 0.0.0.0
-# 设置: requirepass your_password
-
-# 重启 Redis
-sudo systemctl restart redis
-
-# 开放防火墙端口
-sudo ufw allow 6379/tcp
+docker run -d \
+  --name panda-wiki-postgres \
+  --restart unless-stopped \
+  -e POSTGRES_USER=panda-wiki \
+  -e POSTGRES_PASSWORD=panda-wiki-secret \
+  -e POSTGRES_DB=panda-wiki \
+  -p 5432:5432 \
+  -v postgres_data:/var/lib/postgresql/data \
+  postgres:15-alpine
 ```
 
-#### NATS
+**Redis:**
 ```bash
-# 开放防火墙端口
-sudo ufw allow 4222/tcp
+docker run -d \
+  --name panda-wiki-redis \
+  --restart unless-stopped \
+  -p 6379:6379 \
+  -v redis_data:/data \
+  redis:7-alpine \
+  redis-server --requirepass panda-wiki-redis-password
 ```
+
+**NATS:**
+```bash
+docker run -d \
+  --name panda-wiki-nats \
+  --restart unless-stopped \
+  -p 4222:4222 \
+  -p 8222:8222 \
+  nats:2.10-alpine \
+  -js -m 8222 --user panda-wiki --password panda-wiki-nats-password
+```
+
+**MinIO:**
+```bash
+docker run -d \
+  --name panda-wiki-minio \
+  --restart unless-stopped \
+  -e MINIO_ROOT_USER=s3panda-wiki \
+  -e MINIO_ROOT_PASSWORD=panda-wiki-minio-secret \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -v minio_data:/data \
+  minio/minio:latest \
+  server /data --console-address ":9001"
+```
+
+**RAG 服务:**
+```bash
+docker run -d \
+  --name panda-wiki-ct-rag \
+  --restart unless-stopped \
+  -e API_KEY=sk-1234567890 \
+  -p 5050:5050 \
+  chaitin/ct-rag:latest
+```
+
+> 详细说明请查看 [DEVELOPMENT.md](./DEVELOPMENT.md) 中的 Docker 安装章节
 
 ### 5. 安装依赖并运行
 
