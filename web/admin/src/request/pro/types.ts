@@ -29,24 +29,8 @@ export enum ConstsUserKBPermission {
 }
 
 export enum ConstsSourceType {
-  SourceTypeDingTalk = "dingtalk",
-  SourceTypeFeishu = "feishu",
-  SourceTypeWeCom = "wecom",
-  SourceTypeOAuth = "oauth",
-  SourceTypeGitHub = "github",
-  SourceTypeCAS = "cas",
-  SourceTypeLDAP = "ldap",
-  SourceTypeWidget = "widget",
-  SourceTypeDingtalkBot = "dingtalk_bot",
-  SourceTypeFeishuBot = "feishu_bot",
-  SourceTypeLarkBot = "lark_bot",
-  SourceTypeWechatBot = "wechat_bot",
-  SourceTypeWecomAIBot = "wecom_ai_bot",
-  SourceTypeWechatServiceBot = "wechat_service_bot",
-  SourceTypeDiscordBot = "discord_bot",
-  SourceTypeWechatOfficialAccount = "wechat_official_account",
-  SourceTypeOpenAIAPI = "openai_api",
-  SourceTypeMcpServer = "mcp_server",
+  SourceTypeUserPassword = "user_password",
+  SourceTypePassword = "password",
 }
 
 /** @format int32 */

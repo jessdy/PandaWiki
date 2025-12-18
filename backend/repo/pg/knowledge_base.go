@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -93,6 +94,11 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 		}
 	}
 	socketPath := r.config.CaddyAPI
+	// 检查 Caddy socket 是否存在（开发环境可能没有 Caddy）
+	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
+		r.logger.Warn("Caddy socket not found, skipping Caddy config sync", "socket", socketPath)
+		return nil
+	}
 	// sync kb to caddy
 	// create server for each port
 	subnetPrefix := r.config.SubnetPrefix
@@ -285,6 +291,17 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
+		// 在开发环境中，如果 Caddy 不可用，记录警告但不阻止操作
+		// 检查是否是连接错误（Caddy 未运行）
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			r.logger.Warn("Caddy connection timeout, skipping config sync", "error", err)
+			return nil
+		}
+		// 检查是否是 Unix socket 连接错误
+		if opErr, ok := err.(*net.OpError); ok && opErr.Op == "dial" {
+			r.logger.Warn("Caddy socket connection failed, skipping config sync", "error", err, "socket", socketPath)
+			return nil
+		}
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {

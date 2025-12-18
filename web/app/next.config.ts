@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['10.10.18.71'],
   output: 'standalone',
   assetPrefix: '/panda-wiki-app-assets',
+  // 指定 Turbopack 的根目录，避免检测到多个 lockfiles 的警告
+  experimental: {
+    turbo: {
+      root: process.cwd(),
+    },
+  },
   logging: {
     fetches: {
       fullUrl: true,
@@ -32,20 +38,39 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const rewritesPath = [];
     if (process.env.NODE_ENV === 'development') {
-      rewritesPath.push(
-        ...[
-          {
+      // 只有当环境变量存在且是完整 URL 时才添加 rewrite
+      if (process.env.STATIC_FILE_TARGET) {
+        const staticFileTarget = process.env.STATIC_FILE_TARGET.trim();
+        // 确保是完整的 URL（以 http:// 或 https:// 开头）
+        if (
+          staticFileTarget.startsWith('http://') ||
+          staticFileTarget.startsWith('https://')
+        ) {
+          rewritesPath.push({
             source: '/static-file/:path*',
-            destination: `${process.env.STATIC_FILE_TARGET}/static-file/:path*`,
+            destination: `${staticFileTarget}/static-file/:path*`,
             basePath: false as const,
-          },
-          {
-            source: '/share/v1/:path*',
-            destination: `${process.env.TARGET}/share/v1/:path*`,
-            basePath: false as const,
-          },
-        ],
-      );
+          });
+        }
+      }
+      if (process.env.TARGET) {
+        const target = process.env.TARGET.trim();
+        // 确保是完整的 URL（以 http:// 或 https:// 开头）
+        if (target.startsWith('http://') || target.startsWith('https://')) {
+          rewritesPath.push(
+            {
+              source: '/share/v1/:path*',
+              destination: `${target}/share/v1/:path*`,
+              basePath: false as const,
+            },
+            {
+              source: '/api/v1/:path*',
+              destination: `${target}/api/v1/:path*`,
+              basePath: false as const,
+            },
+          );
+        }
+      }
     }
     return rewritesPath;
   },

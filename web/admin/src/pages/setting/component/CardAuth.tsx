@@ -41,6 +41,7 @@ interface CardAuthProps {
 const EXTEND_CONSTS_SOURCE_TYPE = {
   ...ConstsSourceType,
   SourceTypePassword: 'password',
+  SourceTypeUserPassword: 'user_password',
 } as const;
 
 type ExtendConstsSourceType =
@@ -787,17 +788,7 @@ const CardAuth = ({ kb, refresh }: CardAuthProps) => {
 
   return (
     <>
-      <SettingCardItem
-        title='访问认证'
-        isEdit={isEdit}
-        onSubmit={onSubmit}
-        more={{
-          type: 'link',
-          href: 'https://pandawiki.docs.baizhi.cloud/node/01986040-602c-736c-b99f-0b3cb9bb89e5',
-          target: '_blank',
-          text: '使用方法',
-        }}
-      >
+      <SettingCardItem title='访问认证' isEdit={isEdit} onSubmit={onSubmit}>
         <FormItem label='访问控制'>
           <Controller
             control={control}
@@ -864,144 +855,14 @@ const CardAuth = ({ kb, refresh }: CardAuthProps) => {
                       密码认证
                     </MenuItem>
                     <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeDingTalk}
-                      disabled={!isBusiness}
+                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeUserPassword}
                     >
-                      钉钉登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
-                    </MenuItem>
-                    <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeFeishu}
-                      disabled={!isBusiness}
-                    >
-                      飞书登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
-                    </MenuItem>
-                    <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeWeCom}
-                      disabled={!isBusiness}
-                    >
-                      企业微信登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
-                    </MenuItem>
-                    <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeOAuth}
-                      disabled={!isBusiness}
-                    >
-                      OAuth 登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
-                    </MenuItem>
-                    <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeCAS}
-                      disabled={!isBusiness}
-                    >
-                      CAS 登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
-                    </MenuItem>
-                    <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeLDAP}
-                      disabled={!isBusiness}
-                    >
-                      LDAP 登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
-                    </MenuItem>
-                    <MenuItem
-                      value={EXTEND_CONSTS_SOURCE_TYPE.SourceTypeGitHub}
-                      disabled={!isBusiness}
-                    >
-                      GitHub 登录{' '}
-                      <VersionCanUse permission={BUSINESS_VERSION_PERMISSION} />
+                      内部用户密码认证{' '}
                     </MenuItem>
                   </Select>
                 )}
               />
             </FormItem>
-
-            {[
-              ConstsSourceType.SourceTypeDingTalk,
-              ConstsSourceType.SourceTypeFeishu,
-              ConstsSourceType.SourceTypeWeCom,
-            ].includes(source_type as ConstsSourceType) && (
-              <>
-                <FormItem label='Client ID' required>
-                  <Controller
-                    control={control}
-                    name='client_id'
-                    rules={{
-                      required: {
-                        value: true,
-                        message: 'Client Id 不能为空',
-                      },
-                    }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        onChange={e => {
-                          field.onChange(e.target.value);
-                          setIsEdit(true);
-                        }}
-                        fullWidth
-                        placeholder='请输入'
-                        error={!!errors.client_id}
-                        helperText={errors.client_id?.message}
-                      />
-                    )}
-                  />
-                </FormItem>
-                <FormItem label='Client Secret' required>
-                  <Controller
-                    control={control}
-                    name='client_secret'
-                    rules={{
-                      required: {
-                        value: true,
-                        message: ' Client Secret 不能为空',
-                      },
-                    }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        onChange={e => {
-                          field.onChange(e.target.value);
-                          setIsEdit(true);
-                        }}
-                        placeholder='请输入'
-                        error={!!errors.client_secret}
-                        helperText={errors.client_secret?.message}
-                      />
-                    )}
-                  />
-                </FormItem>
-                {source_type === ConstsSourceType.SourceTypeWeCom && (
-                  <FormItem label='Agent ID' required>
-                    <Controller
-                      control={control}
-                      name='agent_id'
-                      rules={{
-                        required: {
-                          value: true,
-                          message: 'Agent ID  不能为空',
-                        },
-                      }}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          onChange={e => {
-                            field.onChange(e.target.value);
-                            setIsEdit(true);
-                          }}
-                          placeholder='请输入'
-                          error={!!errors.agent_id}
-                          helperText={errors.agent_id?.message}
-                        />
-                      )}
-                    />
-                  </FormItem>
-                )}
-              </>
-            )}
 
             {source_type === EXTEND_CONSTS_SOURCE_TYPE.SourceTypeOAuth &&
               oauthForm()}
@@ -1017,7 +878,8 @@ const CardAuth = ({ kb, refresh }: CardAuthProps) => {
         )}
       </SettingCardItem>{' '}
       {enabled === '2' &&
-        source_type !== EXTEND_CONSTS_SOURCE_TYPE.SourceTypePassword && (
+        source_type !== EXTEND_CONSTS_SOURCE_TYPE.SourceTypePassword &&
+        source_type !== EXTEND_CONSTS_SOURCE_TYPE.SourceTypeUserPassword && (
           <>
             <UserGroup
               memberList={memberList}

@@ -7,7 +7,10 @@ import {
   patchApiV1NodePermissionEdit,
 } from '@/request/NodePermission';
 import { getApiProV1AuthGroupList } from '@/request/pro/AuthGroup';
-import { GithubComChaitinPandaWikiProApiAuthV1AuthGroupListItem } from '@/request/pro/types';
+import {
+  GithubComChaitinPandaWikiProApiAuthV1AuthGroupListItem,
+  GithubComChaitinPandaWikiProApiAuthV1AuthGroupListResp,
+} from '@/request/pro/types';
 import {
   ConstsNodeAccessPerm,
   DomainNodeListItemResp,
@@ -160,7 +163,7 @@ const DocPropertiesModal = ({
   });
 
   const isBusiness = useMemo(() => {
-    return BUSINESS_VERSION_PERMISSION.includes(license.edition!);
+    return true;
   }, [license]);
 
   const tree = filterEmptyFolders(convertToTree(data));
@@ -172,9 +175,22 @@ const DocPropertiesModal = ({
           kb_id: kb_id!,
           page: 1,
           per_page: 9999,
-        }).then(res => {
-          setUserGroups(res.list || []);
-        });
+        })
+          .then(res => {
+            // 后端返回的数据结构是 { data: { list: [...] } }
+            const responseData:
+              | GithubComChaitinPandaWikiProApiAuthV1AuthGroupListResp
+              | undefined = res;
+            if (responseData?.list) {
+              setUserGroups(responseData.list);
+            } else {
+              setUserGroups([]);
+            }
+          })
+          .catch(err => {
+            console.error('获取用户组列表失败:', err);
+            setUserGroups([]);
+          });
       }
       if (isBatch) return;
       setValue('name', data[0].name!);
@@ -212,7 +228,7 @@ const DocPropertiesModal = ({
         );
       });
     }
-  }, [open, data, isBusiness]);
+  }, [open, data, isBusiness, kb_id, setValue]);
 
   useEffect(() => {
     if (!open) {

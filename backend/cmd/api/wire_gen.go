@@ -84,18 +84,22 @@ func createApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	userHandler := v1.NewUserHandler(echo, baseHandler, logger, userUsecase, authMiddleware, configConfig, cacheCache)
-	conversationRepository := pg2.NewConversationRepository(db, logger)
-	modelRepository := pg2.NewModelRepository(db, logger)
-	promptRepo := pg2.NewPromptRepo(db, logger)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, logger)
-	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, authMiddleware, logger)
 	appRepository := pg2.NewAppRepository(db, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
 	if err != nil {
 		return nil, err
 	}
 	authRepo := pg2.NewAuthRepo(db, logger, cacheCache)
+	authUsecase, err := usecase.NewAuthUsecase(authRepo, logger, knowledgeBaseRepository, cacheCache)
+	if err != nil {
+		return nil, err
+	}
+	userHandler := v1.NewUserHandler(echo, baseHandler, logger, userUsecase, authUsecase, authMiddleware, configConfig, cacheCache)
+	conversationRepository := pg2.NewConversationRepository(db, logger)
+	modelRepository := pg2.NewModelRepository(db, logger)
+	promptRepo := pg2.NewPromptRepo(db, logger)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, logger)
+	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, authMiddleware, logger)
 	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
 	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
@@ -135,10 +139,6 @@ func createApp() (*App, error) {
 	commentRepository := pg2.NewCommentRepository(db, logger)
 	commentUsecase := usecase.NewCommentUsecase(commentRepository, logger, nodeRepository, ipAddressRepo, authRepo)
 	commentHandler := v1.NewCommentHandler(echo, baseHandler, logger, authMiddleware, commentUsecase)
-	authUsecase, err := usecase.NewAuthUsecase(authRepo, logger, knowledgeBaseRepository, cacheCache)
-	if err != nil {
-		return nil, err
-	}
 	authV1Handler := v1.NewAuthV1Handler(echo, baseHandler, logger, authUsecase)
 	apiHandlers := &v1.APIHandlers{
 		UserHandler:          userHandler,
@@ -161,7 +161,7 @@ func createApp() (*App, error) {
 	shareSitemapHandler := share.NewShareSitemapHandler(echo, baseHandler, sitemapUsecase, appUsecase, logger)
 	shareStatHandler := share.NewShareStatHandler(baseHandler, echo, statUseCase, logger)
 	shareCommentHandler := share.NewShareCommentHandler(echo, baseHandler, logger, commentUsecase, appUsecase)
-	shareAuthHandler := share.NewShareAuthHandler(echo, baseHandler, logger, knowledgeBaseUsecase, authUsecase)
+	shareAuthHandler := share.NewShareAuthHandler(echo, baseHandler, logger, knowledgeBaseUsecase, authUsecase, userUsecase)
 	shareConversationHandler := share.NewShareConversationHandler(baseHandler, echo, conversationUsecase, logger)
 	wechatRepository := pg2.NewWechatRepository(db, logger)
 	wechatUsecase := usecase.NewWechatUsecase(logger, appUsecase, chatUsecase, wechatRepository, authRepo)

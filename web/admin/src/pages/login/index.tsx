@@ -26,6 +26,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const submit = () => {
+    console.log(account, password);
     postApiV1UserLogin({ account, password })
       .then(res => {
         localStorage.setItem('panda_wiki_token', res.token!);
@@ -84,7 +85,7 @@ const Login = () => {
                 mb: 4,
               }}
             >
-              PandaWiki
+              FZK后台管理
             </Stack>
             <TextField
               value={account}

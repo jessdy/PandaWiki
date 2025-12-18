@@ -136,7 +136,7 @@ docker run -d \
   -p 4222:4222 \
   -p 8222:8222 \
   nats:2.10-alpine \
-  -js -m 8222 --user panda-wiki --password panda-wiki-nats-password
+  -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
 ```
 
 **验证:**
@@ -253,7 +253,7 @@ docker run --rm -v postgres_data:/data -v $(pwd):/backup alpine tar xzf /backup/
 
 1. **PostgreSQL**: 修改环境变量 `POSTGRES_PASSWORD`
 2. **Redis**: 修改启动命令中的 `--requirepass` 参数
-3. **NATS**: 修改启动命令中的 `--password` 参数
+3. **NATS**: 修改启动命令中的 `--pass` 参数
 4. **MinIO**: 修改环境变量 `MINIO_ROOT_PASSWORD`
 
 修改后需要重新创建容器：

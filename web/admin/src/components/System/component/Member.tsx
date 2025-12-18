@@ -6,7 +6,7 @@ import { ConstsUserRole, V1UserListItemResp } from '@/request/types';
 import { useAppSelector } from '@/store';
 import { Table } from '@ctzhian/ui';
 import { ColumnType } from '@ctzhian/ui/dist/Table';
-import { Box, Button, Stack, Tooltip } from '@mui/material';
+import { Box, Button, Stack } from '@mui/material';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import MemberAdd from './MemberAdd';
@@ -69,101 +69,22 @@ const Member = () => {
       width: 140,
       render: (_, record) => (
         <Stack direction={'row'} gap={2}>
-          {record.account === 'admin' ? (
-            <Tooltip
-              arrow
-              slotProps={{
-                tooltip: {
-                  sx: {
-                    maxWidth: 'none',
-                  },
-                },
-              }}
-              title={
-                <Box>
-                  <Stack
-                    direction={'row'}
-                    alignItems={'center'}
-                    gap={1}
-                    sx={{ mb: 1, whiteSpace: 'nowrap' }}
-                  >
-                    修改安装目录下
-                    <Box
-                      sx={{
-                        fontWeight: 700,
-                        bgcolor: 'background.paper',
-                        px: 1.5,
-                        py: 0.25,
-                        borderRadius: '4px',
-                        color: 'text.primary',
-                      }}
-                    >
-                      .env
-                    </Box>
-                    文件中的
-                    <Box
-                      sx={{
-                        fontWeight: 700,
-                        bgcolor: 'background.paper',
-                        px: 1.5,
-                        py: 0.25,
-                        borderRadius: '4px',
-                        color: 'text.primary',
-                      }}
-                    >
-                      ADMIN_PASSWORD
-                    </Box>
-                    后，
-                  </Stack>
-                  <Stack direction={'row'} alignItems={'center'} gap={1}>
-                    执行
-                    <Box
-                      sx={{
-                        fontWeight: 700,
-                        bgcolor: 'background.paper',
-                        px: 1.5,
-                        py: 0.25,
-                        borderRadius: '4px',
-                        color: 'text.primary',
-                      }}
-                    >
-                      docker compose up -d
-                    </Box>
-                    即可生效。
-                  </Stack>
-                </Box>
-              }
-            >
-              <Button
-                size='small'
-                sx={{
-                  color: 'var(--mui-palette-action-disabled)',
-                  cursor: 'not-allowed',
-                  p: 0,
-                  minWidth: 'auto',
-                }}
-              >
-                修改密码
-              </Button>
-            </Tooltip>
-          ) : (
-            <Button
-              size='small'
-              sx={{ p: 0, minWidth: 'auto' }}
-              color='primary'
-              disabled={
-                record.role === 'admin' &&
-                user.account !== 'admin' &&
-                user.id !== record.id
-              }
-              onClick={() => {
-                setCurUser(record);
-                setCurType('reset-password');
-              }}
-            >
-              {user?.id === record.id ? '修改密码' : '重置密码'}
-            </Button>
-          )}
+          <Button
+            size='small'
+            sx={{ p: 0, minWidth: 'auto' }}
+            color='primary'
+            disabled={
+              record.role === 'admin' &&
+              user.account !== 'admin' &&
+              user.id !== record.id
+            }
+            onClick={() => {
+              setCurUser(record);
+              setCurType('reset-password');
+            }}
+          >
+            {user?.id === record.id ? '修改密码' : '重置密码'}
+          </Button>
           {user?.id !== record.id &&
             (user.account === 'admin' ||
               (user.role === 'admin' && record.role !== 'admin')) && (
@@ -224,7 +145,7 @@ const Member = () => {
         sx={{ mb: 2, px: 2 }}
       >
         <Box sx={{ fontSize: 14, lineHeight: '24px', fontWeight: 'bold' }}>
-          用户管理
+          管理员管理
         </Box>
         <MemberAdd refresh={getData} userLen={userList.length} />
       </Stack>

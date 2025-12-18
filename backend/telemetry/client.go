@@ -22,10 +22,26 @@ import (
 	"github.com/chaitin/panda-wiki/usecase"
 )
 
-const (
-	machineIDFile  = "/data/.machine_id"
+var (
+	machineIDFile  = getMachineIDFile()
 	reportInterval = time.Hour
 )
+
+// getMachineIDFile 获取 machine_id 文件路径
+// 优先使用 /data/.machine_id（生产环境），否则使用用户目录
+func getMachineIDFile() string {
+	// 尝试使用 /data/.machine_id（生产环境）
+	if _, err := os.Stat("/data"); err == nil {
+		return "/data/.machine_id"
+	}
+	// 开发环境使用用户目录
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// 如果无法获取用户目录，使用临时目录
+		return filepath.Join(os.TempDir(), ".panda-wiki-machine-id")
+	}
+	return filepath.Join(homeDir, ".panda-wiki-machine-id")
+}
 
 // Client is the telemetry client
 type Client struct {

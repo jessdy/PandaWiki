@@ -72,7 +72,7 @@ const CardQaCopyright = ({
       isEdit={isEdit}
       onSubmit={onSubmit}
     >
-      <VersionMask permission={PROFESSION_VERSION_PERMISSION}>
+      <VersionMask>
         <FormItem
           label='版权信息'
           sx={{ alignItems: 'flex-start' }}

@@ -9,15 +9,18 @@ export const PROFESSION_VERSION_PERMISSION = [
   ConstsLicenseEdition.LicenseEditionProfession,
   ConstsLicenseEdition.LicenseEditionBusiness,
   ConstsLicenseEdition.LicenseEditionEnterprise,
+  ConstsLicenseEdition.LicenseEditionFree,
 ];
 
 export const BUSINESS_VERSION_PERMISSION = [
   ConstsLicenseEdition.LicenseEditionBusiness,
   ConstsLicenseEdition.LicenseEditionEnterprise,
+  ConstsLicenseEdition.LicenseEditionFree,
 ];
 
 export const ENTERPRISE_VERSION_PERMISSION = [
   ConstsLicenseEdition.LicenseEditionEnterprise,
+  ConstsLicenseEdition.LicenseEditionFree,
 ];
 
 export const VersionInfoMap = {

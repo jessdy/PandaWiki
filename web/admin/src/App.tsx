@@ -23,9 +23,9 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      getApiV1License().then(res => {
-        dispatch(setLicense(res));
-      });
+      // getApiV1License().then(res => {
+      //   dispatch(setLicense(res));
+      // });
     }
   }, [token]);
 

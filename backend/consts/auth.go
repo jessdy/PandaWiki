@@ -14,6 +14,7 @@ const (
 	SourceTypeGitHub                SourceType = "github"
 	SourceTypeCAS                   SourceType = "cas"
 	SourceTypeLDAP                  SourceType = "ldap"
+	SourceTypeUserPassword          SourceType = "user_password"
 	SourceTypeWidget                SourceType = "widget"
 	SourceTypeDingtalkBot           SourceType = "dingtalk_bot"
 	SourceTypeFeishuBot             SourceType = "feishu_bot"
@@ -29,6 +30,8 @@ const (
 
 func (s SourceType) Name() string {
 	switch s {
+	case SourceTypeUserPassword:
+		return "内部用户密码认证"
 	case SourceTypeWidget:
 		return "网页挂件机器人"
 	case SourceTypeDingtalkBot:

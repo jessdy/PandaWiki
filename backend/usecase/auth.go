@@ -178,3 +178,38 @@ func (u *AuthUsecase) SaveNewSession(c echo.Context, auth *domain.Auth) error {
 	c.Logger().Info("session_saved:", newSess.Values)
 	return nil
 }
+
+// ListAuthGroups 获取用户组列表
+func (u *AuthUsecase) ListAuthGroups(ctx context.Context, kbID string) ([]domain.AuthGroup, error) {
+	return u.AuthRepo.ListAuthGroups(ctx, kbID)
+}
+
+// GetAuthGroup 获取单个用户组
+func (u *AuthUsecase) GetAuthGroup(ctx context.Context, id uint) (*domain.AuthGroup, error) {
+	return u.AuthRepo.GetAuthGroup(ctx, id)
+}
+
+// CreateAuthGroup 创建用户组
+func (u *AuthUsecase) CreateAuthGroup(ctx context.Context, group *domain.AuthGroup) error {
+	return u.AuthRepo.CreateAuthGroup(ctx, group)
+}
+
+// UpdateAuthGroup 更新用户组
+func (u *AuthUsecase) UpdateAuthGroup(ctx context.Context, id uint, group *domain.AuthGroup) error {
+	return u.AuthRepo.UpdateAuthGroup(ctx, id, group)
+}
+
+// DeleteAuthGroup 删除用户组
+func (u *AuthUsecase) DeleteAuthGroup(ctx context.Context, id uint) error {
+	return u.AuthRepo.DeleteAuthGroup(ctx, id)
+}
+
+// GetUserGroups 获取用户所属的用户组
+func (u *AuthUsecase) GetUserGroups(ctx context.Context, userID string) ([]domain.AuthGroup, error) {
+	return u.AuthRepo.GetUserGroups(ctx, userID)
+}
+
+// UpdateUserGroups 更新用户所属的用户组
+func (u *AuthUsecase) UpdateUserGroups(ctx context.Context, userID string, groupIDs []uint) error {
+	return u.AuthRepo.UpdateUserGroups(ctx, userID, groupIDs)
+}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -63,8 +65,14 @@ func doMigrate(dsn string) error {
 	if err != nil {
 		return fmt.Errorf("with instance failed: %w", err)
 	}
+	
+	// 获取迁移文件路径（相对于当前文件所在目录）
+	_, currentFile, _, _ := runtime.Caller(0)
+	migrationDir := filepath.Join(filepath.Dir(currentFile), "migration")
+	migrationPath := "file://" + migrationDir
+	
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migration",
+		migrationPath,
 		"postgres", driver)
 	if err != nil {
 		return fmt.Errorf("new with database instance failed: %w", err)

@@ -25,7 +25,7 @@ const PERM_MAP = {
 const VERSION_MAP = {
   [ConstsLicenseEdition.LicenseEditionFree]: {
     message: '开源版只支持 1 个管理员',
-    max: 1,
+    max: 99999,
   },
   [ConstsLicenseEdition.LicenseEditionProfession]: {
     message: '专业版最多支持 20 个管理员',

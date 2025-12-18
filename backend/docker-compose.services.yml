@@ -50,7 +50,7 @@ services:
       - "8222"
       - "--user"
       - "panda-wiki"
-      - "--password"
+      - "--pass"
       - "panda-wiki-nats-password"
     ports:
       - "4222:4222"   # 客户端连接端口

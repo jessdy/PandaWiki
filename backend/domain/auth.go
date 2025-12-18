@@ -41,6 +41,7 @@ type AuthGroup struct {
 	ParentID     *uint             `json:"parent_id" gorm:"column:parent_id"`
 	Position     float64           `json:"position"`
 	AuthIDs      pq.Int64Array     `json:"auth_ids" gorm:"type:int[]"`
+	UserIDs      pq.StringArray    `json:"user_ids" gorm:"type:text[]"` // 关联 users 表的用户 ID
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`
 	SyncId       string            `json:"sync_id"`

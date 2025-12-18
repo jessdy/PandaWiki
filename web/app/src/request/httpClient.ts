@@ -239,6 +239,19 @@ export class HttpClient<SecurityDataType = unknown> {
     let customHeaders = {};
     if (typeof window === "undefined") {
       customHeaders = await getServerHeader();
+    } else {
+      // 在客户端，从 cookie 读取 token 并添加到 Authorization header
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === '_pw_auth_session' && value) {
+          customHeaders = {
+            ...customHeaders,
+            'Authorization': `Bearer ${decodeURIComponent(value)}`,
+          };
+          break;
+        }
+      }
     }
 
     return this.customFetch(

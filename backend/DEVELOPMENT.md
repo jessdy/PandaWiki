@@ -120,7 +120,7 @@ docker run -d \
   -p 4222:4222 \
   -p 8222:8222 \
   nats:2.10-alpine \
-  -js -m 8222 --user panda-wiki --password panda-wiki-nats-password
+  -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
 ```
 
 #### 安装 MinIO

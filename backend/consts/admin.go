@@ -14,4 +14,5 @@ type UserRole string
 const (
 	UserRoleAdmin UserRole = "admin" // 管理员
 	UserRoleUser  UserRole = "user"  // 普通用户
+	UserRoleGuest UserRole = "guest"  // 访客用户
 )

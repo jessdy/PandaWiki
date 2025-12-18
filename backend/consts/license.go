@@ -19,5 +19,9 @@ const (
 
 func GetLicenseEdition(c echo.Context) LicenseEdition {
 	edition, _ := c.Get("edition").(LicenseEdition)
+	if edition == 0 {
+		// 如果没有设置版本，默认返回商业版
+		return LicenseEditionBusiness
+	}
 	return edition
 }

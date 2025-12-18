@@ -12,7 +12,7 @@ import ModelConfig, { ModelConfigRef } from './component/ModelConfig';
 
 const SystemTabs = [
   { label: '模型配置', id: 'model-config' },
-  { label: '用户管理', id: 'user-management' },
+  { label: '管理员管理', id: 'user-management' },
 ];
 
 const System = () => {

@@ -17,7 +17,7 @@ admin_password: ""
 # 示例（连接远程 Linux 服务器）:
 #   host=192.168.1.100 user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai
 pg:
-  dsn: "host=localhost user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+  dsn: "host=10.10.10.252 user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5434 sslmode=disable TimeZone=Asia/Shanghai"
 
 # 消息队列配置
 mq:
@@ -25,7 +25,7 @@ mq:
   nats:
     # NATS 服务器地址（连接远程 Linux 服务器）
     # 示例: nats://192.168.1.100:4222
-    server: "nats://localhost:4222"
+    server: "nats://10.10.10.252:4222"
     user: "panda-wiki"
     password: ""
 

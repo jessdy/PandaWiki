@@ -54,23 +54,59 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       hmr: true,
-      proxy: {
-        '/api': {
-          target: env.TARGET,
-          secure: false,
-          changeOrigin: true,
-        },
-        '/static-file': {
-          target: env.STATIC_FILE_TARGET,
-          secure: false,
-          changeOrigin: true,
-        },
-        '/share': {
-          target: env.SHARE_TARGET,
-          secure: false,
-          changeOrigin: true,
-        },
-      },
+      proxy: (() => {
+        const proxyConfig: Record<string, any> = {};
+
+        // 只有当环境变量存在且是有效 URL 时才添加代理配置
+        if (
+          env.TARGET &&
+          (env.TARGET.startsWith('http://') ||
+            env.TARGET.startsWith('https://'))
+        ) {
+          proxyConfig['/api'] = {
+            target: env.TARGET.trim(),
+            secure: false,
+            changeOrigin: true,
+          };
+        }
+
+        if (
+          env.STATIC_FILE_TARGET &&
+          (env.STATIC_FILE_TARGET.startsWith('http://') ||
+            env.STATIC_FILE_TARGET.startsWith('https://'))
+        ) {
+          proxyConfig['/static-file'] = {
+            target: env.STATIC_FILE_TARGET.trim(),
+            secure: false,
+            changeOrigin: true,
+          };
+        }
+
+        if (
+          env.SHARE_TARGET &&
+          (env.SHARE_TARGET.startsWith('http://') ||
+            env.SHARE_TARGET.startsWith('https://'))
+        ) {
+          proxyConfig['/share'] = {
+            target: env.SHARE_TARGET.trim(),
+            secure: false,
+            changeOrigin: true,
+          };
+        } else if (
+          env.TARGET &&
+          (env.TARGET.startsWith('http://') ||
+            env.TARGET.startsWith('https://'))
+        ) {
+          // 如果没有 SHARE_TARGET，使用 TARGET 作为后备
+          proxyConfig['/share'] = {
+            target: env.TARGET.trim(),
+            secure: false,
+            changeOrigin: true,
+          };
+        }
+
+        return proxyConfig;
+      })(),
       host: '0.0.0.0',
     },
     esbuild: {

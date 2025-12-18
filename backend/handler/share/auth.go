@@ -2,6 +2,7 @@ package share
 
 import (
 	"context"
+	"time"
 
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
@@ -20,6 +21,7 @@ type ShareAuthHandler struct {
 	logger      *log.Logger
 	kbUsecase   *usecase.KnowledgeBaseUsecase
 	authUsecase *usecase.AuthUsecase
+	userUsecase *usecase.UserUsecase
 }
 
 func NewShareAuthHandler(
@@ -28,12 +30,14 @@ func NewShareAuthHandler(
 	logger *log.Logger,
 	kbUsecase *usecase.KnowledgeBaseUsecase,
 	authUsecase *usecase.AuthUsecase,
+	userUsecase *usecase.UserUsecase,
 ) *ShareAuthHandler {
 	h := &ShareAuthHandler{
 		BaseHandler: baseHandler,
 		logger:      logger.WithModule("handler.share.auth"),
 		kbUsecase:   kbUsecase,
 		authUsecase: authUsecase,
+		userUsecase: userUsecase,
 	}
 
 	shareAuthMiddleware := middleware.NewShareAuthMiddleware(logger, kbUsecase)
@@ -41,6 +45,7 @@ func NewShareAuthHandler(
 	share := e.Group("share/v1/auth", shareAuthMiddleware.CheckForbidden)
 	share.GET("/get", h.AuthGet)
 	share.POST("/login/simple", h.AuthLoginSimple)
+	share.POST("/login/user_password", h.AuthLoginUserPassword)
 	share.POST("/github", h.AuthGitHub)
 	return h
 }
@@ -180,4 +185,80 @@ func (h *ShareAuthHandler) AuthGitHub(c echo.Context) error {
 	return h.NewResponseWithData(c, v1.AuthGitHubResp{
 		Url: url,
 	})
+}
+
+// AuthLoginUserPassword 用户名密码登录
+//
+//	@Tags			share_auth
+//	@Summary		用户名密码登录
+//	@Description	通过用户名和密码验证 users 表中的用户，并创建 session
+//	@ID				v1-AuthLoginUserPassword
+//	@Accept			json
+//	@Produce		json
+//	@Param			X-KB-ID	header		string						true	"kb_id"
+//	@Param			param	body		v1.AuthLoginUserPasswordReq	true	"para"
+//	@Success		200		{object}	domain.Response
+//	@Router			/share/v1/auth/login/user_password [post]
+func (h *ShareAuthHandler) AuthLoginUserPassword(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	kbID := c.Request().Header.Get("X-KB-ID")
+	if kbID == "" {
+		return h.NewResponseWithError(c, "kb_id is required", nil)
+	}
+
+	var req v1.AuthLoginUserPasswordReq
+	if err := c.Bind(&req); err != nil {
+		h.logger.Error("parse request failed", log.Error(err))
+		return h.NewResponseWithError(c, "invalid request", nil)
+	}
+
+	// 验证用户名和密码
+	user, err := h.userUsecase.VerifyUser(ctx, req.Username, req.Password)
+	if err != nil {
+		return h.NewResponseWithError(c, "用户名或密码错误", nil)
+	}
+
+	// 验证用户 role：只允许 guest 或 user，不允许 admin
+	if user.Role == consts.UserRoleAdmin {
+		return h.NewResponseWithError(c, "管理员账户不能通过此方式登录", nil)
+	}
+
+	// 获取知识库信息
+	kb, err := h.kbUsecase.GetKnowledgeBase(ctx, kbID)
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to get knowledge base detail", err)
+	}
+
+	// 检查是否开启了企业认证
+	if !kb.AccessSettings.EnterpriseAuth.Enabled {
+		return h.NewResponseWithError(c, "企业认证未开启", nil)
+	}
+
+	// 创建或获取 Auth 记录
+	auth := &domain.Auth{
+		KBID:       kbID,
+		UnionID:    user.Account, // 使用用户名作为 union_id
+		SourceType: consts.SourceTypeUserPassword,
+		IP:         c.RealIP(),
+		UserInfo: domain.AuthUserInfo{
+			Username: user.Account,
+		},
+		LastLoginTime: time.Now(),
+	}
+
+	ctxWithEdition := context.WithValue(ctx, consts.ContextKeyEdition, consts.GetLicenseEdition(c))
+	auth, err = h.authUsecase.AuthRepo.GetOrCreateAuth(ctxWithEdition, auth, consts.SourceTypeUserPassword)
+	if err != nil {
+		h.logger.Error("failed to get or create auth", log.Error(err))
+		return h.NewResponseWithError(c, "failed to create auth record", nil)
+	}
+
+	// 保存 session
+	if err := h.authUsecase.SaveNewSession(c, auth); err != nil {
+		h.logger.Error("failed to save session", log.Error(err))
+		return h.NewResponseWithError(c, "failed to save session", nil)
+	}
+
+	return h.NewResponseWithData(c, v1.AuthLoginUserPasswordResp{})
 }

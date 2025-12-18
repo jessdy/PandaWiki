@@ -19,12 +19,12 @@ import CardMCP from './component/CardMCP';
 
 const SettingTabs: { label: string; id: string }[] = [
   { label: '门户网站', id: 'portal-website' },
-  { label: 'AI 机器人', id: 'robot' },
+  // { label: 'AI 机器人', id: 'robot' },
   { label: '问答设置', id: 'ai-setting' },
   { label: '反馈设置', id: 'feedback' },
   { label: '安全设置', id: 'security' },
   { label: '访问控制', id: 'backend-info' },
-  { label: 'MCP 设置', id: 'mcp' },
+  // { label: 'MCP 设置', id: 'mcp' },
 ];
 
 const Setting = () => {

@@ -13,8 +13,10 @@ import { postShareV1AuthGithub } from '@/request/ShareAuth';
 import {
   getShareV1AuthGet,
   postShareV1AuthLoginSimple,
+  postShareV1AuthLoginUserPassword,
 } from '@/request/ShareAuth';
 import { getShareV1NodeList } from '@/request/ShareNode';
+import { postApiV1UserLogin, getApiV1User } from '@/request/User';
 import { clearCookie } from '@/utils/cookie';
 
 import {
@@ -180,21 +182,48 @@ export default function Login() {
     });
   };
 
-  const handleLDAPLogin = () => {
+  const handleLDAPLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      message.error('请输入用户名和密码');
+      return;
+    }
+    // 从 URL 参数获取 kb_id，或者从 kbDetail 中获取（如果后端返回了 id 字段）
+    // 注意：kbDetail 的类型定义可能不完整，实际返回的数据可能包含 id 或 kb_id 字段
+    // const kbId = searchParams.get('kb_id') ||
+    //              (kbDetail as any)?.id ||
+    //              (kbDetail as any)?.kb_id ||
+    //              (typeof window !== 'undefined' ? (window as any).__KB_ID__ : null);
+    // if (!kbId) {
+    //   message.error('知识库ID未找到，请刷新页面重试');
+    //   return;
+    // }
     setLoading(true);
     try {
-      postShareProV1AuthLdap({
-        username,
-        password,
-      }).then(() => {
-        getShareV1NodeList().then(res => {
-          setNodeList?.((res as any) ?? []);
-          message.success('认证成功');
-          window.open(redirectUrl, '_self');
-        });
+      clearCookie();
+
+      // 调用 share auth 接口进行用户名密码登录，这会创建 session
+      await postShareV1AuthLoginUserPassword(
+        {
+          username,
+          password,
+        },
+        {
+          headers: {
+            // 'X-KB-ID': kbId,
+          },
+        },
+      );
+
+      // 登录成功，获取节点列表并跳转
+      getShareV1NodeList().then(res => {
+        setNodeList?.((res as any) ?? []);
+        message.success('认证成功');
+        window.open(redirectUrl, '_self');
       });
-    } catch (error) {
-      message.error('认证失败，请重试');
+    } catch (error: any) {
+      console.error('登录失败:', error);
+      message.error(error?.message || '认证失败，请重试');
+      clearCookie();
     } finally {
       setLoading(false);
     }
@@ -252,7 +281,7 @@ export default function Login() {
               <Box
                 sx={{ fontSize: 28, lineHeight: '36px', fontWeight: 'bold' }}
               >
-                {kbDetail?.settings?.title}
+                {'FZK知识库'}
               </Box>
             </Stack>
             {authType === ConstsAuthType.AuthTypeSimple && (
@@ -354,7 +383,7 @@ export default function Login() {
                   </IconButton>
                 )}
 
-                {sourceType === ConstsSourceType.SourceTypeLDAP && (
+                {sourceType === ConstsSourceType.SourceTypeUserPassword && (
                   <Stack spacing={2} width='100%'>
                     {(() => {
                       const textFieldSx = {

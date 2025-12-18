@@ -166,3 +166,165 @@ export const putApiV1UserResetPassword = (
     format: "json",
     ...params,
   });
+
+/**
+ * @description ListGuestUsers
+ *
+ * @tags user
+ * @name GetApiV1UserGuestList
+ * @summary ListGuestUsers
+ * @request GET:/api/v1/user/guest/list
+ * @response `200` `(DomainPWResponse & {
+    data?: V1UserListResp,
+
+})` OK
+ */
+
+export const getApiV1UserGuestList = (params: RequestParams = {}) =>
+  httpRequest<
+    DomainPWResponse & {
+      data?: V1UserListResp;
+    }
+  >({
+    path: `/api/v1/user/guest/list`,
+    method: "GET",
+    type: ContentType.Json,
+    format: "json",
+    ...params,
+  });
+
+/**
+ * @description CreateGuestUser
+ *
+ * @tags user
+ * @name PostApiV1UserGuestCreate
+ * @summary CreateGuestUser
+ * @request POST:/api/v1/user/guest/create
+ * @response `200` `(DomainResponse & {
+    data?: V1CreateUserResp,
+
+})` OK
+ */
+
+export const postApiV1UserGuestCreate = (
+  body: V1CreateUserReq,
+  params: RequestParams = {},
+) =>
+  httpRequest<
+    DomainResponse & {
+      data?: V1CreateUserResp;
+    }
+  >({
+    path: `/api/v1/user/guest/create`,
+    method: "POST",
+    body: body,
+    type: ContentType.Json,
+    format: "json",
+    ...params,
+  });
+
+/**
+ * @description UpdateGuestUser
+ *
+ * @tags user
+ * @name PutApiV1UserGuestId
+ * @summary UpdateGuestUser
+ * @request PUT:/api/v1/user/guest/:id
+ * @response `200` `DomainResponse` OK
+ */
+
+export const putApiV1UserGuestId = (
+  params: {
+    id: string;
+    body: V1CreateUserReq;
+  },
+  requestParams: RequestParams = {},
+) =>
+  httpRequest<DomainResponse>({
+    path: `/api/v1/user/guest/${params.id}`,
+    method: "PUT",
+    body: params.body,
+    type: ContentType.Json,
+    format: "json",
+    ...requestParams,
+  });
+
+/**
+ * @description DeleteGuestUser
+ *
+ * @tags user
+ * @name DeleteApiV1UserGuestId
+ * @summary DeleteGuestUser
+ * @request DELETE:/api/v1/user/guest/:id
+ * @response `200` `DomainResponse` OK
+ */
+
+export const deleteApiV1UserGuestId = (
+  params: {
+    id: string;
+  },
+  requestParams: RequestParams = {},
+) =>
+  httpRequest<DomainResponse>({
+    path: `/api/v1/user/guest/${params.id}`,
+    method: "DELETE",
+    type: ContentType.Json,
+    format: "json",
+    ...requestParams,
+  });
+
+// 用户组管理 API
+export const getApiV1UserAuthGroupList = (params: { kb_id?: string } = {}) =>
+  httpRequest<any>({
+    path: `/api/v1/user/auth_group/list`,
+    method: "GET",
+    type: ContentType.Json,
+    format: "json",
+    query: params,
+  });
+
+export const postApiV1UserAuthGroupCreate = (body: any) =>
+  httpRequest<any>({
+    path: `/api/v1/user/auth_group/create`,
+    method: "POST",
+    body: body,
+    type: ContentType.Json,
+    format: "json",
+  });
+
+export const putApiV1UserAuthGroupId = (id: number, body: any) =>
+  httpRequest<any>({
+    path: `/api/v1/user/auth_group/${id}`,
+    method: "PUT",
+    body: body,
+    type: ContentType.Json,
+    format: "json",
+  });
+
+export const deleteApiV1UserAuthGroupId = (id: number) =>
+  httpRequest<any>({
+    path: `/api/v1/user/auth_group/${id}`,
+    method: "DELETE",
+    type: ContentType.Json,
+    format: "json",
+  });
+
+// 获取用户所属的用户组
+export const getApiV1UserGroups = (params: { user_id: string }) =>
+  httpRequest<any>({
+    path: `/api/v1/user/groups`,
+    method: "GET",
+    type: ContentType.Json,
+    format: "json",
+    query: params,
+  });
+
+// 更新用户所属的用户组
+export const putApiV1UserGroups = (body: { user_id: string; group_ids: number[] }) =>
+  httpRequest<any>({
+    path: `/api/v1/user/groups`,
+    method: "PUT",
+    body: body,
+    type: ContentType.Json,
+    format: "json",
+  });

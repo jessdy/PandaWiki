@@ -102,6 +102,20 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]v1.UserListItemResp, 
 	var users []v1.UserListItemResp
 	err := r.db.WithContext(ctx).
 		Model(&domain.User{}).
+		Where("role != ?", consts.UserRoleGuest).
+		Order("created_at DESC").
+		Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *UserRepository) ListGuestUsers(ctx context.Context) ([]v1.UserListItemResp, error) {
+	var users []v1.UserListItemResp
+	err := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("role = ?", consts.UserRoleGuest).
 		Order("created_at DESC").
 		Find(&users).Error
 	if err != nil {

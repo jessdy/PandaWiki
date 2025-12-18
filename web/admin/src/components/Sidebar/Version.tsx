@@ -44,36 +44,7 @@ const Version = () => {
           fontSize: 12,
         }}
         onClick={() => setTypeOpen(true)}
-      >
-        <Stack direction={'row'} alignItems='center' gap={0.5}>
-          <Box sx={{ width: 30, color: 'text.tertiary' }}>型号</Box>
-          <img src={versionInfo.image} style={{ height: 13, marginTop: -1 }} />
-          {versionInfo.label}
-        </Stack>
-        <Stack direction={'row'} gap={0.5}>
-          <Box sx={{ width: 30, color: 'text.tertiary' }}>版本</Box>
-          <Box sx={{ whiteSpace: 'nowrap' }}>{curVersion}</Box>
-          {latestVersion !== `v${curVersion}` && (
-            <Tooltip
-              placement='top'
-              arrow
-              title={
-                latestVersion === ''
-                  ? '无法获取最新版本'
-                  : '检测到新版本，点击查看'
-              }
-            >
-              <Box>
-                <LottieIcon
-                  id='version'
-                  src={latestVersion === '' ? HelpCenter : IconUpgrade}
-                  style={{ width: 16, height: 16 }}
-                />
-              </Box>
-            </Tooltip>
-          )}
-        </Stack>
-      </Stack>
+      ></Stack>
       <AuthTypeModal
         open={typeOpen}
         onClose={() => setTypeOpen(false)}

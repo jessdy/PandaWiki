@@ -12,7 +12,29 @@ WARN[0000] the attribute `version` is obsolete
 **解决方案**: 
 已修复！`docker-compose.services.yml` 已移除 `version` 字段。如果仍有警告，请使用最新版本的配置文件。
 
-### 2. RAG 服务镜像拉取失败
+### 2. NATS 参数错误
+
+**问题**:
+```
+flag provided but not defined: -password
+```
+
+**原因**: 
+NATS 服务器使用的参数是 `--pass` 而不是 `--password`
+
+**解决方案**:
+已修复！`docker-compose.services.yml` 中的 NATS 配置已更新为正确的参数。
+
+如果使用单独的 `docker run` 命令，请使用：
+```bash
+# 错误: --password
+nats:2.10-alpine -js -m 8222 --user panda-wiki --password panda-wiki-nats-password
+
+# 正确: --pass
+nats:2.10-alpine -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
+```
+
+### 3. RAG 服务镜像拉取失败
 
 **问题**:
 ```
@@ -43,7 +65,7 @@ Error response from daemon: Head "https://registry-1.docker.io/v2/chaitin/ct-rag
    - 或使用其他可用的 RAG 服务
    - 或配置外部 RAG API
 
-### 3. 端口被占用
+### 4. 端口被占用
 
 **问题**: 
 ```
@@ -63,7 +85,7 @@ sudo systemctl stop postgresql  # 如果系统安装了 PostgreSQL
 # 例如: "5433:5432"  # 使用 5433 端口
 ```
 
-### 4. 容器无法启动
+### 5. 容器无法启动
 
 **问题**: 容器启动后立即退出
 
@@ -80,7 +102,7 @@ docker ps -a
 docker compose config
 ```
 
-### 5. 数据卷权限问题
+### 6. 数据卷权限问题
 
 **问题**: 容器无法写入数据卷
 
@@ -94,7 +116,7 @@ docker compose down -v
 docker compose up -d
 ```
 
-### 6. 网络连接问题
+### 7. 网络连接问题
 
 **问题**: 从 Mac 无法连接到 Linux 服务器上的服务
 
@@ -122,7 +144,7 @@ docker compose up -d
    telnet YOUR_LINUX_IP 5432
    ```
 
-### 7. 服务健康检查失败
+### 8. 服务健康检查失败
 
 **问题**: 服务启动但健康检查失败
 
@@ -134,6 +156,83 @@ docker exec panda-wiki-postgres pg_isready -U panda-wiki
 # 如果服务正常，可以暂时禁用健康检查
 # 在 docker-compose.yml 中注释掉 healthcheck 部分
 ```
+
+### 9. 数据库迁移文件未找到
+
+**问题**:
+```
+panic: migrate db failed: first .: file does not exist
+```
+
+**原因**: 
+迁移文件路径配置错误，使用了相对路径 `file://migration`，但实际文件在 `store/pg/migration/` 目录
+
+**解决方案**:
+已修复！`backend/store/pg/pg.go` 已更新为使用动态路径查找迁移文件。
+
+如果仍然遇到问题，可以：
+1. 确保从项目根目录运行：`cd backend && go run ./cmd/api`
+2. 或者手动运行迁移：`go run ./cmd/migrate`
+
+### 10. 数据库密码认证失败
+
+**问题**:
+```
+failed SASL auth: FATAL: password authentication failed for user "panda-wiki"
+```
+
+**原因**: 
+- PostgreSQL 密码不正确
+- 环境变量中的密码与数据库实际密码不匹配
+
+**解决方案**:
+
+1. **检查 .env 文件中的密码**:
+   ```bash
+   # 查看当前配置
+   cat .env | grep PG_DSN
+   ```
+
+2. **确认 Linux 服务器上 PostgreSQL 的实际密码**:
+   ```bash
+   # 在 Linux 服务器上检查 Docker Compose 配置
+   cat ~/panda-wiki-services/docker-compose.yml | grep POSTGRES_PASSWORD
+   
+   # 或者直接连接测试
+   docker exec -it panda-wiki-postgres psql -U panda-wiki -d panda-wiki
+   ```
+
+3. **更新 .env 文件**:
+   ```bash
+   # 编辑 .env 文件，更新正确的密码
+   nano .env
+   
+   # 或者直接设置环境变量
+   export PG_DSN="host=10.10.10.252 user=panda-wiki password=正确的密码 dbname=panda-wiki port=5434 sslmode=disable TimeZone=Asia/Shanghai"
+   ```
+
+4. **如果使用 Docker Compose，检查密码是否匹配**:
+   ```bash
+   # 在 Linux 服务器上
+   cd ~/panda-wiki-services
+   # 查看 docker-compose.yml 中的 POSTGRES_PASSWORD
+   # 确保 .env 文件中的密码与此一致
+   ```
+
+5. **重置 PostgreSQL 密码（如果需要）**:
+   ```bash
+   # 在 Linux 服务器上
+   docker exec -it panda-wiki-postgres psql -U postgres
+   # 在 psql 中执行：
+   ALTER USER "panda-wiki" WITH PASSWORD '新密码';
+   \q
+   ```
+
+6. **验证连接**:
+   ```bash
+   # 在 Mac 上测试连接
+   psql "host=10.10.10.252 user=panda-wiki password=你的密码 dbname=panda-wiki port=5434 sslmode=disable"
+   ```
 
 ## 服务特定问题
 

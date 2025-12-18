@@ -337,3 +337,84 @@ func (r *AuthRepo) GetOrCreateAuth(ctx context.Context, auth *domain.Auth, sourc
 
 	return auth, nil
 }
+
+// ListAuthGroups 获取用户组列表
+func (r *AuthRepo) ListAuthGroups(ctx context.Context, kbID string) ([]domain.AuthGroup, error) {
+	var groups []domain.AuthGroup
+	query := r.db.WithContext(ctx).Model(&domain.AuthGroup{})
+	if kbID != "" {
+		query = query.Where("kb_id = ?", kbID)
+	}
+	err := query.Order("position ASC, created_at DESC").Find(&groups).Error
+	if err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// GetAuthGroup 获取单个用户组
+func (r *AuthRepo) GetAuthGroup(ctx context.Context, id uint) (*domain.AuthGroup, error) {
+	var group domain.AuthGroup
+	err := r.db.WithContext(ctx).Model(&domain.AuthGroup{}).Where("id = ?", id).First(&group).Error
+	if err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+
+// CreateAuthGroup 创建用户组
+func (r *AuthRepo) CreateAuthGroup(ctx context.Context, group *domain.AuthGroup) error {
+	return r.db.WithContext(ctx).Create(group).Error
+}
+
+// UpdateAuthGroup 更新用户组
+func (r *AuthRepo) UpdateAuthGroup(ctx context.Context, id uint, group *domain.AuthGroup) error {
+	return r.db.WithContext(ctx).Model(&domain.AuthGroup{}).Where("id = ?", id).Updates(group).Error
+}
+
+// DeleteAuthGroup 删除用户组
+func (r *AuthRepo) DeleteAuthGroup(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 删除关联的 node_auth_groups
+		if err := tx.Model(&domain.NodeAuthGroup{}).Where("auth_group_id = ?", id).Delete(&domain.NodeAuthGroup{}).Error; err != nil {
+			return err
+		}
+		// 删除用户组
+		if err := tx.Model(&domain.AuthGroup{}).Where("id = ?", id).Delete(&domain.AuthGroup{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// GetUserGroups 获取用户所属的用户组
+func (r *AuthRepo) GetUserGroups(ctx context.Context, userID string) ([]domain.AuthGroup, error) {
+	var groups []domain.AuthGroup
+	err := r.db.WithContext(ctx).Model(&domain.AuthGroup{}).
+		Where("? = ANY(user_ids)", userID).
+		Order("position ASC, created_at DESC").
+		Find(&groups).Error
+	if err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// UpdateUserGroups 更新用户所属的用户组
+func (r *AuthRepo) UpdateUserGroups(ctx context.Context, userID string, groupIDs []uint) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 先从所有用户组中移除该用户
+		if err := tx.Exec("UPDATE auth_groups SET user_ids = array_remove(user_ids, ?)", userID).Error; err != nil {
+			return err
+		}
+
+		// 然后将用户添加到指定的用户组
+		for _, groupID := range groupIDs {
+			if err := tx.Exec("UPDATE auth_groups SET user_ids = array_append(user_ids, ?) WHERE id = ?", userID, groupID).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}

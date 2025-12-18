@@ -9,13 +9,69 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"time"
 )
 
-const (
-	keyFile  = "/app/etc/nginx/ssl/panda-wiki.key" // Key file path
-	certFile = "/app/etc/nginx/ssl/panda-wiki.crt" // Certificate file path
+var (
+	keyFile  = getSSLKeyFile()  // Key file path
+	certFile = getSSLCertFile() // Certificate file path
 )
+
+// getSSLKeyFile 获取 SSL 私钥文件路径
+// 优先使用 /app/etc/nginx/ssl（生产环境），否则使用项目目录
+func getSSLKeyFile() string {
+	sslDir := getSSLDir()
+	return filepath.Join(sslDir, "panda-wiki.key")
+}
+
+// getSSLCertFile 获取 SSL 证书文件路径
+// 优先使用 /app/etc/nginx/ssl（生产环境），否则使用项目目录
+func getSSLCertFile() string {
+	sslDir := getSSLDir()
+	return filepath.Join(sslDir, "panda-wiki.crt")
+}
+
+// getSSLDir 获取 SSL 证书目录
+// 优先使用 /app/etc/nginx/ssl（生产环境），否则使用项目目录 ./ssl
+func getSSLDir() string {
+	// 在 Mac 开发环境中，直接跳过 /app 目录检查，使用项目目录
+	// 检查是否是 Mac 系统（通过检查常见的 Mac 目录）
+	if _, err := os.Stat("/Applications"); err == nil {
+		// 这是 Mac 系统，直接使用项目目录
+		if wd, err := os.Getwd(); err == nil {
+			sslDir := filepath.Join(wd, "ssl")
+			return sslDir
+		}
+		return filepath.Join(os.TempDir(), "panda-wiki-ssl")
+	}
+	
+	// 尝试使用 /app/etc/nginx/ssl（生产环境，Linux Docker 容器）
+	// 先检查 /app 目录是否存在且可写
+	if info, err := os.Stat("/app"); err == nil && info.IsDir() {
+		// 尝试创建测试目录来验证可写性
+		testDir := "/app/etc/nginx/ssl"
+		if err := os.MkdirAll(testDir, 0o755); err == nil {
+			// 进一步验证：尝试创建一个临时文件来确保目录真正可写
+			testFile := filepath.Join(testDir, ".test-write")
+			if f, err := os.Create(testFile); err == nil {
+				f.Close()
+				os.Remove(testFile) // 清理测试文件
+				return testDir
+			}
+			// 如果创建测试文件失败，说明目录不可写，回退到项目目录
+		}
+		// 如果创建目录失败，说明 /app 不可写，回退到项目目录
+	}
+	// 开发环境使用项目目录下的 ssl 目录
+	// 尝试使用当前工作目录
+	if wd, err := os.Getwd(); err == nil {
+		sslDir := filepath.Join(wd, "ssl")
+		return sslDir
+	}
+	// 如果无法获取工作目录，使用临时目录
+	return filepath.Join(os.TempDir(), "panda-wiki-ssl")
+}
 
 // check init cert
 func CheckInitCert() error {
@@ -67,13 +123,15 @@ func createSelfSignedCerts() error {
 		return fmt.Errorf("failed to create certificate: %v", err)
 	}
 
-	// ensure dir /app/etc/nginx/ssl exists
-	if err := os.MkdirAll("/app/etc/nginx/ssl", 0o755); err != nil {
+	// ensure ssl dir exists
+	sslDir := getSSLDir()
+	if err := os.MkdirAll(sslDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create ssl dir: %v", err)
 	}
 
 	// Write certificate file with appropriate permissions
-	certFile, err := os.Create("/app/etc/nginx/ssl/panda-wiki.crt")
+	certFilePath := getSSLCertFile()
+	certFile, err := os.Create(certFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create cert file: %v", err)
 	}
@@ -90,7 +148,8 @@ func createSelfSignedCerts() error {
 	}
 
 	// Write private key file with appropriate permissions
-	keyFile, err := os.Create("/app/etc/nginx/ssl/panda-wiki.key")
+	keyFilePath := getSSLKeyFile()
+	keyFile, err := os.Create(keyFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create key file: %v", err)
 	}

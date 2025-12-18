@@ -127,6 +127,7 @@ const CardMCP = ({ kb }: CardMCPProps) => {
         permission={[
           ConstsLicenseEdition.LicenseEditionBusiness,
           ConstsLicenseEdition.LicenseEditionEnterprise,
+          ConstsLicenseEdition.LicenseEditionFree,
         ]}
         more={{
           type: 'link',

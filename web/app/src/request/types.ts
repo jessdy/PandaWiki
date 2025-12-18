@@ -116,6 +116,7 @@ export enum ConstsStatDay {
 }
 
 export enum ConstsSourceType {
+  SourceTypeUserPassword = "user_password",
   SourceTypeDingTalk = "dingtalk",
   SourceTypeFeishu = "feishu",
   SourceTypeWeCom = "wecom",

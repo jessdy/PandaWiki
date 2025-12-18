@@ -44,10 +44,12 @@ func (u *UserUsecase) CreateUser(ctx context.Context, user *domain.User, edition
 	return u.repo.CreateUser(ctx, user, edition)
 }
 
+func (u *UserUsecase) VerifyUser(ctx context.Context, account string, password string) (*domain.User, error) {
+	return u.repo.VerifyUser(ctx, account, password)
+}
+
 func (u *UserUsecase) VerifyUserAndGenerateToken(ctx context.Context, req v1.LoginReq) (string, error) {
-	var user *domain.User
-	var err error
-	user, err = u.repo.VerifyUser(ctx, req.Account, req.Password)
+	user, err := u.VerifyUser(ctx, req.Account, req.Password)
 	if err != nil {
 		return "", err
 	}
@@ -66,6 +68,15 @@ func (u *UserUsecase) GetUser(ctx context.Context, userID string) (*domain.User,
 func (u *UserUsecase) ListUsers(ctx context.Context) (*v1.UserListResp, error) {
 	// 获取所有用户列表
 	users, err := u.repo.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.UserListResp{Users: users}, nil
+}
+
+func (u *UserUsecase) ListGuestUsers(ctx context.Context) (*v1.UserListResp, error) {
+	// 获取所有访客用户列表
+	users, err := u.repo.ListGuestUsers(ctx)
 	if err != nil {
 		return nil, err
 	}

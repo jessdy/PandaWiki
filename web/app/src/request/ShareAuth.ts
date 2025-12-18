@@ -98,3 +98,17 @@ export const postShareV1AuthLoginSimple = (
     format: "json",
     ...params,
   });
+
+// 用户名密码登录（用于创建 session）
+export const postShareV1AuthLoginUserPassword = (
+  param: { username: string; password: string },
+  params: RequestParams = {},
+) =>
+  httpRequest<DomainResponse>({
+    path: `/share/v1/auth/login/user_password`,
+    method: "POST",
+    body: param,
+    type: ContentType.Json,
+    format: "json",
+    ...params,
+  });

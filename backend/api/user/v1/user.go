@@ -9,7 +9,7 @@ import (
 type CreateUserReq struct {
 	Account  string          `json:"account" validate:"required"`
 	Password string          `json:"password" validate:"required,min=8"`
-	Role     consts.UserRole `json:"role" validate:"required,oneof=admin user"`
+	Role     consts.UserRole `json:"role" validate:"required,oneof=admin user guest"`
 }
 
 type CreateUserResp struct {
@@ -56,4 +56,20 @@ type ResetPasswordReq struct {
 
 type DeleteUserReq struct {
 	UserID string `json:"user_id" query:"user_id" validate:"required"`
+}
+
+// GetUserGroupsReq 获取用户所属的用户组请求
+type GetUserGroupsReq struct {
+	UserID string `json:"user_id" query:"user_id" validate:"required"`
+}
+
+// GetUserGroupsResp 获取用户所属的用户组响应
+type GetUserGroupsResp struct {
+	Groups []AuthGroupListItemResp `json:"groups"`
+}
+
+// UpdateUserGroupsReq 更新用户所属的用户组请求
+type UpdateUserGroupsReq struct {
+	UserID  string  `json:"user_id" validate:"required"`
+	GroupIDs []uint  `json:"group_ids"` // 用户组 ID 列表
 }
