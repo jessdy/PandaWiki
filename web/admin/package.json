@@ -4,6 +4,7 @@
   "version": "2.11.1",
   "type": "module",
   "scripts": {
+    "preinstall": "npx only-allow npm",
     "dev": "vite",
     "build:dev": "vite build --m development",
     "build": "vite build",

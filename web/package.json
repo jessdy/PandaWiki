@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "preinstall": "npx only-allow npm",
+    "postinstall": "node scripts/apply-patches.mjs",
     "icon": "npm run icon --workspace=@panda-wiki/icons",
     "build": "npm run build --workspace=panda-wiki-app && npm run build --workspace=panda-wiki-admin",
     "dev": "npm run dev --workspace=panda-wiki-app && npm run dev --workspace=panda-wiki-admin"

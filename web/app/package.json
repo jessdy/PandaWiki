@@ -3,10 +3,10 @@
   "version": "2.9.0",
   "private": true,
   "scripts": {
+    "preinstall": "npx only-allow npm",
     "copy-twemoji": "node scripts/copy-twemoji.mjs",
     "predev": "npm run copy-twemoji",
     "prebuild": "npm run copy-twemoji",
-    "postinstall": "node scripts/apply-patches.mjs",
     "dev": "next dev -p 3010",
     "build": "next build --webpack",
     "start": "next start",
