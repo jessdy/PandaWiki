@@ -29,17 +29,13 @@ const nextConfig: NextConfig = {
     '@ctzhian/ui',
   ],
   webpack: config => {
+    // 把 app 自己的 node_modules 放最前，避免 monorepo 父级 node_modules 截胡
+    // 不再手动 alias 'entities/decode'：webpack 5 已原生支持 package.json 的 exports
+    // 子路径解析，旧 alias 指向的 lib/decode.js 在 entities@6+ 已不存在。
     config.resolve.modules = [
       path.join(appRoot, 'node_modules'),
       ...(config.resolve.modules ?? ['node_modules']),
     ];
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'entities/decode': path.join(
-        appRoot,
-        'node_modules/entities/lib/decode.js',
-      ),
-    };
     return config;
   },
   async headers() {
