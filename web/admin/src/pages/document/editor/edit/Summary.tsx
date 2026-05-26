@@ -17,30 +17,34 @@ interface SummaryProps {
   updateDetail: (detail: V1NodeDetailResp) => void;
 }
 
+type SummaryMode = 'chat' | 'analysis';
+
 const Summary = ({ open, onClose, updateDetail }: SummaryProps) => {
   const { kb_id } = useAppSelector(state => state.config);
   const { nodeDetail } = useOutletContext<WrapContext>();
   const [summary, setSummary] = useState(nodeDetail?.meta?.summary || '');
-  const [loading, setLoading] = useState(false);
+  /** loadingMode 既是 loading 标志也是当前哪种生成中（互斥） */
+  const [loadingMode, setLoadingMode] = useState<SummaryMode | null>(null);
   const [edit, setEdit] = useState(false);
 
   const handleClose = () => {
     setEdit(false);
     setSummary('');
+    setLoadingMode(null);
     onClose();
   };
 
-  const createSummary = () => {
-    if (!nodeDetail) return;
-    setLoading(true);
-    postApiV1NodeSummary({ kb_id, ids: [nodeDetail.id!] })
+  const createSummary = (mode: SummaryMode) => {
+    if (!nodeDetail || loadingMode) return;
+    setLoadingMode(mode);
+    postApiV1NodeSummary({ kb_id, ids: [nodeDetail.id!], mode })
       .then(res => {
-        // @ts-expect-error 类型错误
+        // @ts-expect-error 后端按 {summary} 返回
         setSummary(res.summary);
         setEdit(true);
       })
       .finally(() => {
-        setLoading(false);
+        setLoadingMode(null);
       });
   };
 
@@ -50,6 +54,8 @@ const Summary = ({ open, onClose, updateDetail }: SummaryProps) => {
     }
   }, [open, nodeDetail]);
 
+  const busy = loadingMode !== null;
+
   return (
     <Modal
       open={open}
@@ -57,7 +63,7 @@ const Summary = ({ open, onClose, updateDetail }: SummaryProps) => {
       title='智能摘要'
       okText='保存'
       okButtonProps={{
-        disabled: loading || !edit,
+        disabled: busy || !edit,
       }}
       onOk={() => {
         if (!nodeDetail) return;
@@ -77,7 +83,7 @@ const Summary = ({ open, onClose, updateDetail }: SummaryProps) => {
         <TextField
           autoFocus
           multiline
-          disabled={loading}
+          disabled={busy}
           rows={10}
           fullWidth
           value={summary}
@@ -87,21 +93,40 @@ const Summary = ({ open, onClose, updateDetail }: SummaryProps) => {
           }}
           placeholder='请输入摘要'
         />
-        <Button
-          fullWidth
-          variant='outlined'
-          onClick={createSummary}
-          disabled={loading}
-          startIcon={
-            loading ? (
-              <CircularProgress size={16} />
-            ) : (
-              <IconDJzhinengzhaiyao sx={{ fontSize: 16 }} />
-            )
-          }
-        >
-          点击此处，AI 自动生成摘要
-        </Button>
+        <Stack direction='row' gap={1}>
+          <Button
+            fullWidth
+            variant='contained'
+            onClick={() => createSummary('chat')}
+            disabled={busy}
+            startIcon={
+              loadingMode === 'chat' ? (
+                <CircularProgress size={16} color='inherit' />
+              ) : (
+                <IconDJzhinengzhaiyao sx={{ fontSize: 16 }} />
+              )
+            }
+          >
+            {loadingMode === 'chat' ? '大模型生成中…' : '大模型摘要'}
+          </Button>
+          <Button
+            fullWidth
+            variant='outlined'
+            onClick={() => createSummary('analysis')}
+            disabled={busy}
+            startIcon={
+              loadingMode === 'analysis' ? (
+                <CircularProgress size={16} />
+              ) : (
+                <IconDJzhinengzhaiyao sx={{ fontSize: 16 }} />
+              )
+            }
+          >
+            {loadingMode === 'analysis'
+              ? '小模型生成中…'
+              : '小模型摘要（非思考）'}
+          </Button>
+        </Stack>
       </Stack>
     </Modal>
   );

@@ -150,19 +150,9 @@ func (h *RAGMQHandler) HandleNodeContentVectorRequest(ctx context.Context, msg t
 			return nil
 		}
 
-		docKind := domain.NodeDocVisualKindFromEmoji(node.Meta.Emoji)
-		imageDataURL := ""
-		if docKind == domain.NodeDocVisualImage {
-			ref := usecase.ExtractFirstImageRefFromDocContent(node.Content)
-			if ref != "" {
-				imageDataURL, err = usecase.ResolveImageRefForVision(ctx, h.s3Client, ref)
-				if err != nil {
-					h.logger.Error("prepare image for summary failed", log.Error(err))
-					return nil
-				}
-			}
-		}
-		summary, err := h.llmUsecase.SummaryNode(ctx, model, request.KBID, node.Name, node.Content, docKind, imageDataURL)
+		// 异步后台批量摘要统一走纯文本路径（不区分 image/video/text），
+		// 不启用 /no_think，让大模型在后台慢慢生成质量更高的结果。
+		summary, err := h.llmUsecase.SummaryNode(ctx, model, request.KBID, node.Name, node.Content, false)
 		if err != nil {
 			h.logger.Error("summary node content failed", log.Error(err))
 			return nil

@@ -323,11 +323,23 @@ type MoveNodeReq struct {
 	NextID   string `json:"next_id"`
 }
 
+// NodeSummaryMode 摘要使用的模型策略。
+//   - chat（默认）：使用「对话大模型」，含思考过程，质量更高但更慢、更贵。
+//   - analysis：使用后台配的「分析（小）模型」，并附加 /no_think 关闭思考。
+//     未配置 analysis 模型时由调用方处理（usecase 会回退到 chat 并提示）。
+type NodeSummaryMode string
+
+const (
+	NodeSummaryModeChat     NodeSummaryMode = "chat"
+	NodeSummaryModeAnalysis NodeSummaryMode = "analysis"
+)
+
 type NodeSummaryReq struct {
-	IDs     []string `json:"ids" validate:"required"`
-	KBID    string   `json:"kb_id" validate:"required"`
-	Name    string   `json:"name,omitempty"`
-	Content string   `json:"content,omitempty"`
+	IDs     []string        `json:"ids" validate:"required"`
+	KBID    string          `json:"kb_id" validate:"required"`
+	Name    string          `json:"name,omitempty"`
+	Content string          `json:"content,omitempty"`
+	Mode    NodeSummaryMode `json:"mode,omitempty"`
 }
 
 type GetRecommendNodeListReq struct {

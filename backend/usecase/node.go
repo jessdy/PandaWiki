@@ -390,51 +390,77 @@ func (u *NodeUsecase) MoveNode(ctx context.Context, req *domain.MoveNodeReq) err
 	return u.nodeRepo.MoveNodeBetween(ctx, req.ID, req.ParentID, req.PrevID, req.NextID, req.KbID)
 }
 
+// SummaryNode 文档智能摘要。统一走「纯文本摘要」路径（不再按 emoji 区分 image/video/text）。
+//
+// 模型策略由 req.Mode 决定：
+//   - chat（默认 / 空值）：用对话大模型，质量更高但更慢。
+//   - analysis：用后台配的「分析（小）模型」，并对 prompt 附加 /no_think 关闭思考；
+//     若后台未配置 analysis 模型，回退到 chat 模型并附加 /no_think（仍能享受跳过思考的提速）。
 func (u *NodeUsecase) SummaryNode(ctx context.Context, req *domain.NodeSummaryReq) (string, error) {
-	model, err := u.modelUsecase.GetChatModel(ctx)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return "", domain.ErrModelNotConfigured
-		}
-		return "", err
+	model, noThink, mErr := u.pickSummaryModel(ctx, req.Mode)
+	if mErr != nil {
+		return "", mErr
 	}
+
 	if len(req.IDs) == 1 {
 		node, err := u.nodeRepo.GetNodeByID(ctx, req.IDs[0])
 		if err != nil {
 			return "", fmt.Errorf("get latest node release failed: %w", err)
 		}
-		docKind := domain.NodeDocVisualKindFromEmoji(node.Meta.Emoji)
-		imageDataURL := ""
-		if docKind == domain.NodeDocVisualImage {
-			ref := ExtractFirstImageRefFromDocContent(node.Content)
-			if ref == "" {
-				return "", fmt.Errorf("图片类型文档正文中未找到图片，请插入至少一张图片后再生成摘要")
-			}
-			imageDataURL, err = ResolveImageRefForVision(ctx, u.s3Client, ref)
-			if err != nil {
-				return "", fmt.Errorf("准备图片摘要失败: %w", err)
-			}
-		}
-		summary, err := u.llmUsecase.SummaryNode(ctx, model, req.KBID, node.Name, node.Content, docKind, imageDataURL)
+		summary, err := u.llmUsecase.SummaryNode(ctx, model, req.KBID, node.Name, node.Content, noThink)
 		if err != nil {
 			return "", err
 		}
 		return summary, nil
-	} else {
-		// async create node summary
-		nodeVectorContentRequests := make([]*domain.NodeReleaseVectorRequest, 0)
-		for _, id := range req.IDs {
-			nodeVectorContentRequests = append(nodeVectorContentRequests, &domain.NodeReleaseVectorRequest{
-				KBID:   req.KBID,
-				NodeID: id,
-				Action: "summary",
-			})
-		}
-		if err := u.ragRepo.AsyncUpdateNodeReleaseVector(ctx, nodeVectorContentRequests); err != nil {
-			return "", err
-		}
+	}
+
+	// 多 ID 走异步：发到 MQ 由 consumer 走 chat 模型做后台批量摘要，
+	// 当前用户态请求无法承载思考关闭语义。
+	nodeVectorContentRequests := make([]*domain.NodeReleaseVectorRequest, 0)
+	for _, id := range req.IDs {
+		nodeVectorContentRequests = append(nodeVectorContentRequests, &domain.NodeReleaseVectorRequest{
+			KBID:   req.KBID,
+			NodeID: id,
+			Action: "summary",
+		})
+	}
+	if err := u.ragRepo.AsyncUpdateNodeReleaseVector(ctx, nodeVectorContentRequests); err != nil {
+		return "", err
 	}
 	return "", nil
+}
+
+// pickSummaryModel 按 mode 选择摘要使用的模型，并返回是否启用 /no_think。
+//   - mode == analysis：优先 analysis 小模型；未配置则回退到 chat 但仍 noThink=true。
+//   - mode == chat / 缺省：chat 大模型，noThink=false。
+func (u *NodeUsecase) pickSummaryModel(ctx context.Context, mode domain.NodeSummaryMode) (*domain.Model, bool, error) {
+	if mode == domain.NodeSummaryModeAnalysis {
+		am, err := u.modelUsecase.GetModelByType(ctx, domain.ModelTypeAnalysis)
+		if err == nil && am != nil && am.ID != "" {
+			return am, true, nil
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			u.logger.Warn("get analysis model failed, fallback to chat for summary", log.Error(err))
+		}
+		// 没配 analysis 模型：回退 chat 但 noThink 仍打开，对部分模型仍能提速
+		chat, cErr := u.modelUsecase.GetChatModel(ctx)
+		if cErr != nil {
+			if errors.Is(cErr, gorm.ErrRecordNotFound) {
+				return nil, false, domain.ErrModelNotConfigured
+			}
+			return nil, false, cErr
+		}
+		return chat, true, nil
+	}
+	// 默认（chat 模式）
+	chat, err := u.modelUsecase.GetChatModel(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, domain.ErrModelNotConfigured
+		}
+		return nil, false, err
+	}
+	return chat, false, nil
 }
 
 func (u *NodeUsecase) visionSummaryModel(ctx context.Context) (*domain.Model, error) {

@@ -63,6 +63,20 @@ func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *
 	}
 }
 
+// workModeNoThinkSuffix 工作模式下所有「结构化轻量任务」的 system prompt 都会附上此后缀。
+//
+//   - `/no_think` 是 Qwen3 系列约定关键字，被识别后模型不会输出 <think>...</think>
+//     推理段，等同于"非思考模式"。
+//   - 不识别该关键字的模型（DeepSeek-R1、Kimi 等）会被 trimThinking 兜底剥掉 think 段，
+//     虽不能节省 token，但不会污染下游解析逻辑。
+//   - 显式约束模型「不要解释，按要求输出」是对所有提供商通用的、对结构化输出有效的二次保险。
+const workModeNoThinkSuffix = "\n\n/no_think\n输出要求：仅给出结果本身，不要解释、不要复述、不要任何思考过程或前后缀。"
+
+// withWorkModeNoThink 把工作模式专用的非思考约束追加到 system prompt 末尾。
+func withWorkModeNoThink(systemPrompt string) string {
+	return strings.TrimSpace(systemPrompt) + workModeNoThinkSuffix
+}
+
 // LoadMethodRulesForCategory 加载某品类下的全部「开封方法规则」；repo 缺失时返回 nil。
 func (u *LLMUsecase) LoadMethodRulesForCategory(ctx context.Context, kbID, category string) ([]domain.MethodRule, error) {
 	if u.methodRuleRepo == nil {
@@ -290,7 +304,11 @@ func (u *LLMUsecase) Generate(
 	return resp.Content, nil
 }
 
-func (u *LLMUsecase) SummaryNode(ctx context.Context, model *domain.Model, kbID, name, content string, docKind domain.NodeDocVisualKind, imageDataURL string) (string, error) {
+// SummaryNode 现在统一走「文本摘要」路径：不再按 emoji 区分 image/video/text，
+// 输入正文（含 <img> / <video> 等 HTML 标签）一律视为纯文本素材分块汇总。
+//
+// noThink 为 true 时给摘要 system prompt 附加 /no_think，搭配后台配的小模型（analysis）使用。
+func (u *LLMUsecase) SummaryNode(ctx context.Context, model *domain.Model, kbID, name, content string, noThink bool) (string, error) {
 	modelkitModel, err := model.ToModelkitModel()
 	if err != nil {
 		return "", err
@@ -299,18 +317,10 @@ func (u *LLMUsecase) SummaryNode(ctx context.Context, model *domain.Model, kbID,
 	if err != nil {
 		return "", err
 	}
-
-	switch docKind {
-	case domain.NodeDocVisualVideo:
-		return u.summaryVideoDoc(ctx, chatModel, name, content)
-	case domain.NodeDocVisualImage:
-		return u.summaryImageDoc(ctx, model, chatModel, kbID, name, imageDataURL)
-	default:
-		return u.summaryTextDocWithChunks(ctx, chatModel, name, content)
-	}
+	return u.summaryTextDocWithChunks(ctx, chatModel, name, content, noThink)
 }
 
-func (u *LLMUsecase) summaryTextDocWithChunks(ctx context.Context, chatModel model.BaseChatModel, name, content string) (string, error) {
+func (u *LLMUsecase) summaryTextDocWithChunks(ctx context.Context, chatModel model.BaseChatModel, name, content string, noThink bool) (string, error) {
 	chunks, err := u.SplitByTokenLimit(content, summaryChunkTokenLimit)
 	if err != nil {
 		return "", err
@@ -322,7 +332,7 @@ func (u *LLMUsecase) summaryTextDocWithChunks(ctx context.Context, chatModel mod
 
 	summaries := make([]string, 0, len(chunks))
 	for idx, chunk := range chunks {
-		summary, err := u.requestSummary(ctx, chatModel, name, chunk)
+		summary, err := u.requestSummary(ctx, chatModel, name, chunk, noThink)
 		if err != nil {
 			u.logger.Error("Failed to generate summary for chunk", log.Int("chunk_index", idx), log.Error(err))
 			continue
@@ -339,7 +349,7 @@ func (u *LLMUsecase) summaryTextDocWithChunks(ctx context.Context, chatModel mod
 	}
 
 	joined := strings.Join(summaries, "\n\n")
-	finalSummary, err := u.requestSummary(ctx, chatModel, name, joined)
+	finalSummary, err := u.requestSummary(ctx, chatModel, name, joined, noThink)
 	if err != nil {
 		u.logger.Error("Failed to generate final summary, using aggregated summaries", log.Error(err))
 		if len(joined) > 500 {
@@ -499,7 +509,7 @@ func (u *LLMUsecase) ClassifyTextQuestionCategory(
 1. 若明显属于某一类，请只输出该品类在列表中的准确名称（与列表中该行的文字完全一致），不要输出序号、标点、解释或其他文字。
 2. 若均不符合、无法判断或用户只是补充上一轮缺失属性但无法看出品类，请只输出：NONE`
 	out, err := u.Generate(ctx, chatModel, []*schema.Message{
-		{Role: "system", Content: system + "\n\n可选品类：\n" + list},
+		{Role: "system", Content: withWorkModeNoThink(system + "\n\n可选品类：\n" + list)},
 		{Role: "user", Content: strings.TrimSpace(questionContext)},
 	})
 	if err != nil {
@@ -780,7 +790,7 @@ func (u *LLMUsecase) WorkModeListDistinguishingMissing(
 		user += "\n\n附图理解与属性要点：\n" + strings.TrimSpace(retrievalAugment)
 	}
 	out, err := u.Generate(ctx, chatModel, []*schema.Message{
-		{Role: "system", Content: system},
+		{Role: "system", Content: withWorkModeNoThink(system)},
 		{Role: "user", Content: user},
 	})
 	if err != nil {
@@ -821,7 +831,7 @@ func (u *LLMUsecase) WorkModeListMissingAttributes(
 		user += "\n\n附图理解与属性要点：\n" + strings.TrimSpace(retrievalAugment)
 	}
 	out, err := u.Generate(ctx, chatModel, []*schema.Message{
-		{Role: "system", Content: system},
+		{Role: "system", Content: withWorkModeNoThink(system)},
 		{Role: "user", Content: user},
 	})
 	if err != nil {
@@ -961,7 +971,7 @@ func (u *LLMUsecase) ExtractCollectedAttributes(
 		user += "\n\n附图理解与属性要点：\n" + strings.TrimSpace(retrievalAugment)
 	}
 	out, err := u.Generate(ctx, chatModel, []*schema.Message{
-		{Role: "system", Content: system},
+		{Role: "system", Content: withWorkModeNoThink(system)},
 		{Role: "user", Content: user},
 	})
 	if err != nil {
@@ -1028,7 +1038,7 @@ func (u *LLMUsecase) classifyImageDocCategory(
 2. 若均不符合、无法判断或与所有品类都不贴切，请只输出：NONE`
 	userParts := imageSummaryUserParts(docName, imageDataURL)
 	out, err := u.Generate(ctx, chatModel, []*schema.Message{
-		{Role: "system", Content: system + "\n\n可选品类：\n" + list},
+		{Role: "system", Content: withWorkModeNoThink(system + "\n\n可选品类：\n" + list)},
 		{Role: "user", MultiContent: userParts},
 	})
 	if err != nil {
@@ -1160,16 +1170,14 @@ func (u *LLMUsecase) trimThinking(summary string) string {
 	return strings.TrimSpace(summary[endIndex+len("</think>"):])
 }
 
-func (u *LLMUsecase) requestSummary(ctx context.Context, chatModel model.BaseChatModel, name, content string) (string, error) {
+func (u *LLMUsecase) requestSummary(ctx context.Context, chatModel model.BaseChatModel, name, content string, noThink bool) (string, error) {
+	system := "你是文档总结助手，请根据文档内容总结出文档的摘要。摘要是纯文本，应该简洁明了，不要超过160个字。"
+	if noThink {
+		system = withWorkModeNoThink(system)
+	}
 	summary, err := u.Generate(ctx, chatModel, []*schema.Message{
-		{
-			Role:    "system",
-			Content: "你是文档总结助手，请根据文档内容总结出文档的摘要。摘要是纯文本，应该简洁明了，不要超过160个字。",
-		},
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("文档名称：%s\n文档内容：%s", name, content),
-		},
+		{Role: "system", Content: system},
+		{Role: "user", Content: fmt.Sprintf("文档名称：%s\n文档内容：%s", name, content)},
 	})
 	if err != nil {
 		return "", err

@@ -72,6 +72,20 @@ func (u *ChatUsecase) pickVisionModel(ctx context.Context, chatFallback *domain.
 	return chatFallback, nil
 }
 
+// pickGateChatModel 工作模式状态机里的「N1 分类 / N2 抽属性 / N5 追问」都是结构化轻量任务：
+// 优先用后台配置的 ModelTypeAnalysis 小模型；未配置时回退到用户当前对话用的 chat 模型。
+// 走小模型 + system prompt 末尾追加 /no_think（见 llm.go），让响应更快、更省 token。
+func (u *ChatUsecase) pickGateChatModel(ctx context.Context, chatFallback *domain.Model) *domain.Model {
+	am, err := u.modelUsecase.GetModelByType(ctx, domain.ModelTypeAnalysis)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		u.logger.Warn("get analysis model failed, fallback to chat model for work mode gate", log.Error(err))
+	}
+	if err == nil && am != nil && am.ID != "" {
+		return am
+	}
+	return chatFallback
+}
+
 // workModeClarifyMarker 是与前端约定的可解析标记。第一行是 HTML 注释包裹的 JSON：
 //
 //	<!-- WORK_MODE_CLARIFY {"category":"...","candidates":3,"missing":["..."],"collected":{...},"round":1,"max_rounds":3,"identified_doc_id":""} -->
@@ -254,7 +268,14 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		return skip
 	}
 
-	modelkitModel, mkErr := req.ModelInfo.ToModelkitModel()
+	// 工作模式：优先用后台配的 analysis 小模型；未配则回退到用户的 chat 模型。
+	gateModel := u.pickGateChatModel(ctx, req.ModelInfo)
+	logger.Info("work mode gate model picked",
+		log.String("type", string(gateModel.Type)),
+		log.String("model", gateModel.Model),
+		log.Any("is_chat_fallback", gateModel == req.ModelInfo),
+	)
+	modelkitModel, mkErr := gateModel.ToModelkitModel()
 	if mkErr != nil {
 		logger.Warn("modelkit convert failed, skip gate", log.Error(mkErr))
 		return skip

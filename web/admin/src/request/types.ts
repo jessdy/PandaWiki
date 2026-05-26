@@ -1046,6 +1046,8 @@ export interface DomainNodeSummaryReq {
   ids: string[];
   kb_id: string;
   name?: string;
+  /** 摘要模型策略：chat = 对话大模型；analysis = 后台配的小模型（自动 /no_think 跳过思考） */
+  mode?: 'chat' | 'analysis';
 }
 
 export interface DomainObjectUploadResp {
