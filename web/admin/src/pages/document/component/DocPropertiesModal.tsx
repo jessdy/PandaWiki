@@ -134,9 +134,29 @@ const DocPropertiesModal = ({
       categoryItems.find(c => c.name.trim() === (watchCategory || '').trim()),
     [categoryItems, watchCategory],
   );
+  /**
+   * 当前品类的结构化属性 = specs 优先；为空则用旧 attributes 字符串升级（无枚举）。
+   * 每项含 name + values（枚举值数组）。
+   */
+  const currentAttrSpecs = useMemo(() => {
+    if (!currentCategory)
+      return [] as Array<{ name: string; values: string[] }>;
+    const specs = currentCategory.attribute_specs;
+    if (specs && specs.length > 0) {
+      return specs.map(s => ({
+        name: (s.name || '').trim(),
+        values: (s.values || []).map(v => v.trim()).filter(Boolean),
+      }));
+    }
+    return splitCommaAttrs(currentCategory.attributes).map(name => ({
+      name,
+      values: [] as string[],
+    }));
+  }, [currentCategory]);
+  // 兼容旧逻辑：原来的 currentAttrKeys 仍以"属性名数组"形式提供
   const currentAttrKeys = useMemo(
-    () => splitCommaAttrs(currentCategory?.attributes),
-    [currentCategory],
+    () => currentAttrSpecs.map(s => s.name),
+    [currentAttrSpecs],
   );
   const isSingleDoc =
     !isBatch && data?.[0]?.type === DomainNodeType.NodeTypeDocument;
@@ -527,23 +547,63 @@ const DocPropertiesModal = ({
                   」暂未在「提示词管理」中配置属性维护，无法填写属性。
                 </Typography>
               )}
-              {watchCategory && currentAttrKeys.length > 0 && (
+              {watchCategory && currentAttrSpecs.length > 0 && (
                 <Stack gap={1.5}>
-                  {currentAttrKeys.map(attrKey => (
-                    <TextField
-                      key={attrKey}
-                      label={attrKey}
-                      size='small'
-                      value={watchAttrs?.[attrKey] ?? ''}
-                      onChange={e => {
-                        const v = e.target.value;
-                        setValue('work_mode_attributes', {
-                          ...(watchAttrs || {}),
-                          [attrKey]: v,
-                        });
-                      }}
-                    />
-                  ))}
+                  {currentAttrSpecs.map(spec => {
+                    const cur = watchAttrs?.[spec.name] ?? '';
+                    const handle = (v: string) =>
+                      setValue('work_mode_attributes', {
+                        ...(watchAttrs || {}),
+                        [spec.name]: v,
+                      });
+                    if (spec.values.length > 0) {
+                      // 该属性已配置枚举 → 严格 Select；当前值若不在枚举内则置空并提示
+                      const inEnum = cur === '' || spec.values.includes(cur);
+                      return (
+                        <Select
+                          key={spec.name}
+                          size='small'
+                          displayEmpty
+                          value={inEnum ? cur : ''}
+                          onChange={e => handle(e.target.value)}
+                          renderValue={v => {
+                            if (!v) {
+                              return (
+                                <em style={{ color: 'rgba(0,0,0,0.5)' }}>
+                                  {spec.name}（未选择
+                                  {!inEnum && cur
+                                    ? `，原值「${cur}」不在枚举内`
+                                    : ''}
+                                  ）
+                                </em>
+                              );
+                            }
+                            return `${spec.name}：${v}`;
+                          }}
+                        >
+                          <MenuItem value=''>
+                            <em>清空</em>
+                          </MenuItem>
+                          {spec.values.map(v => (
+                            <MenuItem key={v} value={v}>
+                              {v}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      );
+                    }
+                    // 旧品类无枚举 → 兜底 TextField 自由输入
+                    return (
+                      <TextField
+                        key={spec.name}
+                        label={spec.name}
+                        size='small'
+                        helperText='该属性未配置枚举值，可自由输入'
+                        value={cur}
+                        onChange={e => handle(e.target.value)}
+                      />
+                    );
+                  })}
                 </Stack>
               )}
             </Stack>

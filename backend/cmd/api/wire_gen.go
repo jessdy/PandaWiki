@@ -75,7 +75,8 @@ func createApp() (*App, error) {
 	kbRepo := cache2.NewKBRepo(cacheCache)
 	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
 	imageDescriptionTemplateRepo := pg2.NewImageDescriptionTemplateRepo(db, logger)
-	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepo, imageDescriptionTemplateRepo)
+	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
+	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepo, imageDescriptionTemplateRepo, methodRuleRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func createApp() (*App, error) {
 	conversationRepository := pg2.NewConversationRepository(db, logger)
 	modelRepository := pg2.NewModelRepository(db, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, logger)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, logger)
 	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, authMiddleware, logger)
 	appRepository := pg2.NewAppRepository(db, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
@@ -178,6 +179,7 @@ func createApp() (*App, error) {
 	openapiV1Handler := share.NewOpenapiV1Handler(echo, baseHandler, logger, authUsecase, appUsecase)
 	shareCommonHandler := share.NewShareCommonHandler(echo, baseHandler, logger, fileUsecase)
 	shareDocumentFeedbackHandler := share.NewShareDocumentFeedbackHandler(echo, baseHandler, logger, documentFeedbackUsecase)
+	shareMethodRuleHandler := share.NewShareMethodRuleHandler(echo, baseHandler, logger, knowledgeBaseUsecase, llmUsecase, nodeUsecase)
 	shareHandler := &share.ShareHandler{
 		ShareNodeHandler:             shareNodeHandler,
 		ShareAppHandler:              shareAppHandler,
@@ -192,6 +194,7 @@ func createApp() (*App, error) {
 		OpenapiV1Handler:             openapiV1Handler,
 		ShareCommonHandler:           shareCommonHandler,
 		ShareDocumentFeedbackHandler: shareDocumentFeedbackHandler,
+		ShareMethodRuleHandler:       shareMethodRuleHandler,
 	}
 	mcpRepository := pg2.NewMCPRepository(db, logger)
 	client, err := telemetry.NewClient(logger, knowledgeBaseRepository, modelUsecase, userUsecase, nodeRepository, conversationRepository, mcpRepository, configConfig)

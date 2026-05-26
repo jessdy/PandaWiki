@@ -33,9 +33,10 @@ type KnowledgeBaseUsecase struct {
 	config                *config.Config
 	categoryPromptRepo    *pg.CategoryPromptRepo
 	imageDescTemplateRepo *pg.ImageDescriptionTemplateRepo
+	methodRuleRepo        *pg.MethodRuleRepo
 }
 
-func NewKnowledgeBaseUsecase(repo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, ragRepo *mq.RAGRepository, userRepo *pg.UserRepository, rag rag.RAGService, kbCache *cache.KBRepo, logger *log.Logger, config *config.Config, categoryPromptRepo *pg.CategoryPromptRepo, imageDescTemplateRepo *pg.ImageDescriptionTemplateRepo) (*KnowledgeBaseUsecase, error) {
+func NewKnowledgeBaseUsecase(repo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, ragRepo *mq.RAGRepository, userRepo *pg.UserRepository, rag rag.RAGService, kbCache *cache.KBRepo, logger *log.Logger, config *config.Config, categoryPromptRepo *pg.CategoryPromptRepo, imageDescTemplateRepo *pg.ImageDescriptionTemplateRepo, methodRuleRepo *pg.MethodRuleRepo) (*KnowledgeBaseUsecase, error) {
 	u := &KnowledgeBaseUsecase{
 		repo:                  repo,
 		nodeRepo:              nodeRepo,
@@ -47,6 +48,7 @@ func NewKnowledgeBaseUsecase(repo *pg.KnowledgeBaseRepository, nodeRepo *pg.Node
 		kbCache:               kbCache,
 		categoryPromptRepo:    categoryPromptRepo,
 		imageDescTemplateRepo: imageDescTemplateRepo,
+		methodRuleRepo:        methodRuleRepo,
 	}
 	return u, nil
 }
@@ -351,14 +353,153 @@ func (u *KnowledgeBaseUsecase) ReplaceCategoryPrompts(ctx context.Context, req *
 		if id == "" {
 			id = uuid.New().String()
 		}
+		// 优先使用结构化 specs；兼容旧前端只传 Attributes 字符串。
+		specs := normalizeAttributeSpecs(it.AttributeSpecs)
+		if len(specs) == 0 {
+			parsed := (&domain.CategoryPromptItem{Attributes: it.Attributes}).ResolveAttributeSpecs()
+			specs = parsed
+		}
+		// 反向派生 Attributes 字符串，保持兼容旧前端/老代码路径。
+		attrNames := make([]string, 0, len(specs))
+		for _, s := range specs {
+			attrNames = append(attrNames, s.Name)
+		}
 		out = append(out, domain.CategoryPromptItem{
-			ID:         id,
-			Name:       name,
-			Content:    content,
-			Attributes: strings.TrimSpace(it.Attributes),
+			ID:             id,
+			Name:           name,
+			Content:        content,
+			Attributes:     strings.Join(attrNames, ","),
+			AttributeSpecs: specs,
 		})
 	}
 	return u.categoryPromptRepo.ReplaceForKBID(ctx, req.KBID, out)
+}
+
+// normalizeAttributeSpecs 清洗 specs：去空、去重 values，保留入参顺序。
+func normalizeAttributeSpecs(in []domain.CategoryAttributeSpec) []domain.CategoryAttributeSpec {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]domain.CategoryAttributeSpec, 0, len(in))
+	for _, s := range in {
+		name := strings.TrimSpace(s.Name)
+		if name == "" {
+			continue
+		}
+		seen := map[string]struct{}{}
+		values := make([]string, 0, len(s.Values))
+		for _, v := range s.Values {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				continue
+			}
+			if _, ok := seen[v]; ok {
+				continue
+			}
+			seen[v] = struct{}{}
+			values = append(values, v)
+		}
+		out = append(out, domain.CategoryAttributeSpec{Name: name, Values: values})
+	}
+	return out
+}
+
+/* ---------------------------------------------------------------- */
+/* 开封方法规则                                                      */
+/* ---------------------------------------------------------------- */
+
+// ListMethodRules 列规则；category 为空返回该 KB 全部。
+func (u *KnowledgeBaseUsecase) ListMethodRules(ctx context.Context, kbID, category string) ([]domain.MethodRule, error) {
+	if u.methodRuleRepo == nil {
+		return []domain.MethodRule{}, nil
+	}
+	items, err := u.methodRuleRepo.GetByKBID(ctx, kbID)
+	if err != nil {
+		return nil, err
+	}
+	cat := strings.TrimSpace(category)
+	out := make([]domain.MethodRule, 0, len(items))
+	for _, it := range items {
+		if cat != "" && strings.TrimSpace(it.Category) != cat {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out, nil
+}
+
+// ReplaceMethodRules 整表替换：保留客户端给出的 ID（缺失则生成），清洗 Conditions 空值。
+func (u *KnowledgeBaseUsecase) ReplaceMethodRules(ctx context.Context, req *domain.ReplaceMethodRulesReq) error {
+	if u.methodRuleRepo == nil {
+		return errors.New("method rule repo unavailable")
+	}
+	now := time.Now().Unix()
+	out := make([]domain.MethodRule, 0, len(req.Items))
+	for _, it := range req.Items {
+		name := strings.TrimSpace(it.Name)
+		category := strings.TrimSpace(it.Category)
+		if name == "" || category == "" {
+			continue
+		}
+		conds := make(map[string][]string, len(it.Conditions))
+		for k, vs := range it.Conditions {
+			key := strings.TrimSpace(k)
+			if key == "" {
+				continue
+			}
+			seen := map[string]struct{}{}
+			values := make([]string, 0, len(vs))
+			for _, v := range vs {
+				v = strings.TrimSpace(v)
+				if v == "" {
+					continue
+				}
+				if _, ok := seen[v]; ok {
+					continue
+				}
+				seen[v] = struct{}{}
+				values = append(values, v)
+			}
+			conds[key] = values
+		}
+		id := strings.TrimSpace(it.ID)
+		createdAt := it.CreatedAt
+		if id == "" {
+			id = uuid.New().String()
+			createdAt = now
+		}
+		out = append(out, domain.MethodRule{
+			ID:          id,
+			Category:    category,
+			Name:        name,
+			Description: strings.TrimSpace(it.Description),
+			Conditions:  conds,
+			NodeID:      strings.TrimSpace(it.NodeID),
+			CreatedAt:   createdAt,
+			UpdatedAt:   now,
+		})
+	}
+	return u.methodRuleRepo.Replace(ctx, req.KBID, out)
+}
+
+// MatchMethodRules 给定 category + collected，返回命中的规则列表（按规则原顺序）。
+// 用于前台「实时联动」预览：纯查表，不走 LLM。
+func (u *KnowledgeBaseUsecase) MatchMethodRules(
+	ctx context.Context,
+	kbID, category string,
+	collected map[string]string,
+) ([]domain.MethodRule, error) {
+	all, err := u.ListMethodRules(ctx, kbID, category)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.MethodRule, 0, len(all))
+	for i := range all {
+		if all[i].MatchesCollected(collected) {
+			out = append(out, all[i])
+		}
+	}
+	return out, nil
 }
 
 // ListImageDescriptionTemplates 拉取该 KB 下指定品类的全部图片描述模版；

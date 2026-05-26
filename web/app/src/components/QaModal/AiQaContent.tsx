@@ -93,6 +93,8 @@ import {
   extractWorkModeClarify,
   removeWorkModeClarifyFromAnswer,
 } from '@/utils/workModeClarifyParse';
+import { extractAttributePanel } from '@/utils/attributePanelParse';
+import AttributePanel from './AttributePanel';
 
 export type ChatChainStep = { step: number; title: string; detail: string };
 
@@ -1280,6 +1282,16 @@ const AiQaContent: React.FC<{
                 {/* AI回答内容 */}
                 <StyledAiBubbleContent>
                   {(() => {
+                    // 优先匹配 Phase 2 新协议：ATTRIBUTE_PANEL（结构化方法匹配终态）
+                    const panel = extractAttributePanel(item.a);
+                    if (panel.meta) {
+                      return (
+                        <AttributePanel
+                          meta={panel.meta}
+                          workChrome={workChrome}
+                        />
+                      );
+                    }
                     const { meta, text } = extractWorkModeClarify(item.a);
                     const identified = !!meta && !!meta.identified_doc_id;
                     const isAsking =

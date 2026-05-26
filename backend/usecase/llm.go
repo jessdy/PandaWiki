@@ -34,6 +34,7 @@ type LLMUsecase struct {
 	modelRepo          *pg.ModelRepository
 	promptRepo         *pg.PromptRepo
 	categoryPromptRepo *pg.CategoryPromptRepo
+	methodRuleRepo     *pg.MethodRuleRepo
 	config             *config.Config
 	logger             *log.Logger
 	modelkit           *modelkit.ModelKit
@@ -44,7 +45,7 @@ const (
 	summaryMaxChunks       = 4     // max chunks to process for summary
 )
 
-func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *pg.ConversationRepository, kbRepo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, modelRepo *pg.ModelRepository, promptRepo *pg.PromptRepo, categoryPromptRepo *pg.CategoryPromptRepo, logger *log.Logger) *LLMUsecase {
+func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *pg.ConversationRepository, kbRepo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, modelRepo *pg.ModelRepository, promptRepo *pg.PromptRepo, categoryPromptRepo *pg.CategoryPromptRepo, methodRuleRepo *pg.MethodRuleRepo, logger *log.Logger) *LLMUsecase {
 	tiktoken.SetBpeLoader(&utils.Localloader{})
 	modelkit := modelkit.NewModelKit(logger.Logger)
 	return &LLMUsecase{
@@ -56,9 +57,40 @@ func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *
 		modelRepo:          modelRepo,
 		promptRepo:         promptRepo,
 		categoryPromptRepo: categoryPromptRepo,
+		methodRuleRepo:     methodRuleRepo,
 		logger:             logger.WithModule("usecase.llm"),
 		modelkit:           modelkit,
 	}
+}
+
+// LoadMethodRulesForCategory 加载某品类下的全部「开封方法规则」；repo 缺失时返回 nil。
+func (u *LLMUsecase) LoadMethodRulesForCategory(ctx context.Context, kbID, category string) ([]domain.MethodRule, error) {
+	if u.methodRuleRepo == nil {
+		return nil, nil
+	}
+	items, err := u.methodRuleRepo.GetByKBID(ctx, kbID)
+	if err != nil {
+		return nil, err
+	}
+	cat := strings.TrimSpace(category)
+	out := make([]domain.MethodRule, 0, len(items))
+	for _, it := range items {
+		if cat != "" && strings.TrimSpace(it.Category) != cat {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out, nil
+}
+
+// GetNodeNamesByIDs 批量查询节点名，用于把 method_rule.node_id 渲染成可读卡片标签。
+func (u *LLMUsecase) GetNodeNamesByIDs(ctx context.Context, kbID string, ids []string) (map[string]string, error) {
+	if len(ids) == 0 || u.nodeRepo == nil {
+		return map[string]string{}, nil
+	}
+	// repo 已有按 id 批量查名字的实现，复用之。注意：返回的 map 不带 kb 过滤，
+	// 但 method_rule 的 node_id 是 KB 内创建时确定的，跨 KB 撞 ID 概率为 0。
+	return u.nodeRepo.GetNodeNameByNodeIDs(ctx, ids)
 }
 
 // BuildRAGOption 可选行为开关；零值即旧行为。
@@ -877,7 +909,8 @@ func MergeCollectedAttributes(prev, fresh map[string]string, attrs []string) map
 }
 
 // ExtractCollectedAttributes 让 LLM 从对话上下文 + 附图理解中抽取「用户已明确给出」的属性键值对，
-// 仅允许后台为该品类配置过的属性键，并与上一轮已收集的属性合并返回。
+// 仅允许后台为该品类配置过的属性键。当品类配置了枚举值时会把枚举传给 LLM 并对结果做后处理：
+// 落到枚举之外的值视为「未识别」（不会被合并到 collected，由前台让用户手动选）。
 func (u *LLMUsecase) ExtractCollectedAttributes(
 	ctx context.Context,
 	chatModel model.BaseChatModel,
@@ -886,19 +919,42 @@ func (u *LLMUsecase) ExtractCollectedAttributes(
 	retrievalAugment string,
 	prevCollected map[string]string,
 ) (map[string]string, error) {
-	attrs := splitCategoryCommaAttrs(category.Attributes)
-	if len(attrs) == 0 {
+	// 优先用结构化 specs；为空则按旧字符串升级为无枚举 specs（向后兼容）
+	specs := category.ResolveAttributeSpecs()
+	if len(specs) == 0 {
 		return nil, nil
 	}
+	attrs := make([]string, 0, len(specs))
+	for _, s := range specs {
+		attrs = append(attrs, s.Name)
+	}
+
 	system := `你是工作模式下的属性抽取助手。请仅基于用户陈述与可选的附图理解，抽取「明确给出」的属性键值对。
 规则：
 1. 仅允许使用「后台属性列表」中的键名作为 key，键名需与列表中的原文完全一致。
-2. value 取用户陈述/附图中的具体值，单值（如 "500ml"、"马口铁"），不要带单位说明或解释。
-3. 用户没明确说明的属性请不要列出，不要臆测。
-4. 输出严格 JSON：{"collected":{"键":"值"}}；若没有任何明确属性，输出 {"collected":{}}。`
-	user := fmt.Sprintf("命中品类：%s\n后台属性列表：%s\n\n对话上下文：\n%s",
+2. 如果该属性配置了「允许值枚举」：value 必须严格从枚举中选取（与枚举原文完全一致）；若用户描述与所有枚举都不匹配或不确定，请不要列出该项。
+3. 如果该属性未配置枚举：value 取用户陈述/附图中的具体值（如 "500ml"、"马口铁"），不要带说明或解释。
+4. 用户没明确说明的属性请不要列出，不要臆测。
+5. 输出严格 JSON：{"collected":{"键":"值"}}；若没有任何明确属性，输出 {"collected":{}}。`
+
+	// 构造属性 + 枚举的可读列表
+	var attrList strings.Builder
+	for _, s := range specs {
+		attrList.WriteString("- ")
+		attrList.WriteString(s.Name)
+		if len(s.Values) > 0 {
+			attrList.WriteString("：允许值 = [")
+			attrList.WriteString(strings.Join(s.Values, ", "))
+			attrList.WriteString("]")
+		} else {
+			attrList.WriteString("：无枚举约束（自由值）")
+		}
+		attrList.WriteString("\n")
+	}
+
+	user := fmt.Sprintf("命中品类：%s\n后台属性列表：\n%s\n对话上下文：\n%s",
 		strings.TrimSpace(category.Name),
-		strings.Join(attrs, "、"),
+		attrList.String(),
 		strings.TrimSpace(questionContext),
 	)
 	if strings.TrimSpace(retrievalAugment) != "" {
@@ -913,6 +969,21 @@ func (u *LLMUsecase) ExtractCollectedAttributes(
 	}
 	out = strings.TrimSpace(u.trimThinking(out))
 	fresh := parseWorkModeCollectedAttributes(out, attrs)
+	// 枚举后处理：值不在枚举内的项剔除，避免污染 collected
+	if len(fresh) > 0 {
+		for _, s := range specs {
+			if len(s.Values) == 0 {
+				continue
+			}
+			v, ok := fresh[s.Name]
+			if !ok {
+				continue
+			}
+			if !valueInEnum(v, s.Values) {
+				delete(fresh, s.Name)
+			}
+		}
+	}
 	merged := MergeCollectedAttributes(prevCollected, fresh, attrs)
 	u.logger.Debug("work mode collected attrs",
 		log.String("raw", out),
@@ -921,6 +992,24 @@ func (u *LLMUsecase) ExtractCollectedAttributes(
 		log.Any("merged", merged),
 	)
 	return merged, nil
+}
+
+// valueInEnum 判断值是否落在枚举内（忽略大小写、首尾空白；支持包含关系，便于"500ml听装" ~ "500ml"）。
+func valueInEnum(value string, enum []string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return false
+	}
+	for _, e := range enum {
+		c := strings.ToLower(strings.TrimSpace(e))
+		if c == "" {
+			continue
+		}
+		if v == c || strings.Contains(v, c) || strings.Contains(c, v) {
+			return true
+		}
+	}
+	return false
 }
 
 func (u *LLMUsecase) classifyImageDocCategory(

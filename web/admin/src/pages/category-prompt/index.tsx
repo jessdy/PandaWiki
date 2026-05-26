@@ -1,5 +1,6 @@
 import Card from '@/components/Card';
 import {
+  CategoryAttributeSpec,
   CategoryPromptItem,
   getApiV1CategoryPrompts,
   putApiV1CategoryPrompts,
@@ -17,17 +18,43 @@ import {
 import { message } from '@ctzhian/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import AttributeSpecsEditor from './AttributeSpecsEditor';
+import MethodRulesSection from './MethodRulesSection';
 
-const emptyRow = (): CategoryPromptItem => ({
+interface EditableCategory extends CategoryPromptItem {
+  // 编辑态用结构化属性；保存时由它派生 attributes 字符串供后端兼容
+  attribute_specs: CategoryAttributeSpec[];
+}
+
+const emptyRow = (): EditableCategory => ({
   id: '',
   name: '',
   content: '',
   attributes: '',
+  attribute_specs: [],
 });
+
+/** 兼容旧数据：specs 为空时从 attributes 字符串升级出无枚举的 specs。 */
+function ensureSpecs(item: CategoryPromptItem): CategoryAttributeSpec[] {
+  if (item.attribute_specs && item.attribute_specs.length > 0) {
+    return item.attribute_specs.map(s => ({
+      name: (s.name || '').trim(),
+      values: (s.values || []).map(v => v.trim()).filter(Boolean),
+    }));
+  }
+  const raw = (item.attributes || '').trim();
+  if (!raw) return [];
+  return raw
+    .replace(/\uff0c/g, ',')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(name => ({ name, values: [] }));
+}
 
 const CategoryPromptPage = () => {
   const { kb_id } = useAppSelector(s => s.config);
-  const [items, setItems] = useState<CategoryPromptItem[]>([]);
+  const [items, setItems] = useState<EditableCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -36,8 +63,12 @@ const CategoryPromptPage = () => {
     setLoading(true);
     try {
       const res = await getApiV1CategoryPrompts({ id: kb_id });
-      const list = res?.items?.length ? res.items : [emptyRow()];
-      setItems(list);
+      const raw = res?.items?.length ? res.items : [];
+      const list: EditableCategory[] = raw.map(r => ({
+        ...r,
+        attribute_specs: ensureSpecs(r),
+      }));
+      setItems(list.length > 0 ? list : [emptyRow()]);
     } catch {
       setItems([emptyRow()]);
     } finally {
@@ -68,10 +99,16 @@ const CategoryPromptPage = () => {
     }
     setSaving(true);
     try {
-      await putApiV1CategoryPrompts({
-        kb_id,
-        items: items.filter(it => it.name.trim() !== ''),
-      });
+      const payload: CategoryPromptItem[] = items
+        .filter(it => it.name.trim() !== '')
+        .map(it => ({
+          id: it.id,
+          name: it.name,
+          content: it.content,
+          attribute_specs: it.attribute_specs.filter(s => s.name.trim() !== ''),
+          // attributes 字符串由后端从 specs 派生（双写），这里不提交避免拉扯
+        }));
+      await putApiV1CategoryPrompts({ kb_id, items: payload });
       message.success('保存成功');
       await load();
     } finally {
@@ -108,13 +145,14 @@ const CategoryPromptPage = () => {
             提示词
           </Typography>
           <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
-            按品类维护提示词与可选的「属性维护」（多个属性用逗号分隔）。保存时仅保留已填写品类名的条目。图片类文档生成摘要时，会先判断是否属于某一品类：命中则按对应提示词写摘要；未命中则对画面做细致客观描述。智能问答上传附图命中品类后，若填写了属性，会按这些维度引导模型提取检索要点。会优先使用后台已配置的「analysis-vl」多模态模型做画面与品类理解；未配置时回退为当前对话模型（需开启支持图片）。
+            按品类维护提示词与「属性维护」。属性现支持配置枚举值：前台工作模式识别属性时会约束在枚举内，用户调整属性也只能从枚举里选。
+            保存时仅保留已填写品类名的条目。图片类文档生成摘要时，会先判断是否属于某一品类：命中则按对应提示词写摘要；未命中则对画面做细致客观描述。
           </Typography>
           <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
-            前台「工作模式」按以下顺序识别物品：识别品类 → 抽取已收集属性 →
-            在工作模式目录内向量检索候选 → 用文档侧 meta.attributes 精确匹配收敛
-            → 唯一时直接用该文档作答；多候选则按差异属性追问，最多 3
-            轮。请在「工作模式目录」下的物品文档「文档属性」抽屉中按品类逐项填写属性，识别将以结构化属性优先匹配；未填写时回退按摘要做语义判别。
+            前台「工作模式」按以下顺序识别物品：识别品类 → 按枚举抽取属性 →
+            在「开封方法规则」中查表 → 命中即生成方法卡片并链接到对应文档；
+            若未命中规则则回退到既有的「目录内向量检索 + 按文档侧
+            meta.attributes 收敛」流程。
           </Typography>
         </Box>
 
@@ -125,9 +163,7 @@ const CategoryPromptPage = () => {
             {items.map((row, index) => (
               <Stack
                 key={row.id || `row-${index}`}
-                direction={{ xs: 'column', md: 'row' }}
                 gap={2}
-                alignItems={{ md: 'flex-start' }}
                 sx={{
                   p: 2,
                   borderRadius: 1,
@@ -135,62 +171,78 @@ const CategoryPromptPage = () => {
                   borderColor: 'divider',
                 }}
               >
-                <TextField
-                  label='品类名'
-                  size='small'
-                  value={row.name}
-                  onChange={e => {
-                    const v = e.target.value;
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  gap={2}
+                  alignItems={{ md: 'flex-start' }}
+                >
+                  <TextField
+                    label='品类名'
+                    size='small'
+                    value={row.name}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setItems(prev =>
+                        prev.map((it, i) =>
+                          i === index ? { ...it, name: v } : it,
+                        ),
+                      );
+                    }}
+                    sx={{ minWidth: { md: 200 }, flexShrink: 0 }}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <TextField
+                      label='提示词'
+                      size='small'
+                      fullWidth
+                      multiline
+                      minRows={4}
+                      value={row.content}
+                      onChange={e => {
+                        const v = e.target.value;
+                        setItems(prev =>
+                          prev.map((it, i) =>
+                            i === index ? { ...it, content: v } : it,
+                          ),
+                        );
+                      }}
+                    />
+                  </Box>
+                  <IconButton
+                    aria-label='删除品类'
+                    color='error'
+                    onClick={() => removeRow(index)}
+                    sx={{ alignSelf: { xs: 'flex-end', md: 'center' } }}
+                  >
+                    <DeleteOutlineIcon />
+                  </IconButton>
+                </Stack>
+
+                <AttributeSpecsEditor
+                  value={row.attribute_specs}
+                  onChange={specs =>
                     setItems(prev =>
                       prev.map((it, i) =>
-                        i === index ? { ...it, name: v } : it,
+                        i === index ? { ...it, attribute_specs: specs } : it,
                       ),
-                    );
-                  }}
-                  sx={{ minWidth: { md: 200 }, flexShrink: 0 }}
+                    )
+                  }
                 />
-                <Stack sx={{ flex: 1, minWidth: 0 }} gap={1.5}>
-                  <TextField
-                    label='提示词'
-                    size='small'
-                    fullWidth
-                    multiline
-                    minRows={4}
-                    value={row.content}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setItems(prev =>
-                        prev.map((it, i) =>
-                          i === index ? { ...it, content: v } : it,
-                        ),
-                      );
-                    }}
+
+                {row.name.trim() && row.id && (
+                  <MethodRulesSection
+                    kbId={kb_id}
+                    category={row.name.trim()}
+                    attrSpecs={row.attribute_specs.filter(
+                      s => s.name.trim() !== '',
+                    )}
                   />
-                  <TextField
-                    label='属性维护'
-                    size='small'
-                    fullWidth
-                    placeholder='多个属性用逗号分隔，例如：品牌,型号,颜色'
-                    helperText='可选。附图问答命中该品类时，用于引导按这些维度提取检索要点。'
-                    value={row.attributes ?? ''}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setItems(prev =>
-                        prev.map((it, i) =>
-                          i === index ? { ...it, attributes: v } : it,
-                        ),
-                      );
-                    }}
-                  />
-                </Stack>
-                <IconButton
-                  aria-label='删除'
-                  color='error'
-                  onClick={() => removeRow(index)}
-                  sx={{ alignSelf: { xs: 'flex-end', md: 'center' } }}
-                >
-                  <DeleteOutlineIcon />
-                </IconButton>
+                )}
+                {row.name.trim() && !row.id && (
+                  <Typography variant='caption' color='text.tertiary'>
+                    💡 新品类保存后才能开始添加「开封方法规则」。
+                  </Typography>
+                )}
               </Stack>
             ))}
           </Stack>

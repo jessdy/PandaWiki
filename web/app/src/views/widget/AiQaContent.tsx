@@ -57,6 +57,8 @@ import {
   extractWorkModeClarify,
   removeWorkModeClarifyFromAnswer,
 } from '@/utils/workModeClarifyParse';
+import { extractAttributePanel } from '@/utils/attributePanelParse';
+import AttributePanel from '@/components/QaModal/AttributePanel';
 import { v4 as uuidv4 } from 'uuid';
 import ChatLoading from '../../views/chat/ChatLoading';
 import {
@@ -1035,6 +1037,13 @@ const AiQaContent: React.FC<{
                 {/* AI回答内容 */}
                 <StyledAiBubbleContent>
                   {(() => {
+                    // 优先匹配 Phase 2 新协议：ATTRIBUTE_PANEL（结构化方法匹配终态）
+                    const panel = extractAttributePanel(item.a);
+                    if (panel.meta) {
+                      return (
+                        <AttributePanel meta={panel.meta} workChrome={null} />
+                      );
+                    }
                     const { meta, text } = extractWorkModeClarify(item.a);
                     const identified = !!meta && !!meta.identified_doc_id;
                     const isAsking =

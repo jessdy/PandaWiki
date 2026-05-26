@@ -65,6 +65,10 @@ func NewKnowledgeBaseHandler(
 	imgTmplGroup.GET("", h.ListImageDescriptionTemplates)
 	imgTmplGroup.POST("", h.CreateImageDescriptionTemplate)
 
+	methodRuleGroup := group.Group("/method_rules", h.auth.ValidateKBUserPerm(consts.UserKBPermissionFullControl))
+	methodRuleGroup.GET("", h.ListMethodRules)
+	methodRuleGroup.PUT("", h.ReplaceMethodRules)
+
 	return h
 }
 
@@ -336,6 +340,41 @@ func (h *KnowledgeBaseHandler) CreateImageDescriptionTemplate(c echo.Context) er
 		return h.NewResponseWithError(c, "failed to create image description template", err)
 	}
 	return h.NewResponseWithData(c, map[string]any{"item": item})
+}
+
+// ListMethodRules 列出该 KB 下指定品类的开封方法规则；category 留空返回全部。
+func (h *KnowledgeBaseHandler) ListMethodRules(c echo.Context) error {
+	kbID := c.QueryParam("kb_id")
+	if kbID == "" {
+		kbID = c.QueryParam("id")
+	}
+	if kbID == "" {
+		return h.NewResponseWithError(c, "kb_id is required", nil)
+	}
+	category := c.QueryParam("category")
+	items, err := h.usecase.ListMethodRules(c.Request().Context(), kbID, category)
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to list method rules", err)
+	}
+	return h.NewResponseWithData(c, map[string]any{"items": items})
+}
+
+// ReplaceMethodRules 整表替换某 KB 下的开封方法规则。
+func (h *KnowledgeBaseHandler) ReplaceMethodRules(c echo.Context) error {
+	req := &domain.ReplaceMethodRulesReq{}
+	if err := c.Bind(req); err != nil {
+		return h.NewResponseWithError(c, "invalid request", err)
+	}
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
+	}
+	if req.KBID == "" {
+		return h.NewResponseWithError(c, "kb_id is required", nil)
+	}
+	if err := h.usecase.ReplaceMethodRules(c.Request().Context(), req); err != nil {
+		return h.NewResponseWithError(c, "failed to save method rules", err)
+	}
+	return h.NewResponseWithData(c, nil)
 }
 
 // GetKBReleaseList

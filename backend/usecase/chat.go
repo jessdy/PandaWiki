@@ -81,7 +81,38 @@ func (u *ChatUsecase) pickVisionModel(ctx context.Context, chatFallback *domain.
 const (
 	workModeClarifyMarker = "WORK_MODE_CLARIFY"
 	workModeMaxRounds     = 3
+
+	// attributePanelMarker 标记是 Phase 2 引入的新工作模式终态：
+	// 当后台为命中品类配置了 method_rules 时，状态机不再走候选检索/追问/RAG，
+	// 而是给前台推一段结构化数据（品类 + 属性 specs + 已收集 + 命中规则列表）。
+	// 前台据此渲染「属性面板（Select 联动）+ 方法卡片」，并通过单独的 share
+	// 接口对用户调整属性后做实时联动刷新（不再产生新的 assistant 消息）。
+	attributePanelMarker = "ATTRIBUTE_PANEL"
 )
+
+// attributePanelMethod 推送到前端的「命中规则」简化视图（含文档名）
+type attributePanelMethod struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	NodeID      string `json:"node_id"`
+	NodeName    string `json:"node_name,omitempty"`
+}
+
+// attributePanelSpec 推送到前端的属性结构 + 枚举
+type attributePanelSpec struct {
+	Name   string   `json:"name"`
+	Values []string `json:"values,omitempty"`
+}
+
+// attributePanelMeta 写入 assistant message 的 ATTRIBUTE_PANEL marker JSON
+type attributePanelMeta struct {
+	Category     string                 `json:"category"`
+	Specs        []attributePanelSpec   `json:"specs"`
+	Collected    map[string]string      `json:"collected,omitempty"`
+	Unrecognized map[string]string      `json:"unrecognized,omitempty"`
+	Methods      []attributePanelMethod `json:"methods"`
+}
 
 type workModeClarifyMeta struct {
 	Category        string            `json:"category"`
@@ -312,6 +343,15 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		log.Any("collected", collected),
 	)
 
+	// N2.5 RuleTablePath：若后台为该品类配置了 method_rules，则走「结构化 + 规则查表」终态，
+	// 跳过候选检索/追问/RAG，让前台用属性面板 + 规则匹配卡片承担交互。
+	if handled := u.maybeHandleAttributePanel(
+		ctx, eventCh, req, matchedForGate, collected,
+		messageId, userMessageId, blockWords,
+	); handled {
+		return workModeGateResult{Handled: true}
+	}
+
 	// N3 RetrieveCandidates
 	gateQuery := strings.TrimSpace(req.Message)
 	if gateQuery == "" {
@@ -462,6 +502,135 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		u.sendWorkModeClarifyAndFinish(ctx, eventCh, req, messageId, userMessageId, clarify, blockWords)
 		return workModeGateResult{Handled: true}
 	}
+}
+
+// maybeHandleAttributePanel：检测到品类已配置 method_rules 时，跳过老 N3-N5 流程，
+// 推送 ATTRIBUTE_PANEL marker 并结束本次对话流。返回 true 表示状态机已处理。
+//
+// 后续交互（用户调 select 后想看到新的方法卡片）由前台调
+// /share/v1/method_rules/match 直接做查表，不再产生新的 assistant 消息。
+func (u *ChatUsecase) maybeHandleAttributePanel(
+	ctx context.Context,
+	eventCh chan<- domain.SSEEvent,
+	req *domain.ChatRequest,
+	category *domain.CategoryPromptItem,
+	collected map[string]string,
+	messageId, userMessageId string,
+	blockWords []string,
+) bool {
+	if category == nil {
+		return false
+	}
+	rules, err := u.llmUsecase.LoadMethodRulesForCategory(ctx, req.KBID, category.Name)
+	if err != nil {
+		u.logger.Warn("load method rules failed, fallback to legacy flow", log.Error(err))
+		return false
+	}
+	if len(rules) == 0 {
+		return false
+	}
+
+	specs := category.ResolveAttributeSpecs()
+	specsOut := make([]attributePanelSpec, 0, len(specs))
+	for _, s := range specs {
+		specsOut = append(specsOut, attributePanelSpec{Name: s.Name, Values: s.Values})
+	}
+
+	matched := make([]domain.MethodRule, 0, len(rules))
+	for i := range rules {
+		if rules[i].MatchesCollected(collected) {
+			matched = append(matched, rules[i])
+		}
+	}
+
+	// 把命中的规则补上文档名（一次查询所有命中文档）
+	methodsOut, lookupErr := u.buildAttributePanelMethods(ctx, req.KBID, matched)
+	if lookupErr != nil {
+		u.logger.Warn("lookup method rule node names failed, names may be empty", log.Error(lookupErr))
+	}
+
+	meta := attributePanelMeta{
+		Category:  category.Name,
+		Specs:     specsOut,
+		Collected: collected,
+		Methods:   methodsOut,
+	}
+
+	if b, jErr := json.Marshal(map[string]any{
+		"step":   5,
+		"title":  "工作模式：结构化匹配",
+		"detail": fmt.Sprintf("品类「%s」已配置 %d 条规则，本轮命中 %d 条。请在面板内调整属性以联动刷新方法卡片。", category.Name, len(rules), len(matched)),
+	}); jErr == nil {
+		eventCh <- domain.SSEEvent{Type: "chain_step", Content: string(b)}
+	}
+
+	clarify := formatAttributePanel(meta)
+	u.sendWorkModeClarifyAndFinish(ctx, eventCh, req, messageId, userMessageId, clarify, blockWords)
+	return true
+}
+
+// buildAttributePanelMethods 把规则转换为面板里 method 卡片，补上文档名。
+func (u *ChatUsecase) buildAttributePanelMethods(
+	ctx context.Context,
+	kbID string,
+	rules []domain.MethodRule,
+) ([]attributePanelMethod, error) {
+	out := make([]attributePanelMethod, 0, len(rules))
+	if len(rules) == 0 {
+		return out, nil
+	}
+	ids := make([]string, 0, len(rules))
+	for _, r := range rules {
+		if r.NodeID != "" {
+			ids = append(ids, r.NodeID)
+		}
+	}
+	nameMap := map[string]string{}
+	if len(ids) > 0 && u.llmUsecase != nil {
+		if m, err := u.llmUsecase.GetNodeNamesByIDs(ctx, kbID, ids); err == nil {
+			nameMap = m
+		} else {
+			return nil, err
+		}
+	}
+	for _, r := range rules {
+		out = append(out, attributePanelMethod{
+			ID:          r.ID,
+			Name:        r.Name,
+			Description: r.Description,
+			NodeID:      r.NodeID,
+			NodeName:    nameMap[r.NodeID],
+		})
+	}
+	return out, nil
+}
+
+// formatAttributePanel 拼装写入 assistant message 的 marker + 可读 fallback 文本。
+func formatAttributePanel(meta attributePanelMeta) string {
+	// 可读 fallback：老前端没识别 marker 时仍能看到关键信息
+	body := "当前为「工作模式」。已识别品类「" + meta.Category + "」。"
+	if len(meta.Collected) > 0 {
+		body += "已采集属性："
+		parts := make([]string, 0, len(meta.Collected))
+		for k, v := range meta.Collected {
+			parts = append(parts, k+"="+v)
+		}
+		body += strings.Join(parts, "、") + "。"
+	}
+	if len(meta.Methods) > 0 {
+		body += "可能的开封方法："
+		names := make([]string, 0, len(meta.Methods))
+		for _, m := range meta.Methods {
+			names = append(names, m.Name)
+		}
+		body += strings.Join(names, "、") + "。"
+	} else {
+		body += "请在面板内补全属性后查找匹配的开封方法。"
+	}
+	if mb, err := json.Marshal(meta); err == nil {
+		return "<!-- " + attributePanelMarker + " " + string(mb) + " -->\n" + body
+	}
+	return body
 }
 
 // filterAlreadyCollected 从 missing 中剔除已收集到值的属性，避免重复追问。
