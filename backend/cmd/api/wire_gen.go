@@ -74,7 +74,8 @@ func createApp() (*App, error) {
 	userRepository := pg2.NewUserRepository(db, logger)
 	kbRepo := cache2.NewKBRepo(cacheCache)
 	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
-	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepo)
+	imageDescriptionTemplateRepo := pg2.NewImageDescriptionTemplateRepo(db, logger)
+	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepo, imageDescriptionTemplateRepo)
 	if err != nil {
 		return nil, err
 	}

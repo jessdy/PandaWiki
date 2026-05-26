@@ -23,6 +23,7 @@ import {
 import IconPageview1 from '@panda-wiki/icons/IconPageview1';
 import dayjs from 'dayjs';
 import { debounce } from 'lodash-es';
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useLocation,
@@ -33,6 +34,7 @@ import {
 import { WrapContext } from '..';
 import FullTextEditor from './FullTextEditor';
 import Header from './Header';
+import { InlineImageDescriptionTemplate } from './ImageDescriptionTemplatePickerDialog';
 import KbDocLinkPickerDialog from './KbDocLinkPickerDialog';
 import { buildInlineDocLinkHtml } from './kbDocLinkHtml';
 import Summary from './Summary';
@@ -264,31 +266,55 @@ const Wrap = ({
   useEffect(() => {
     const ed = editorRef.editor;
     if (!ed || readOnly) {
-      if (
-        ed &&
-        (ed.storage as { pwKbDocLinkPicker?: unknown }).pwKbDocLinkPicker
-      ) {
-        delete (ed.storage as { pwKbDocLinkPicker?: unknown })
-          .pwKbDocLinkPicker;
+      if (ed) {
+        const store = ed.storage as {
+          pwKbDocLinkPicker?: unknown;
+          pwImageDescriptionPicker?: unknown;
+        };
+        if (store.pwKbDocLinkPicker) delete store.pwKbDocLinkPicker;
+        if (store.pwImageDescriptionPicker)
+          delete store.pwImageDescriptionPicker;
       }
       return;
     }
-    (
-      ed.storage as { pwKbDocLinkPicker?: { open: (api: unknown) => void } }
-    ).pwKbDocLinkPicker = {
-      open: (api: {
-        setHref: (s: string) => void;
-        setTitle: (s: string) => void;
-      }) => {
+    type LinkPickerApi = {
+      setHref: (s: string) => void;
+      setTitle: (s: string) => void;
+    };
+    type InlineImageDescProps = {
+      value?: string;
+      onChange: (s: string) => void;
+    };
+    const store = ed.storage as {
+      pwKbDocLinkPicker?: { open: (api: LinkPickerApi) => void };
+      pwImageDescriptionPicker?: {
+        Inline: (props: InlineImageDescProps) => React.ReactElement;
+      };
+    };
+    store.pwKbDocLinkPicker = {
+      open: (api: LinkPickerApi) => {
         kbPickIntentRef.current = 'link-popover';
         linkPopoverApiRef.current = api;
         setKbDocLinkOpen(true);
       },
     };
+    // 把绑定了当前 kbId 的内联组件挂到 storage 上，供 tiptap patch 在「模版」模式下直接渲染。
+    // 「新增模版」Dialog 由 Inline 内部自管理，因此 Wrap 这里无需额外挂载。
+    const kbId = defaultDetail.kb_id || '';
+    if (kbId) {
+      const InlineImpl = (props: InlineImageDescProps) =>
+        InlineImageDescriptionTemplate({ kbId, ...props });
+      store.pwImageDescriptionPicker = { Inline: InlineImpl };
+    }
     return () => {
-      delete (ed.storage as { pwKbDocLinkPicker?: unknown }).pwKbDocLinkPicker;
+      const cur = ed.storage as {
+        pwKbDocLinkPicker?: unknown;
+        pwImageDescriptionPicker?: unknown;
+      };
+      delete cur.pwKbDocLinkPicker;
+      delete cur.pwImageDescriptionPicker;
     };
-  }, [editorRef.editor, readOnly]);
+  }, [editorRef.editor, readOnly, defaultDetail.kb_id]);
 
   useEffect(() => {
     if (editorRef.editor) {

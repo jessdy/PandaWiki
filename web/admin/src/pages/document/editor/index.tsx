@@ -1,3 +1,4 @@
+import { useAdminSiteBranding } from '@/hooks/useAdminSiteBranding';
 import { getApiV1AppDetail } from '@/request';
 import { getApiV1KnowledgeBaseList } from '@/request/KnowledgeBase';
 import { putApiV1NodeDetail } from '@/request/Node';
@@ -24,6 +25,7 @@ const DocEditor = () => {
   const isWideScreen = useMediaQuery('(min-width:1400px)');
   const dispatch = useAppDispatch();
   const { kb_id = '' } = useAppSelector(state => state.config);
+  useAdminSiteBranding(kb_id || null);
   const [nodeDetail, setNodeDetail] = useState<V1NodeDetailResp>({});
   const [catalogOpen, setCatalogOpen] = useState(true);
 

@@ -61,6 +61,10 @@ func NewKnowledgeBaseHandler(
 	catPromptGroup.GET("", h.GetCategoryPrompts)
 	catPromptGroup.PUT("", h.PutCategoryPrompts)
 
+	imgTmplGroup := group.Group("/image_description_templates", h.auth.ValidateKBUserPerm(consts.UserKBPermissionDocManage))
+	imgTmplGroup.GET("", h.ListImageDescriptionTemplates)
+	imgTmplGroup.POST("", h.CreateImageDescriptionTemplate)
+
 	return h
 }
 
@@ -298,6 +302,40 @@ func (h *KnowledgeBaseHandler) PutCategoryPrompts(c echo.Context) error {
 		return h.NewResponseWithError(c, "failed to save category prompts", err)
 	}
 	return h.NewResponseWithData(c, nil)
+}
+
+// ListImageDescriptionTemplates 列出当前 KB 下指定品类的图片描述模版。
+// category 留空时返回该 KB 全部模版（前端切换品类时会重新请求）。
+func (h *KnowledgeBaseHandler) ListImageDescriptionTemplates(c echo.Context) error {
+	kbID := c.QueryParam("kb_id")
+	if kbID == "" {
+		kbID = c.QueryParam("id")
+	}
+	if kbID == "" {
+		return h.NewResponseWithError(c, "kb_id is required", nil)
+	}
+	category := c.QueryParam("category")
+	items, err := h.usecase.ListImageDescriptionTemplates(c.Request().Context(), kbID, category)
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to list image description templates", err)
+	}
+	return h.NewResponseWithData(c, map[string]any{"items": items})
+}
+
+// CreateImageDescriptionTemplate 新增一条图片描述模版。
+func (h *KnowledgeBaseHandler) CreateImageDescriptionTemplate(c echo.Context) error {
+	req := &domain.CreateImageDescriptionTemplateReq{}
+	if err := c.Bind(req); err != nil {
+		return h.NewResponseWithError(c, "invalid request", err)
+	}
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
+	}
+	item, err := h.usecase.CreateImageDescriptionTemplate(c.Request().Context(), req)
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to create image description template", err)
+	}
+	return h.NewResponseWithData(c, map[string]any{"item": item})
 }
 
 // GetKBReleaseList

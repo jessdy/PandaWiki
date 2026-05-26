@@ -62,3 +62,225 @@ index 70a06316fc1294a11ff90472b939805479de1017..6b0aa773c0241b7147f54fde1f6b0500
      direction: 'row',
      gap: 2,
      alignItems: 'center'
+diff --git a/dist/component/FloatingPopover/index.js b/dist/component/FloatingPopover/index.js
+--- a/dist/component/FloatingPopover/index.js
++++ b/dist/component/FloatingPopover/index.js
+@@ -66,8 +66,15 @@
+   }, [open, anchorEl, placement, offsetValue]);
+   useEffect(function () {
+     if (!open) return;
++    var isInsideMuiOverlay = function isInsideMuiOverlay(target) {
++      // 从 popover 内打开 MUI Dialog / Select 下拉 / Autocomplete 等都会 portal 到 body，
++      // 命中下列任一根节点说明点击落在「叠加层」内，应当视为 popover 的逻辑内部，避免误关。
++      if (!target || typeof target.closest !== 'function') return false;
++      return !!target.closest('.MuiModal-root, .MuiPopover-root, .MuiPopper-root, .MuiAutocomplete-popper');
++    };
+     var handleEscape = function handleEscape(event) {
+       if (event.key === 'Escape') {
++        if (isInsideMuiOverlay(event.target)) return;
+         onClose();
+       }
+     };
+@@ -75,7 +82,7 @@
+       if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+         // 仅当锚点为真实元素时，才检测是否点击在锚点上
+         var isHitAnchor = anchorEl instanceof HTMLElement && anchorEl.contains(event.target);
+-        if (!isHitAnchor) {
++        if (!isHitAnchor && !isInsideMuiOverlay(event.target)) {
+           onClose();
+         }
+       }
+diff --git a/dist/extension/component/Image/Insert.js b/dist/extension/component/Image/Insert.js
+--- a/dist/extension/component/Image/Insert.js
++++ b/dist/extension/component/Image/Insert.js
+@@ -60,40 +60,25 @@
+     return setInsertType(newValue);
+   };
+ 
+-  // 更新图片属性，包含自动获取的宽度
++  // 更新图片属性。
++  // PandaWiki 定制：上传/嵌入图片时默认 width = '25%'，目的是让连续插入的多张图自然横排成一行 4 张。
++  // 浏览器原生支持 <img width="25%">，用户后续拖拽调整大小时会回落为像素值。
+   var updateImageAttributes = /*#__PURE__*/function () {
+     var _ref2 = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime().mark(function _callee(src, title) {
+-      var dimensions;
+       return _regeneratorRuntime().wrap(function _callee$(_context) {
+         while (1) switch (_context.prev = _context.next) {
+           case 0:
+-            _context.prev = 0;
+-            _context.next = 3;
+-            return getImageDimensions(src);
+-          case 3:
+-            dimensions = _context.sent;
+             updateAttributes(_objectSpread({
+               src: src,
+-              width: dimensions.width
+-            }, title ? {
+-              title: title
+-            } : {}));
+-            _context.next = 10;
+-            break;
+-          case 7:
+-            _context.prev = 7;
+-            _context.t0 = _context["catch"](0);
+-            updateAttributes(_objectSpread({
+-              src: src,
+-              width: attrs.width || 400
++              width: '25%'
+             }, title ? {
+               title: title
+             } : {}));
+-          case 10:
++          case 1:
+           case "end":
+             return _context.stop();
+         }
+-      }, _callee, null, [[0, 7]]);
++      }, _callee);
+     }));
+     return function updateImageAttributes(_x, _x2) {
+       return _ref2.apply(this, arguments);
+@@ -127,10 +112,10 @@
+             url = _context2.sent;
+             setEditSrc(url);
+ 
+-            // 直接使用已获取的尺寸，无需再次加载图片
++            // PandaWiki 定制：默认 25% 宽度，自然横排 4 张/行。
+             updateAttributes({
+               src: url,
+-              width: dimensions.width
++              width: '25%'
+             });
+             _context2.next = 19;
+             break;
+diff --git a/dist/extension/node/Image.js b/dist/extension/node/Image.js
+--- a/dist/extension/node/Image.js
++++ b/dist/extension/node/Image.js
+@@ -143,9 +143,10 @@
+                             return getImageDimensionsFromFile(file);
+                           case 15:
+                             dimensions = _context.sent;
++                            // PandaWiki 定制：粘贴/拖拽进来的图片默认 25% 宽度，方便 4 张/行平铺。
+                             chain.setImage({
+                               src: url,
+-                              width: Math.min(dimensions.width, 760)
++                              width: '25%'
+                             }).run();
+                             _context.next = 24;
+                             break;
+@@ -158,7 +159,7 @@
+                             }
+                             fallbackChain.setImage({
+                               src: url,
+-                              width: 760
++                              width: '25%'
+                             }).run();
+                           case 24:
+                             _context.next = 33;
+@@ -174,7 +175,7 @@
+                             }
+                             _chain.setImage({
+                               src: '',
+-                              width: 760
++                              width: '25%'
+                             }).run();
+                           case 33:
+                           case "end":
+diff --git a/dist/extension/component/Image/index.js b/dist/extension/component/Image/index.js
+--- a/dist/extension/component/Image/index.js
++++ b/dist/extension/component/Image/index.js
+@@ -107,6 +107,10 @@
+     _useState12 = _slicedToArray(_useState11, 2),
+     dragCorner = _useState12[0],
+     setDragCorner = _useState12[1];
++  var _useStateDescMode = useState('custom'),
++    _useStateDescMode2 = _slicedToArray(_useStateDescMode, 2),
++    descMode = _useStateDescMode2[0],
++    setDescMode = _useStateDescMode2[1];
+   var dragStartXRef = useRef(0);
+   var dragStartWidthRef = useRef(0);
+   var _useState13 = useState(null),
+@@ -131,6 +135,12 @@
+   // 获取当前实际显示的图片宽度
+   var getCurrentDisplayWidth = function getCurrentDisplayWidth() {
+     if (!imageRef.current) return attrs.width;
++
++    // PandaWiki 定制：width 可能是 '25%' 这类百分比字符串（上传时的默认值），
++    // 此时拖拽起点必须用真实像素 offsetWidth，否则 parseInt('25%') = 25 会让首拖瞬间塌缩。
++    if (typeof attrs.width === 'string') {
++      return imageRef.current.offsetWidth;
++    }
+ 
+     // 获取图片的实际显示宽度（考虑 maxWidth: 100% 的限制）
+     var computedStyle = window.getComputedStyle(imageRef.current);
+@@ -557,7 +567,33 @@
+       lineHeight: '1.5',
+       my: 1
+     }
+-  }, "\u56FE\u7247\u63CF\u8FF0"), /*#__PURE__*/React.createElement(TextField, {
++  }, "\u56FE\u7247\u63CF\u8FF0"), /*#__PURE__*/React.createElement(Stack, {
++    direction: 'row',
++    gap: 0.5,
++    sx: {
++      mb: 1
++    }
++  }, /*#__PURE__*/React.createElement(Button, {
++    size: "small",
++    variant: descMode === 'custom' ? 'contained' : 'outlined',
++    onClick: function onClick() {
++      return setDescMode('custom');
++    },
++    sx: {
++      flex: 1,
++      minWidth: 0
++    }
++  }, "\u81EA\u5B9A\u4E49"), /*#__PURE__*/React.createElement(Button, {
++    size: "small",
++    variant: descMode === 'template' ? 'contained' : 'outlined',
++    onClick: function onClick() {
++      return setDescMode('template');
++    },
++    sx: {
++      flex: 1,
++      minWidth: 0
++    }
++  }, "\u6A21\u7248")), descMode === 'custom' && /*#__PURE__*/React.createElement(TextField, {
+     fullWidth: true,
+     size: "small",
+     value: editTitle,
+@@ -565,7 +601,34 @@
+       return setEditTitle(e.target.value);
+     },
+     placeholder: "\u8F93\u5165\u56FE\u7247\u63CF\u8FF0\uFF08\u53EF\u9009\uFF09"
+-  }), /*#__PURE__*/React.createElement(Stack, {
++  }), descMode === 'template' && /*#__PURE__*/function () {
++    var _editor$storage3, _pwImageDescriptionPicker;
++    var Inline = editor === null || editor === void 0 || (_editor$storage3 = editor.storage) === null || _editor$storage3 === void 0 || (_pwImageDescriptionPicker = _editor$storage3.pwImageDescriptionPicker) === null || _pwImageDescriptionPicker === void 0 ? void 0 : _pwImageDescriptionPicker.Inline;
++    if (!Inline) {
++      return /*#__PURE__*/React.createElement(Box, {
++        sx: {
++          fontSize: '0.75rem',
++          color: 'text.secondary',
++          py: 0.5
++        }
++      }, "\u6A21\u7248\u9009\u62E9\u5668\u672A\u5C31\u7EEA");
++    }
++    return /*#__PURE__*/React.createElement(Inline, {
++      value: editTitle,
++      onChange: setEditTitle
++    });
++  }(), descMode === 'template' && editTitle && /*#__PURE__*/React.createElement(Box, {
++    sx: {
++      fontSize: '0.75rem',
++      color: 'text.secondary',
++      mt: 0.5,
++      px: 1,
++      py: 0.5,
++      bgcolor: 'background.paper3',
++      borderRadius: 1,
++      wordBreak: 'break-all'
++    }
++  }, "\u5C06\u5199\u5165\uFF1A", editTitle), /*#__PURE__*/React.createElement(Stack, {
+     direction: 'row',
+     gap: 1,
+     alignItems: 'center',

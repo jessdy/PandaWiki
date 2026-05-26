@@ -23,28 +23,30 @@ import (
 )
 
 type KnowledgeBaseUsecase struct {
-	repo               *pg.KnowledgeBaseRepository
-	nodeRepo           *pg.NodeRepository
-	ragRepo            *mq.RAGRepository
-	userRepo           *pg.UserRepository
-	rag                rag.RAGService
-	kbCache            *cache.KBRepo
-	logger             *log.Logger
-	config             *config.Config
-	categoryPromptRepo *pg.CategoryPromptRepo
+	repo                  *pg.KnowledgeBaseRepository
+	nodeRepo              *pg.NodeRepository
+	ragRepo               *mq.RAGRepository
+	userRepo              *pg.UserRepository
+	rag                   rag.RAGService
+	kbCache               *cache.KBRepo
+	logger                *log.Logger
+	config                *config.Config
+	categoryPromptRepo    *pg.CategoryPromptRepo
+	imageDescTemplateRepo *pg.ImageDescriptionTemplateRepo
 }
 
-func NewKnowledgeBaseUsecase(repo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, ragRepo *mq.RAGRepository, userRepo *pg.UserRepository, rag rag.RAGService, kbCache *cache.KBRepo, logger *log.Logger, config *config.Config, categoryPromptRepo *pg.CategoryPromptRepo) (*KnowledgeBaseUsecase, error) {
+func NewKnowledgeBaseUsecase(repo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, ragRepo *mq.RAGRepository, userRepo *pg.UserRepository, rag rag.RAGService, kbCache *cache.KBRepo, logger *log.Logger, config *config.Config, categoryPromptRepo *pg.CategoryPromptRepo, imageDescTemplateRepo *pg.ImageDescriptionTemplateRepo) (*KnowledgeBaseUsecase, error) {
 	u := &KnowledgeBaseUsecase{
-		repo:               repo,
-		nodeRepo:           nodeRepo,
-		ragRepo:            ragRepo,
-		userRepo:           userRepo,
-		rag:                rag,
-		logger:             logger.WithModule("usecase.knowledge_base"),
-		config:             config,
-		kbCache:            kbCache,
-		categoryPromptRepo: categoryPromptRepo,
+		repo:                  repo,
+		nodeRepo:              nodeRepo,
+		ragRepo:               ragRepo,
+		userRepo:              userRepo,
+		rag:                   rag,
+		logger:                logger.WithModule("usecase.knowledge_base"),
+		config:                config,
+		kbCache:               kbCache,
+		categoryPromptRepo:    categoryPromptRepo,
+		imageDescTemplateRepo: imageDescTemplateRepo,
 	}
 	return u, nil
 }
@@ -357,4 +359,77 @@ func (u *KnowledgeBaseUsecase) ReplaceCategoryPrompts(ctx context.Context, req *
 		})
 	}
 	return u.categoryPromptRepo.ReplaceForKBID(ctx, req.KBID, out)
+}
+
+// ListImageDescriptionTemplates 拉取该 KB 下指定品类的全部图片描述模版；
+// category 为空时返回该 KB 的全部模版。
+func (u *KnowledgeBaseUsecase) ListImageDescriptionTemplates(ctx context.Context, kbID, category string) ([]domain.ImageDescriptionTemplate, error) {
+	if u.imageDescTemplateRepo == nil {
+		return []domain.ImageDescriptionTemplate{}, nil
+	}
+	items, err := u.imageDescTemplateRepo.GetByKBID(ctx, kbID)
+	if err != nil {
+		return nil, err
+	}
+	cat := strings.TrimSpace(category)
+	out := make([]domain.ImageDescriptionTemplate, 0, len(items))
+	for _, it := range items {
+		if cat != "" && strings.TrimSpace(it.Category) != cat {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out, nil
+}
+
+// CreateImageDescriptionTemplate 追加一条模版。先拉全量、追加后再整表写回。
+// 同 KB + 同品类下，模版名重复会直接返回错误，避免后续选择时无法区分。
+func (u *KnowledgeBaseUsecase) CreateImageDescriptionTemplate(ctx context.Context, req *domain.CreateImageDescriptionTemplateReq) (*domain.ImageDescriptionTemplate, error) {
+	if u.imageDescTemplateRepo == nil {
+		return nil, errors.New("image description template repo unavailable")
+	}
+	category := strings.TrimSpace(req.Category)
+	name := strings.TrimSpace(req.Name)
+	if category == "" {
+		return nil, errors.New("category is required")
+	}
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+
+	existing, err := u.imageDescTemplateRepo.GetByKBID(ctx, req.KBID)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range existing {
+		if strings.TrimSpace(it.Category) == category && strings.TrimSpace(it.Name) == name {
+			return nil, fmt.Errorf("品类「%s」下已存在同名模版「%s」", category, name)
+		}
+	}
+
+	cleanAttrs := make(map[string]string, len(req.Attributes))
+	for k, v := range req.Attributes {
+		key := strings.TrimSpace(k)
+		val := strings.TrimSpace(v)
+		if key == "" {
+			continue
+		}
+		cleanAttrs[key] = val
+	}
+
+	now := time.Now().Unix()
+	item := domain.ImageDescriptionTemplate{
+		ID:         uuid.New().String(),
+		Category:   category,
+		Name:       name,
+		Attributes: cleanAttrs,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+
+	merged := append(existing, item)
+	if err := u.imageDescTemplateRepo.Replace(ctx, req.KBID, merged); err != nil {
+		return nil, err
+	}
+	return &item, nil
 }

@@ -1,6 +1,7 @@
 import { getApiV1NodeList } from '@/request/Node';
 import { DomainNodeListItemResp, DomainNodeType } from '@/request/types';
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -25,8 +26,9 @@ export interface KbDocLinkPickerDialogProps {
   onClose: () => void;
   kbId: string;
   currentNodeId?: string;
+  /** 当前知识库的前台访问地址（如 https://wiki.example.com）。为空则禁止插入。 */
   wikiFrontBaseUrl: string;
-  /** 选中一篇文档后的 href（前台 URL 或 /node/id）与展示标题 */
+  /** 选中一篇文档后的 href（绝对的前台 URL）与展示标题 */
   onPick: (href: string, title: string) => void;
 }
 
@@ -42,13 +44,14 @@ const KbDocLinkPickerDialog = ({
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<DomainNodeListItemResp[]>([]);
 
-  const hrefForNode = useCallback(
-    (nodeId: string) => {
-      const base = wikiFrontBaseUrl.replace(/\/$/, '');
-      if (base) return `${base}/node/${nodeId}`;
-      return `/node/${nodeId}`;
-    },
+  const frontBase = useMemo(
+    () => wikiFrontBaseUrl.replace(/\/$/, ''),
     [wikiFrontBaseUrl],
+  );
+
+  const hrefForNode = useCallback(
+    (nodeId: string) => `${frontBase}/node/${nodeId}`,
+    [frontBase],
   );
 
   const load = useCallback(
@@ -93,6 +96,10 @@ const KbDocLinkPickerDialog = ({
   }, [open, load]);
 
   const handlePick = (item: DomainNodeListItemResp) => {
+    if (!frontBase) {
+      message.error('当前知识库尚未配置前台访问域名，无法生成可用的文档链接');
+      return;
+    }
     const id = item.id!;
     const name = (item.name || '未命名').trim() || '未命名';
     const href = hrefForNode(id);
@@ -106,7 +113,14 @@ const KbDocLinkPickerDialog = ({
       <DialogContent>
         <Typography variant='body2' color='text.secondary' sx={{ mb: 1.5 }}>
           搜索文档标题，点击一行即可选择文档（用于当前链接表单或插入正文）。
+          生成的链接指向当前知识库的前台展示地址，与「前台查看」一致。
         </Typography>
+        {!frontBase && (
+          <Alert severity='warning' sx={{ mb: 1.5 }}>
+            当前知识库尚未配置前台访问域名（设置 →
+            域名/端口），无法生成可用的前台链接，请先在设置中配置。
+          </Alert>
+        )}
         <TextField
           autoFocus
           fullWidth
@@ -136,6 +150,7 @@ const KbDocLinkPickerDialog = ({
                   key={row.id}
                   onClick={() => handlePick(row)}
                   selected={row.id === currentNodeId}
+                  disabled={!frontBase}
                 >
                   <ListItemText
                     primary={
