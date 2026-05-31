@@ -236,7 +236,7 @@ export const postApiV1UserGuestCreate = (
 export const putApiV1UserGuestId = (
   params: {
     id: string;
-    body: V1CreateUserReq;
+    body: import('./types').V1UpdateGuestUserReq;
   },
   requestParams: RequestParams = {},
 ) =>

@@ -13,6 +13,7 @@ type User struct {
 	Account    string          `json:"account" gorm:"uniqueIndex"`
 	Password   string          `json:"password"`
 	Role       consts.UserRole `json:"role" gorm:"default:'user'"`
+	Region     string          `json:"region" gorm:"default:''"`
 	CreatedAt  time.Time       `json:"created_at"`
 	LastAccess time.Time       `json:"last_access" gorm:"default:null"`
 }

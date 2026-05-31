@@ -12,6 +12,7 @@ import {
   getApiV1UserAuthGroupList,
 } from '@/request/User';
 import { useAppSelector } from '@/store';
+import { USER_REGION_OPTIONS } from '@/constant/area';
 
 type UserUpdateProps = {
   user: V1UserListItemResp;
@@ -41,12 +42,14 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
   } = useForm({
     defaultValues: {
       password: '',
+      region: user.region || '',
       groups: [] as AuthGroupOption[],
     },
   });
 
   useEffect(() => {
     setUpdateOpen(true);
+    setValue('region', user.region || '');
     if (user.id) {
       loadUserGroups();
       loadAllGroups();
@@ -117,13 +120,15 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
 
     // 检查是否有实际变化
     const hasPasswordChange = !!data.password;
+    const hasRegionChange =
+      (data.region || '').trim() !== (user.region || '').trim();
     const currentGroupIds = (data.groups || []).map(g => g.id).sort();
     const initialGroupIds = initialGroups.map(g => g.id).sort();
     const hasGroupChange =
       JSON.stringify(currentGroupIds) !== JSON.stringify(initialGroupIds);
 
-    if (!hasPasswordChange && !hasGroupChange) {
-      message.warning('请至少修改密码或用户组');
+    if (!hasPasswordChange && !hasGroupChange && !hasRegionChange) {
+      message.warning('请至少修改密码、地区或用户组');
       return;
     }
 
@@ -131,16 +136,20 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
 
     const promises: Promise<unknown>[] = [];
 
-    // 如果修改了密码，更新密码
     if (hasPasswordChange) {
       promises.push(
         putApiV1UserGuestId({
           id: user.id,
-          body: {
-            account: user.account || '',
-            password: data.password,
-            role: 'guest',
-          } as unknown as import('@/request/types').V1CreateUserReq,
+          body: { password: data.password },
+        }),
+      );
+    }
+
+    if (hasRegionChange) {
+      promises.push(
+        putApiV1UserGuestId({
+          id: user.id,
+          body: { region: (data.region || '').trim() },
         }),
       );
     }
@@ -228,6 +237,29 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
             生成
           </Button>
         </Stack>
+      </FormItem>
+      <FormItem label='地区' sx={{ mt: 2 }}>
+        <Controller
+          control={control}
+          name='region'
+          render={({ field }) => (
+            <Autocomplete
+              freeSolo
+              options={USER_REGION_OPTIONS}
+              value={field.value}
+              onChange={(_, value) => field.onChange(value ?? '')}
+              onInputChange={(_, value) => field.onChange(value)}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  size='small'
+                  placeholder='选择省份或输入地区'
+                  helperText='用于用户归属地统计'
+                />
+              )}
+            />
+          )}
+        />
       </FormItem>
       <FormItem label='用户组' sx={{ mt: 2 }}>
         <Controller

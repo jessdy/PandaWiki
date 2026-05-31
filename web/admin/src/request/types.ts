@@ -1645,11 +1645,17 @@ export interface V1CrawlerResultsResp {
   status?: ConstsCrawlerStatus;
 }
 
+export interface V1UpdateGuestUserReq {
+  password?: string;
+  region?: string;
+}
+
 export interface V1CreateUserReq {
   account: string;
   /** @minLength 8 */
   password: string;
-  role: "admin" | "user";
+  region?: string;
+  role: "admin" | "user" | "guest";
 }
 
 export interface V1CreateUserResp {
@@ -1822,6 +1828,7 @@ export interface V1UserListItemResp {
   id?: string;
   kb_perms?: V1UserKBPermItem[];
   last_access?: string;
+  region?: string;
   role?: ConstsUserRole;
 }
 

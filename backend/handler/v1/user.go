@@ -373,6 +373,7 @@ func (h *UserHandler) CreateGuestUser(c echo.Context) error {
 		Account:  req.Account,
 		Password: req.Password,
 		Role:     req.Role,
+		Region:   strings.TrimSpace(req.Region),
 	}, consts.GetLicenseEdition(c))
 	if err != nil {
 		return h.NewResponseWithError(c, "failed to create guest user", err)
@@ -389,7 +390,7 @@ func (h *UserHandler) CreateGuestUser(c echo.Context) error {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string				true	"User ID"
-//	@Param			body	body		v1.CreateUserReq	true	"UpdateGuestUser Request"
+//	@Param			body	body		v1.UpdateGuestUserReq	true	"UpdateGuestUser Request"
 //	@Success		200		{object}	domain.Response
 //	@Router			/api/v1/user/guest/:id [put]
 func (h *UserHandler) UpdateGuestUser(c echo.Context) error {
@@ -398,8 +399,12 @@ func (h *UserHandler) UpdateGuestUser(c echo.Context) error {
 		return h.NewResponseWithError(c, "user id is required", nil)
 	}
 
-	var req v1.CreateUserReq
+	var req v1.UpdateGuestUserReq
 	if err := c.Bind(&req); err != nil {
+		return h.NewResponseWithError(c, "invalid request", err)
+	}
+
+	if err := c.Validate(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
 
@@ -414,13 +419,19 @@ func (h *UserHandler) UpdateGuestUser(c echo.Context) error {
 	}
 
 	// 更新密码
-	if req.Password != "" {
+	if req.Password != nil && *req.Password != "" {
 		err = h.usecase.ResetPassword(c.Request().Context(), &v1.ResetPasswordReq{
 			ID:          userID,
-			NewPassword: req.Password,
+			NewPassword: *req.Password,
 		})
 		if err != nil {
 			return h.NewResponseWithError(c, "failed to update password", err)
+		}
+	}
+
+	if req.Region != nil {
+		if err := h.usecase.UpdateUserRegion(c.Request().Context(), userID, strings.TrimSpace(*req.Region)); err != nil {
+			return h.NewResponseWithError(c, "failed to update region", err)
 		}
 	}
 

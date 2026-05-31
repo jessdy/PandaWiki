@@ -350,3 +350,8 @@ export {
   CountryOption,
   getCountryChineseName,
 };
+
+/** 用户归属地区选项（省级简称，便于统计聚合） */
+export const USER_REGION_OPTIONS = Array.from(
+  new Set(Object.values(ChinaProvinceSortName)),
+).sort((a, b) => a.localeCompare(b, 'zh-CN'));

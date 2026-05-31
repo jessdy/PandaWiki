@@ -1,12 +1,13 @@
 import Card from '@/components/Card';
 import { copyText, generatePassword } from '@/utils';
 import { CheckCircle } from '@mui/icons-material';
-import { Box, Button, Stack, TextField } from '@mui/material';
+import { Box, Button, Stack, TextField, Autocomplete } from '@mui/material';
 import { FormItem } from '@/components/Form';
 import { Modal, message } from '@ctzhian/ui';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { postApiV1UserGuestCreate } from '@/request/User';
+import { USER_REGION_OPTIONS } from '@/constant/area';
 
 type UserAddProps = {
   refresh: () => void;
@@ -27,10 +28,12 @@ const UserAdd = ({ refresh }: UserAddProps) => {
     defaultValues: {
       account: '',
       password: '',
+      region: '',
     },
   });
 
   const account = watch('account');
+  const region = watch('region');
 
   const copyUserInfo = ({
     account,
@@ -51,7 +54,8 @@ const UserAdd = ({ refresh }: UserAddProps) => {
     postApiV1UserGuestCreate({
       account: data.account,
       password,
-      role: 'guest' as any,
+      region: (data.region || '').trim(),
+      role: 'guest',
     })
       .then(() => {
         setPassword(password);
@@ -106,6 +110,12 @@ const UserAdd = ({ refresh }: UserAddProps) => {
             <Box sx={{ width: 80 }}>密码</Box>
             <Box sx={{ fontWeight: 700 }}>{password}</Box>
           </Stack>
+          {region && (
+            <Stack direction={'row'} sx={{ mt: 1 }}>
+              <Box sx={{ width: 80 }}>地区</Box>
+              <Box sx={{ fontWeight: 700 }}>{region}</Box>
+            </Stack>
+          )}
         </Card>
       </Modal>
       <Modal
@@ -173,6 +183,40 @@ const UserAdd = ({ refresh }: UserAddProps) => {
               生成
             </Button>
           </Stack>
+        </FormItem>
+
+        <FormItem label='地区' required sx={{ mt: 2 }}>
+          <Controller
+            control={control}
+            name='region'
+            rules={{
+              required: {
+                value: true,
+                message: '请选择或填写地区',
+              },
+            }}
+            render={({ field }) => (
+              <Autocomplete
+                freeSolo
+                options={USER_REGION_OPTIONS}
+                value={field.value}
+                onChange={(_, value) => field.onChange(value ?? '')}
+                onInputChange={(_, value) => field.onChange(value)}
+                renderInput={params => (
+                  <TextField
+                    {...params}
+                    size='small'
+                    placeholder='选择省份或输入地区'
+                    error={!!errors.region}
+                    helperText={
+                      errors.region?.message ||
+                      '用于用户归属地统计，可输入海外地区'
+                    }
+                  />
+                )}
+              />
+            )}
+          />
         </FormItem>
       </Modal>
     </>

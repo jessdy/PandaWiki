@@ -87,6 +87,10 @@ func (u *UserUsecase) ResetPassword(ctx context.Context, req *v1.ResetPasswordRe
 	return u.repo.UpdateUserPassword(ctx, req.ID, req.NewPassword)
 }
 
+func (u *UserUsecase) UpdateUserRegion(ctx context.Context, userID, region string) error {
+	return u.repo.UpdateUserRegion(ctx, userID, region)
+}
+
 func (u *UserUsecase) DeleteUser(ctx context.Context, userID string) error {
 	return u.repo.DeleteUser(ctx, userID)
 }

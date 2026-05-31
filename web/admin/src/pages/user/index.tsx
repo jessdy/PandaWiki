@@ -27,6 +27,12 @@ const User = () => {
       render: (text: string) => <Box>{text}</Box>,
     },
     {
+      title: '地区',
+      dataIndex: 'region',
+      width: 100,
+      render: (text: string) => <Box>{text?.trim() || '-'}</Box>,
+    },
+    {
       title: '创建时间',
       dataIndex: 'created_at',
       render: (text: string) => (

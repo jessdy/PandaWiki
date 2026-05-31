@@ -10,6 +10,12 @@ type CreateUserReq struct {
 	Account  string          `json:"account" validate:"required"`
 	Password string          `json:"password" validate:"required,min=8"`
 	Role     consts.UserRole `json:"role" validate:"required,oneof=admin user guest"`
+	Region   string          `json:"region"`
+}
+
+type UpdateGuestUserReq struct {
+	Password *string `json:"password" validate:"omitempty,min=8"`
+	Region   *string `json:"region"`
 }
 
 type CreateUserResp struct {
@@ -32,6 +38,7 @@ type UserListItemResp struct {
 	ID         string          `json:"id"`
 	Account    string          `json:"account"`
 	Role       consts.UserRole `json:"role"`
+	Region     string          `json:"region"`
 	LastAccess *time.Time      `json:"last_access"`
 	CreatedAt  *time.Time      `json:"created_at"`
 	// 各 Wiki 站上的权限（超级管理员通常为空，前端按 role 展示全部权限）
