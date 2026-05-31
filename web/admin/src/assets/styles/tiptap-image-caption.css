@@ -1,4 +1,14 @@
-/* 图片说明：换行与限宽，避免 inline-block 链条把编辑器/段落撑出横向滚动 */
+/* 覆盖 @ctzhian/tiptap index.css 中 .react-renderer.node-image 的 margin: 0 .25rem，
+   否则 4×25% + 左右 margin 会换行，图片一键排版无法横排 */
+.tiptap.ProseMirror .react-renderer.node-image.image-wrapper {
+  display: contents !important;
+  width: 25%;
+  max-width: 25%;
+  margin: 0;
+  box-sizing: border-box;
+  vertical-align: top;
+}
+
 .tiptap .image-wrapper,
 .ProseMirror .image-wrapper {
   display: inline-block;
