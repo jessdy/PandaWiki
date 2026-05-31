@@ -110,6 +110,8 @@ export enum ConstsUserKBPermission {
   UserKBPermissionAuditManage = "audit_manage",
   /** 用户管理 */
   UserKBPermissionUserManage = "user_manage",
+  /** 咨询管理（疑难咨询与用户反馈） */
+  UserKBPermissionConsultManage = "consult_manage",
 }
 
 export enum ConstsStatDay {
@@ -1808,10 +1810,17 @@ export interface V1UserInfoResp {
   role?: ConstsUserRole;
 }
 
+export interface V1UserKBPermItem {
+  kb_id?: string;
+  kb_name?: string;
+  perms?: ConstsUserKBPermission[];
+}
+
 export interface V1UserListItemResp {
   account?: string;
   created_at?: string;
   id?: string;
+  kb_perms?: V1UserKBPermItem[];
   last_access?: string;
   role?: ConstsUserRole;
 }

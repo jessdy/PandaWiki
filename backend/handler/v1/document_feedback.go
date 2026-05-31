@@ -36,7 +36,10 @@ func NewDocumentFeedbackHandler(
 
 	pro := e.Group("/api/pro/v1/document",
 		h.auth.Authorize,
-		h.auth.ValidateUserRole(consts.UserRoleAdmin),
+		h.auth.ValidateKBUserPermAny(
+			consts.UserKBPermissionFullControl,
+			consts.UserKBPermissionConsultManage,
+		),
 	)
 	pro.GET("/list", h.List)
 	pro.DELETE("/feedback", h.Delete)

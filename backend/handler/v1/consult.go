@@ -16,8 +16,7 @@ import (
 
 // ConsultHandler 「疑难咨询」后台管理 API。
 //
-// 路由前缀 /api/v1/consult；全部要求 admin 角色。
-// 与前台不同：admin 视图不区分 user_id，全平台咨询都能看到 / 回复 / 改状态 / 删除。
+// 路由前缀 /api/v1/consult；超级管理员或在任一 Wiki 拥有「咨询管理」权限的管理员可访问。
 type ConsultHandler struct {
 	*handler.BaseHandler
 	logger      *log.Logger
@@ -42,10 +41,10 @@ func NewConsultHandler(
 		userUsecase: userUsecase,
 	}
 
-	// 仅 admin（后台用户）可访问；不需要 KB 维度权限校验，因为本功能不区分 KB。
+	// 超级管理员，或在任一 Wiki 站拥有「咨询管理」权限的普通管理员。
 	g := e.Group("/api/v1/consult",
 		h.auth.Authorize,
-		h.auth.ValidateUserRole(consts.UserRoleAdmin),
+		h.auth.ValidateUserRoleOrAnyKBPerm(consts.UserRoleAdmin, consts.UserKBPermissionConsultManage),
 	)
 	g.GET("/list", h.List)
 	g.GET("/open_count", h.OpenCount)

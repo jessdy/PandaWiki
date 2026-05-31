@@ -34,6 +34,14 @@ type UserListItemResp struct {
 	Role       consts.UserRole `json:"role"`
 	LastAccess *time.Time      `json:"last_access"`
 	CreatedAt  *time.Time      `json:"created_at"`
+	// 各 Wiki 站上的权限（超级管理员通常为空，前端按 role 展示全部权限）
+	KBPerms []UserKBPermItem `json:"kb_perms,omitempty"`
+}
+
+type UserKBPermItem struct {
+	KBId   string   `json:"kb_id"`
+	KBName string   `json:"kb_name"`
+	Perms  []string `json:"perms"`
 }
 
 type LoginReq struct {

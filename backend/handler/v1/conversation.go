@@ -26,11 +26,16 @@ func NewConversationHandler(echo *echo.Echo, baseHandler *handler.BaseHandler, l
 		auth:        auth,
 		usecase:     usecase,
 	}
-	group := echo.Group("/api/v1/conversation", handler.auth.Authorize, handler.auth.ValidateKBUserPerm(consts.UserKBPermissionDataOperate))
-	group.GET("", handler.GetConversationList)
-	group.GET("/detail", handler.GetConversationDetail)
-	group.GET("/message/list", handler.GetMessageFeedBackList)
-	group.GET("/message/detail", handler.GetMessageDetail)
+	dataGroup := echo.Group("/api/v1/conversation", handler.auth.Authorize, handler.auth.ValidateKBUserPerm(consts.UserKBPermissionDataOperate))
+	dataGroup.GET("", handler.GetConversationList)
+	dataGroup.GET("/detail", handler.GetConversationDetail)
+
+	feedbackGroup := echo.Group("/api/v1/conversation", handler.auth.Authorize, handler.auth.ValidateKBUserPermAny(
+		consts.UserKBPermissionDataOperate,
+		consts.UserKBPermissionConsultManage,
+	))
+	feedbackGroup.GET("/message/list", handler.GetMessageFeedBackList)
+	feedbackGroup.GET("/message/detail", handler.GetMessageDetail)
 
 	return handler
 }

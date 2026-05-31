@@ -545,6 +545,7 @@ const CardKB = () => {
                           audit_manage: '审核管理',
                           user_manage: '用户管理',
                           data_operate: '数据运营',
+                          consult_manage: '咨询管理',
                         };
                         return (
                           <Chip key={v} label={labels[v] || v} size='small' />
@@ -596,6 +597,17 @@ const CardKB = () => {
                       )}
                     />
                     用户管理
+                  </MenuItem>
+                  <MenuItem
+                    value={ConstsUserKBPermission.UserKBPermissionConsultManage}
+                  >
+                    <Checkbox
+                      size='small'
+                      checked={(it.perms || []).includes(
+                        ConstsUserKBPermission.UserKBPermissionConsultManage,
+                      )}
+                    />
+                    咨询管理
                   </MenuItem>
                 </Select>
 

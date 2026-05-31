@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -108,7 +109,43 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]v1.UserListItemResp, 
 	if err != nil {
 		return nil, err
 	}
+
+	permsMap, err := r.listUserKBPermsMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		users[i].KBPerms = permsMap[users[i].ID]
+	}
 	return users, nil
+}
+
+func (r *UserRepository) listUserKBPermsMap(ctx context.Context) (map[string][]v1.UserKBPermItem, error) {
+	type row struct {
+		UserID string         `gorm:"column:user_id"`
+		KBId   string         `gorm:"column:kb_id"`
+		KBName string         `gorm:"column:kb_name"`
+		Perms  pq.StringArray `gorm:"column:perms"`
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).
+		Table("kb_users kbu").
+		Select("kbu.user_id, kbu.kb_id, kb.name AS kb_name, kbu.perms").
+		Joins("INNER JOIN knowledge_bases kb ON kb.id = kbu.kb_id").
+		Order("kb.name ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string][]v1.UserKBPermItem)
+	for _, item := range rows {
+		out[item.UserID] = append(out[item.UserID], v1.UserKBPermItem{
+			KBId:   item.KBId,
+			KBName: item.KBName,
+			Perms:  item.Perms,
+		})
+	}
+	return out, nil
 }
 
 func (r *UserRepository) ListGuestUsers(ctx context.Context) ([]v1.UserListItemResp, error) {

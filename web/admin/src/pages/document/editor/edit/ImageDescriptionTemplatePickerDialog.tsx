@@ -1,4 +1,5 @@
 import {
+  CategoryAttributeSpec,
   CategoryPromptItem,
   getApiV1CategoryPrompts,
 } from '@/request/CategoryPrompt';
@@ -32,7 +33,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** 解析品类的「属性维护」字符串（支持中英文逗号）。 */
+/** 解析品类的「属性维护」字符串（支持中英文逗号，兼容旧数据）。 */
 function splitAttrKeys(raw?: string): string[] {
   if (!raw) return [];
   return raw
@@ -40,6 +41,26 @@ function splitAttrKeys(raw?: string): string[] {
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
+}
+
+/** 结构化属性优先；无 specs 时从旧 attributes 字符串升级（无枚举）。 */
+function resolveCategoryAttrSpecs(
+  category?: CategoryPromptItem | null,
+): CategoryAttributeSpec[] {
+  if (!category) return [];
+  const specs = category.attribute_specs;
+  if (specs && specs.length > 0) {
+    return specs
+      .map(s => ({
+        name: (s.name || '').trim(),
+        values: (s.values || []).map(v => v.trim()).filter(Boolean),
+      }))
+      .filter(s => s.name !== '');
+  }
+  return splitAttrKeys(category.attributes).map(name => ({
+    name,
+    values: [] as string[],
+  }));
 }
 
 /**
@@ -57,6 +78,94 @@ function renderAsDescription(
     .join('，');
 }
 
+/** 从已渲染的描述文本反解属性值（用于重新打开编辑时回填）。 */
+function parseDescription(
+  desc: string,
+  attrKeys: string[],
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  const text = (desc || '').trim();
+  if (!text || attrKeys.length === 0) return result;
+  attrKeys.forEach(key => {
+    const re = new RegExp(
+      `${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[：:]([^，,]+)`,
+    );
+    const m = text.match(re);
+    if (m?.[1]) result[key] = m[1].trim();
+  });
+  return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* 属性值编辑区（新增模版 / 选中模版后共用）                              */
+/* ------------------------------------------------------------------ */
+
+function AttributeValueFields({
+  attrSpecs,
+  values,
+  onChange,
+}: {
+  attrSpecs: CategoryAttributeSpec[];
+  values: Record<string, string>;
+  onChange: (values: Record<string, string>) => void;
+}) {
+  const setOne = (name: string, v: string) => {
+    onChange({ ...values, [name]: v });
+  };
+
+  return (
+    <>
+      {attrSpecs.map(spec => {
+        const cur = values[spec.name] ?? '';
+        if (spec.values && spec.values.length > 0) {
+          const options =
+            cur && !spec.values.includes(cur)
+              ? [cur, ...spec.values]
+              : spec.values;
+          return (
+            <Select
+              key={spec.name}
+              size='small'
+              fullWidth
+              displayEmpty
+              value={cur}
+              onChange={e => setOne(spec.name, e.target.value)}
+              renderValue={v =>
+                v ? (
+                  `${spec.name}：${v}`
+                ) : (
+                  <em style={{ opacity: 0.55 }}>{spec.name}（未选择）</em>
+                )
+              }
+            >
+              <MenuItem value=''>
+                <em>清空</em>
+              </MenuItem>
+              {options.map(v => (
+                <MenuItem key={v} value={v}>
+                  {spec.name}：{v}
+                </MenuItem>
+              ))}
+            </Select>
+          );
+        }
+        return (
+          <TextField
+            key={spec.name}
+            label={spec.name}
+            size='small'
+            fullWidth
+            helperText='该属性未配置枚举值，可自由输入'
+            value={cur}
+            onChange={e => setOne(spec.name, e.target.value)}
+            placeholder={`${spec.name}：`}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* 新增模版 Dialog                                                     */
 /* 仅在 Inline 组件里点击「新增模版」时打开。                            */
@@ -67,7 +176,7 @@ export interface ImageDescriptionTemplateCreateDialogProps {
   onClose: () => void;
   kbId: string;
   category: string;
-  attrKeys: string[];
+  attrSpecs: CategoryAttributeSpec[];
   /** 保存成功后回调，参数是渲染好的 K-V 描述文本和新建的模版对象 */
   onCreated: (description: string, item: ImageDescriptionTemplate) => void;
 }
@@ -77,9 +186,13 @@ export const ImageDescriptionTemplateCreateDialog = ({
   onClose,
   kbId,
   category,
-  attrKeys,
+  attrSpecs,
   onCreated,
 }: ImageDescriptionTemplateCreateDialogProps) => {
+  const attrKeys = useMemo(
+    () => attrSpecs.map(s => s.name).filter(Boolean),
+    [attrSpecs],
+  );
   const [name, setName] = useState('');
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -140,7 +253,7 @@ export const ImageDescriptionTemplateCreateDialog = ({
       <DialogContent>
         <Stack gap={1.5} sx={{ pt: 0.5 }}>
           <Typography variant='body2' color='text.secondary'>
-            按品类的「属性维护」逐项填值，保存后会自动应用到当前图片，并在以后选择时复用。
+            属性来自「提示词管理」的配置；已配置枚举值的属性请从下拉中选择，未配置枚举的可自由输入。
           </Typography>
           <TextField
             label='模版名称'
@@ -150,18 +263,11 @@ export const ImageDescriptionTemplateCreateDialog = ({
             onChange={e => setName(e.target.value)}
             placeholder='例如：A 系列默认描述'
           />
-          {attrKeys.map(k => (
-            <TextField
-              key={k}
-              label={k}
-              size='small'
-              fullWidth
-              value={values[k] ?? ''}
-              onChange={e =>
-                setValues(prev => ({ ...prev, [k]: e.target.value }))
-              }
-            />
-          ))}
+          <AttributeValueFields
+            attrSpecs={attrSpecs}
+            values={values}
+            onChange={setValues}
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -204,15 +310,20 @@ export const InlineImageDescriptionTemplate = ({
   const [templatesLoading, setTemplatesLoading] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null,
+  );
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
 
   const currentCategory = useMemo(
     () => categories.find(c => c.name.trim() === selectedCategory),
     [categories, selectedCategory],
   );
-  const attrKeys = useMemo(
-    () => splitAttrKeys(currentCategory?.attributes),
+  const attrSpecs = useMemo(
+    () => resolveCategoryAttrSpecs(currentCategory),
     [currentCategory],
   );
+  const attrKeys = useMemo(() => attrSpecs.map(s => s.name), [attrSpecs]);
 
   const loadCategories = useCallback(async () => {
     if (!kbId) return;
@@ -256,16 +367,64 @@ export const InlineImageDescriptionTemplate = ({
 
   useEffect(() => {
     void loadTemplates(selectedCategory);
+    setSelectedTemplateId(null);
+    setEditValues({});
   }, [selectedCategory, loadTemplates]);
 
+  const applyEditValues = useCallback(
+    (next: Record<string, string>) => {
+      setEditValues(next);
+      const desc = renderAsDescription(attrKeys, next);
+      onChange(desc);
+    },
+    [attrKeys, onChange],
+  );
+
+  // 重新打开编辑时：若当前描述能解析出属性值，回填编辑区（不覆盖用户正在编辑的模版选中态）
+  useEffect(() => {
+    if (!selectedCategory || attrKeys.length === 0) return;
+    const parsed = parseDescription(value || '', attrKeys);
+    if (Object.keys(parsed).length === 0) return;
+
+    setEditValues(prev => {
+      const merged = attrKeys.reduce<Record<string, string>>((acc, k) => {
+        acc[k] = parsed[k] ?? prev[k] ?? '';
+        return acc;
+      }, {});
+      const same = attrKeys.every(k => (prev[k] ?? '') === merged[k]);
+      return same ? prev : merged;
+    });
+
+    const matched = templates.find(t => {
+      const preview = renderAsDescription(attrKeys, t.attributes || {});
+      return preview && preview === (value || '').trim();
+    });
+    // 仅在有精确匹配时更新选中项；用户改属性后描述变化时保留原选中，避免编辑区消失
+    if (matched?.id) {
+      setSelectedTemplateId(matched.id);
+    }
+  }, [selectedCategory, attrKeys, value, templates]);
+
   const handlePickTemplate = (tmpl: ImageDescriptionTemplate) => {
-    const desc = renderAsDescription(attrKeys, tmpl.attributes || {});
-    if (!desc) {
+    const attrs = tmpl.attributes || {};
+    const hasValue = attrKeys.some(k => (attrs[k] ?? '').trim() !== '');
+    if (!hasValue) {
       message.warning('该模版没有可用的属性值');
       return;
     }
-    onChange(desc);
+    setSelectedTemplateId(tmpl.id ?? null);
+    applyEditValues(
+      attrKeys.reduce<Record<string, string>>((acc, k) => {
+        acc[k] = (attrs[k] ?? '').trim();
+        return acc;
+      }, {}),
+    );
   };
+
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+  const showAttrEditor =
+    selectedTemplateId !== null ||
+    attrKeys.some(k => (editValues[k] ?? '').trim() !== '');
 
   return (
     <Stack gap={1} sx={{ minHeight: 0 }}>
@@ -333,7 +492,7 @@ export const InlineImageDescriptionTemplate = ({
                   attrKeys,
                   t.attributes || {},
                 );
-                const hit = !!preview && preview === (value || '').trim();
+                const hit = t.id === selectedTemplateId;
                 return (
                   <ListItemButton
                     key={t.id}
@@ -367,6 +526,30 @@ export const InlineImageDescriptionTemplate = ({
         </Box>
       )}
 
+      {selectedCategory && attrSpecs.length > 0 && showAttrEditor && (
+        <Stack
+          gap={1}
+          sx={{
+            p: 1.25,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            bgcolor: 'background.paper3',
+          }}
+        >
+          <Typography variant='caption' color='text.secondary'>
+            {selectedTemplate
+              ? `已选模版「${selectedTemplate.name}」，可按属性调整描述：`
+              : '属性描述（可修改属性值）：'}
+          </Typography>
+          <AttributeValueFields
+            attrSpecs={attrSpecs}
+            values={editValues}
+            onChange={applyEditValues}
+          />
+        </Stack>
+      )}
+
       <Button
         size='small'
         variant='outlined'
@@ -382,10 +565,19 @@ export const InlineImageDescriptionTemplate = ({
         onClose={() => setCreateOpen(false)}
         kbId={kbId}
         category={selectedCategory}
-        attrKeys={attrKeys}
-        onCreated={desc => {
+        attrSpecs={attrSpecs}
+        onCreated={(desc, item) => {
           onChange(desc);
           void loadTemplates(selectedCategory);
+          if (item?.id) {
+            setSelectedTemplateId(item.id);
+            setEditValues(
+              attrKeys.reduce<Record<string, string>>((acc, k) => {
+                acc[k] = (item.attributes?.[k] ?? '').trim();
+                return acc;
+              }, {}),
+            );
+          }
         }}
       />
     </Stack>

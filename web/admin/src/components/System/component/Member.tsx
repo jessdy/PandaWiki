@@ -10,7 +10,7 @@ import {
 import { useAppSelector } from '@/store';
 import { Table } from '@ctzhian/ui';
 import { ColumnType } from '@ctzhian/ui/dist/Table';
-import { Box, Button, Stack } from '@mui/material';
+import { Box, Button, Chip, Stack, Typography } from '@mui/material';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import MemberAdd from './MemberAdd';
@@ -21,6 +21,66 @@ const ConstsUserRoleMap = {
   [ConstsUserRole.UserRoleAdmin]: '超级管理员',
   [ConstsUserRole.UserRoleUser]: '普通管理员',
 };
+
+const PERM_LABELS: Record<string, string> = {
+  [ConstsUserKBPermission.UserKBPermissionFullControl]: '完全控制',
+  [ConstsUserKBPermission.UserKBPermissionDocManage]: '文档管理',
+  [ConstsUserKBPermission.UserKBPermissionDataOperate]: '数据运营',
+  [ConstsUserKBPermission.UserKBPermissionAuditManage]: '审核管理',
+  [ConstsUserKBPermission.UserKBPermissionUserManage]: '用户管理',
+  [ConstsUserKBPermission.UserKBPermissionConsultManage]: '咨询管理',
+};
+
+function renderUserPermissions(record: V1UserListItemResp) {
+  if (record.role === ConstsUserRole.UserRoleAdmin) {
+    return (
+      <Chip label='完全控制（全部 Wiki）' size='small' variant='outlined' />
+    );
+  }
+  const kbPerms = record.kb_perms || [];
+  if (kbPerms.length === 0) {
+    return (
+      <Typography variant='body2' color='text.tertiary'>
+        未分配 Wiki
+      </Typography>
+    );
+  }
+  return (
+    <Stack gap={0.75}>
+      {kbPerms.map(kp => (
+        <Stack
+          key={kp.kb_id || kp.kb_name}
+          direction='row'
+          gap={0.5}
+          flexWrap='wrap'
+          alignItems='center'
+        >
+          <Typography
+            variant='caption'
+            color='text.secondary'
+            sx={{ flexShrink: 0 }}
+          >
+            {kp.kb_name}：
+          </Typography>
+          {(kp.perms || []).length > 0 ? (
+            (kp.perms || []).map(p => (
+              <Chip
+                key={`${kp.kb_id}-${p}`}
+                label={PERM_LABELS[p] || p}
+                size='small'
+                variant='outlined'
+              />
+            ))
+          ) : (
+            <Typography variant='caption' color='text.tertiary'>
+              无权限
+            </Typography>
+          )}
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
 
 const Member = ({ tableHeight = '338px' }: { tableHeight?: string }) => {
   const { user, kbDetail } = useAppSelector(state => state.config);
@@ -67,11 +127,18 @@ const Member = ({ tableHeight = '338px' }: { tableHeight?: string }) => {
     {
       title: '身份',
       dataIndex: 'role',
+      width: 120,
       render: (text: ConstsUserRole) => <Box>{ConstsUserRoleMap[text]}</Box>,
+    },
+    {
+      title: '权限',
+      dataIndex: 'kb_perms',
+      render: (_: unknown, record) => renderUserPermissions(record),
     },
     {
       title: '上次使用时间',
       dataIndex: 'last_access',
+      width: 180,
       render: (text: string) => (
         <Box>{text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}</Box>
       ),

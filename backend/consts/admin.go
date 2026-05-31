@@ -9,6 +9,7 @@ const (
 	UserKBPermissionDataOperate UserKBPermission = "data_operate" // 数据运营
 	UserKBPermissionAuditManage UserKBPermission = "audit_manage" // 审核管理（发布文档）
 	UserKBPermissionUserManage  UserKBPermission = "user_manage"  // 用户管理
+	UserKBPermissionConsultManage UserKBPermission = "consult_manage" // 咨询管理（疑难咨询与用户反馈）
 )
 
 type UserKBPermissions []UserKBPermission

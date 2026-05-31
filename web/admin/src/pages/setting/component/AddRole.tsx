@@ -45,6 +45,12 @@ const PERM_OPTIONS = [
     description: '管理用户和管理员',
     proOnly: true,
   },
+  {
+    value: ConstsUserKBPermission.UserKBPermissionConsultManage,
+    label: '咨询管理',
+    description: '管理疑难咨询与用户反馈',
+    proOnly: true,
+  },
 ];
 
 interface AddRoleProps {

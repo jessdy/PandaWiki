@@ -80,6 +80,7 @@ const MENUS = [
     perms: [
       ConstsUserKBPermission.UserKBPermissionFullControl,
       ConstsUserKBPermission.UserKBPermissionDataOperate,
+      ConstsUserKBPermission.UserKBPermissionConsultManage,
     ],
   },
   {
@@ -88,12 +89,9 @@ const MENUS = [
     pathname: 'consult',
     icon: IconBangzhuwendang1,
     show: true,
-    // 后端 /api/v1/consult/* 仅 admin 角色可访问，不依赖 KB 权限。
-    // 这里给一个最宽松的 perms，便于普通管理员也能看到入口；最终鉴权由后端兜底。
     perms: [
       ConstsUserKBPermission.UserKBPermissionFullControl,
-      ConstsUserKBPermission.UserKBPermissionDataOperate,
-      ConstsUserKBPermission.UserKBPermissionAuditManage,
+      ConstsUserKBPermission.UserKBPermissionConsultManage,
     ],
   },
   {
