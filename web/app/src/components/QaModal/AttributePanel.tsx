@@ -504,7 +504,7 @@ const MethodCards: React.FC<MethodCardsProps> = ({
                 },
               }}
             >
-              查看完整文档 →
+              查看解决方案 →
             </Button>
           </Box>
         ))}

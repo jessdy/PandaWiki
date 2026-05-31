@@ -11,7 +11,7 @@ const SettingKeyMethodRules = "method_rules"
 //   - Name        方法名（卡片标题），需在同一品类下唯一
 //   - Description 可选附属说明，前台卡片展示
 //   - Conditions  属性名 → 允许值数组（OR 关系）；列出的属性必须全部命中（AND）；未列出的属性视为通配
-//   - NodeID      关联到具体的文档节点（前台卡片"查看完整文档"跳转目标）
+//   - NodeID      关联到具体的文档节点（前台卡片"查看解决方案"跳转目标）
 type MethodRule struct {
 	ID          string              `json:"id"`
 	Category    string              `json:"category"`
