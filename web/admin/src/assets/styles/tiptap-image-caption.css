@@ -1,6 +1,6 @@
 /* 覆盖 @ctzhian/tiptap index.css 中 .react-renderer.node-image 的 margin: 0 .25rem，
    否则 4×25% + 左右 margin 会换行，图片一键排版无法横排 */
-.tiptap.ProseMirror .react-renderer.node-image.image-wrapper {
+.tiptap.ProseMirror .react-renderer.node-image {
   display: contents !important;
   width: 25%;
   max-width: 25%;
