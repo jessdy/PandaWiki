@@ -37,6 +37,7 @@ services:
     volumes:
       - /root/projects/PandaWiki/web/app/dist/standalone/app/:/app/app/
       - /root/projects/PandaWiki/web/app/dist/static/:/app/app/dist/static/
+      - /root/projects/PandaWiki/web/node_modules/:/app/app/node_modules/
     networks:
       panda-wiki:
         ipv4_address: "${SUBNET_PREFIX:-169.254.15}.112"
