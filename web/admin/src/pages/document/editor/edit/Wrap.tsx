@@ -1,7 +1,7 @@
 import { uploadFile } from '@/api';
 import Emoji from '@/components/Emoji';
 import { BUSINESS_VERSION_PERMISSION } from '@/constant/version';
-import { postApiV1NodeImageSummary, putApiV1NodeDetail } from '@/request';
+import { putApiV1NodeDetail } from '@/request';
 import { V1NodeDetailResp } from '@/request/types';
 import { useAppSelector } from '@/store';
 import { completeIncompleteLinks } from '@/utils';
@@ -40,6 +40,7 @@ import { buildInlineDocLinkHtml } from './kbDocLinkHtml';
 import Summary from './Summary';
 import Toc from './Toc';
 import Toolbar from './Toolbar';
+import { applyImageLayout } from './applyImageLayout';
 import { useWikiFrontBaseUrl } from './useWikiFrontBaseUrl';
 
 interface WrapProps {
@@ -79,7 +80,7 @@ const Wrap = ({
   const [headings, setHeadings] = useState<TocList>([]);
   const [fixedToc, setFixedToc] = useState(!!storageTocOpen);
   const [showSummary, setShowSummary] = useState(false);
-  const [imageSummaryLoading, setImageSummaryLoading] = useState(false);
+  const [imageLayoutLoading, setImageLayoutLoading] = useState(false);
   const [kbDocLinkOpen, setKbDocLinkOpen] = useState(false);
   const kbPickIntentRef = useRef<
     'toolbar' | 'link-popover' | 'markdown' | null
@@ -389,78 +390,23 @@ const Wrap = ({
     return nodeDetail?.content || '';
   }, [editorRef, isMarkdown, nodeDetail?.content]);
 
-  const applyImageSummaries = useCallback(
-    (summaries: string[]) => {
-      const editor = editorRef.editor;
-      if (!editor || summaries.length === 0) return '';
-      let imageIndex = 0;
-      let changed = false;
-      const tr = editor.state.tr;
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name !== 'image') return true;
-        const summary = summaries[imageIndex];
-        imageIndex += 1;
-        if (!summary) return true;
-        tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          title: summary,
-        });
-        changed = true;
-        return true;
-      });
-      if (!changed) return '';
-      editor.view.dispatch(tr);
-      return editorRef.getContent() || '';
-    },
-    [editorRef],
-  );
-
-  const handleImageSummary = useCallback(() => {
-    if (!nodeDetail?.id || !defaultDetail.kb_id || imageSummaryLoading) return;
-    setImageSummaryLoading(true);
-    postApiV1NodeImageSummary({
-      kb_id: defaultDetail.kb_id,
-      ids: [nodeDetail.id],
-      name: nodeDetail.name,
-      content: getCurrentContent(),
-    })
-      .then(res => {
-        const summaries = (res as { summaries?: string[] }).summaries || [];
-        const content = applyImageSummaries(summaries);
-        if (!content) {
-          message.error('未找到可写入描述的图片');
-          return;
-        }
-        updateDetail({ content });
-        return putApiV1NodeDetail({
-          id: nodeDetail.id!,
-          kb_id: defaultDetail.kb_id!,
-          content,
-          name: title || nodeDetail.name || '',
-        }).then(() => {
-          initialStateRef.current = {
-            content,
-            summary,
-            emoji: nodeDetail?.meta?.emoji || '',
-          };
-          setIsEditing(false);
-          message.success('图片描述已生成');
-        });
-      })
-      .finally(() => {
-        setImageSummaryLoading(false);
-      });
-  }, [
-    defaultDetail.kb_id,
-    applyImageSummaries,
-    getCurrentContent,
-    imageSummaryLoading,
-    nodeDetail?.id,
-    nodeDetail?.meta,
-    nodeDetail?.name,
-    summary,
-    title,
-  ]);
+  const handleImageLayout = useCallback(() => {
+    const editor = editorRef.editor;
+    if (!editor || imageLayoutLoading) return;
+    setImageLayoutLoading(true);
+    try {
+      const ok = applyImageLayout(editor);
+      if (!ok) {
+        message.warning('未找到可排版的图片');
+        return;
+      }
+      const content = editorRef.getContent() || '';
+      updateDetail({ content });
+      message.success('图片排版已完成');
+    } finally {
+      setImageLayoutLoading(false);
+    }
+  }, [editorRef, imageLayoutLoading, updateDetail]);
 
   const changeCatalogItem = useCallback(() => {
     if (readOnly) return;
@@ -916,9 +862,9 @@ const Wrap = ({
         {!isMarkdown && !readOnly && (
           <Toolbar
             editorRef={editorRef}
-            imageSummaryLoading={imageSummaryLoading}
+            imageLayoutLoading={imageLayoutLoading}
             onInsertKbDocLink={openKbDocPickerToolbar}
-            onImageSummary={handleImageSummary}
+            onImageLayout={handleImageLayout}
           />
         )}
       </Box>

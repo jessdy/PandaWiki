@@ -1,20 +1,21 @@
 import { EditorToolbar, UseTiptapReturn } from '@ctzhian/tiptap';
+import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import { Box, CircularProgress } from '@mui/material';
-import { IconDJzhinengzhaiyao, IconTianjiawendang } from '@panda-wiki/icons';
+import { IconTianjiawendang } from '@panda-wiki/icons';
 
 interface ToolbarProps {
   editorRef: UseTiptapReturn;
-  imageSummaryLoading?: boolean;
+  imageLayoutLoading?: boolean;
   /** 从知识库已有文档快速插入链接 */
   onInsertKbDocLink?: () => void;
-  onImageSummary?: () => void;
+  onImageLayout?: () => void;
 }
 
 const Toolbar = ({
   editorRef,
-  imageSummaryLoading = false,
+  imageLayoutLoading = false,
   onInsertKbDocLink,
-  onImageSummary,
+  onImageLayout,
 }: ToolbarProps) => {
   return (
     <Box
@@ -42,14 +43,14 @@ const Toolbar = ({
               ]
             : []),
           {
-            id: 'image-summary',
-            label: imageSummaryLoading ? '图片摘要中' : '图片摘要',
-            icon: imageSummaryLoading ? (
+            id: 'image-layout',
+            label: imageLayoutLoading ? '排版中' : '图片一键排版',
+            icon: imageLayoutLoading ? (
               <CircularProgress size={16} />
             ) : (
-              <IconDJzhinengzhaiyao sx={{ fontSize: '1rem' }} />
+              <GridViewOutlinedIcon sx={{ fontSize: '1rem' }} />
             ),
-            onClick: imageSummaryLoading ? undefined : onImageSummary,
+            onClick: imageLayoutLoading ? undefined : onImageLayout,
           },
         ]}
       />
