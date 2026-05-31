@@ -67,19 +67,20 @@ export default function StoreProvider({
     tree: initialTree = context.tree || [],
   } = props;
 
+  // 用 lazy initializer 在 client mount 的第一帧就把 localStorage 值拿到，
+  // 避免「useEffect 读 localStorage」造成首帧 authInfo=undefined → 误判未登录的问题。
+  // SSR 阶段 window 不存在，仍走 undefined；client 端 hydrate 时立即同步取值，无可见闪烁。
   const [localAuthInfo, setLocalAuthInfo] = useState<
     GithubComChaitinPandaWikiProApiShareV1AuthInfoResp | undefined
-  >(undefined);
-
-  useEffect(() => {
+  >(() => {
+    if (typeof window === 'undefined') return undefined;
     try {
-      const raw =
-        typeof window !== 'undefined'
-          ? window.localStorage.getItem('authInfo')
-          : null;
-      if (raw) setLocalAuthInfo(JSON.parse(raw));
-    } catch (_) {}
-  }, []);
+      const raw = window.localStorage.getItem('authInfo');
+      return raw ? JSON.parse(raw) : undefined;
+    } catch {
+      return undefined;
+    }
+  });
 
   const authInfo = authInfoProp ?? localAuthInfo;
 

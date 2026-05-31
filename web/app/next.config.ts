@@ -80,6 +80,13 @@ const nextConfig: NextConfig = {
               basePath: false as const,
             },
             {
+              // /share/pro/v1/* — 含 document_feedback / consult 等 share 侧 pro 接口；
+              // 之前漏配会让 dev 环境下这些请求直接 404。
+              source: '/share/pro/v1/:path*',
+              destination: `${target}/share/pro/v1/:path*`,
+              basePath: false as const,
+            },
+            {
               source: '/api/v1/:path*',
               destination: `${target}/api/v1/:path*`,
               basePath: false as const,

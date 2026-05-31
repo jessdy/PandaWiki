@@ -4,7 +4,6 @@ import Logo from '@/assets/images/logo.png';
 import {
   Stack,
   Box,
-  Button,
   IconButton,
   alpha,
   Tooltip,
@@ -15,18 +14,16 @@ import { IconDengchu } from '@panda-wiki/icons';
 import { useStore } from '@/provider';
 import { useMemo, useState } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
-import { message, Modal } from '@ctzhian/ui';
+import { Modal } from '@ctzhian/ui';
 import {
   Header as CustomHeader,
   WelcomeHeader as WelcomeHeaderComponent,
 } from '@panda-wiki/ui';
 import QaModal from '../QaModal';
-import ThemeSwitch from './themeSwitch';
-import SiteFeedbackDialog from '../SiteFeedbackDialog';
+import ConsultNavButton from './ConsultNavButton';
 import { getImagePath } from '@/utils/getImagePath';
 import { useBasePath } from '@/hooks';
 import { isAuthInfoEmpty } from '@/utils/authInfo';
-import { lacksAccountIdentityForSiteFeedback } from '@/utils/siteFeedbackAuth';
 import { clearCookie } from '@/utils/cookie';
 interface HeaderProps {
   isDocPage?: boolean;
@@ -91,7 +88,6 @@ const Header = ({ isDocPage = false, isWelcomePage = false }: HeaderProps) => {
     setLoginModalOpen,
     authInfo,
   } = useStore();
-  const [siteFbOpen, setSiteFbOpen] = useState(false);
   const basePath = useBasePath();
   const docWidth = useMemo(() => {
     if (isWelcomePage) return 'full';
@@ -104,21 +100,6 @@ const Header = ({ isDocPage = false, isWelcomePage = false }: HeaderProps) => {
       return;
     }
     setQaModalOpen?.(true);
-  };
-
-  const openSiteFeedbackOrLogin = () => {
-    if (isAuthInfoEmpty(authInfo)) {
-      setLoginModalOpen?.(true);
-      return;
-    }
-    if (lacksAccountIdentityForSiteFeedback(authInfo)) {
-      message.error(
-        '问题反馈需使用账号登录（用户名密码或企业 SSO），当前为访问口令认证',
-      );
-      setLoginModalOpen?.(true);
-      return;
-    }
-    setSiteFbOpen(true);
   };
 
   const handleSearch = (value?: string, type: 'chat' | 'search' = 'chat') => {
@@ -159,18 +140,10 @@ const Header = ({ isDocPage = false, isWelcomePage = false }: HeaderProps) => {
       onSearch={handleSearch}
       onQaClick={openQaOrLogin}
     >
-      <Stack sx={{ ml: 2 }} direction='row' alignItems='center' gap={1}>
-        <Button
-          size='small'
-          color='inherit'
-          onClick={openSiteFeedbackOrLogin}
-          sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-        >
-          问题反馈
-        </Button>
-        <ThemeSwitch />
+      <Stack sx={{ ml: 2 }} direction='row' alignItems='center'>
+        <ConsultNavButton />
         {!isAuthInfoEmpty(authInfo) && authInfo && (
-          <>
+          <Stack direction='row' alignItems='center' gap={1} sx={{ ml: 3 }}>
             {authInfo.username && (
               <Typography
                 variant='body2'
@@ -186,13 +159,9 @@ const Header = ({ isDocPage = false, isWelcomePage = false }: HeaderProps) => {
               </Typography>
             )}
             <LogoutButton />
-          </>
+          </Stack>
         )}
       </Stack>
-      <SiteFeedbackDialog
-        open={siteFbOpen}
-        onClose={() => setSiteFbOpen(false)}
-      />
       <QaModal />
     </CustomHeader>
   );
@@ -200,7 +169,6 @@ const Header = ({ isDocPage = false, isWelcomePage = false }: HeaderProps) => {
 
 export const WelcomeHeader = () => {
   const basePath = useBasePath();
-  const [siteFbOpen, setSiteFbOpen] = useState(false);
   const {
     mobile = false,
     kbDetail,
@@ -216,21 +184,6 @@ export const WelcomeHeader = () => {
       return;
     }
     setQaModalOpen?.(true);
-  };
-
-  const openSiteFeedbackOrLogin = () => {
-    if (isAuthInfoEmpty(authInfo)) {
-      setLoginModalOpen?.(true);
-      return;
-    }
-    if (lacksAccountIdentityForSiteFeedback(authInfo)) {
-      message.error(
-        '问题反馈需使用账号登录（用户名密码或企业 SSO），当前为访问口令认证',
-      );
-      setLoginModalOpen?.(true);
-      return;
-    }
-    setSiteFbOpen(true);
   };
 
   const handleSearch = (value?: string, type: 'chat' | 'search' = 'chat') => {
@@ -270,18 +223,10 @@ export const WelcomeHeader = () => {
       onSearch={handleSearch}
       onQaClick={openQaOrLogin}
     >
-      <Stack sx={{ ml: 2 }} direction='row' alignItems='center' gap={1}>
-        <Button
-          size='small'
-          color='inherit'
-          onClick={openSiteFeedbackOrLogin}
-          sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
-        >
-          问题反馈
-        </Button>
-        <ThemeSwitch />
+      <Stack sx={{ ml: 2 }} direction='row' alignItems='center'>
+        <ConsultNavButton />
         {!isAuthInfoEmpty(authInfo) && authInfo && (
-          <>
+          <Stack direction='row' alignItems='center' gap={1} sx={{ ml: 3 }}>
             {authInfo.username && (
               <Typography
                 variant='body2'
@@ -297,13 +242,9 @@ export const WelcomeHeader = () => {
               </Typography>
             )}
             <LogoutButton />
-          </>
+          </Stack>
         )}
       </Stack>
-      <SiteFeedbackDialog
-        open={siteFbOpen}
-        onClose={() => setSiteFbOpen(false)}
-      />
       <QaModal />
     </WelcomeHeaderComponent>
   );

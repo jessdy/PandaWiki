@@ -8,7 +8,7 @@ import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
-import { headers, cookies } from 'next/headers';
+import { headers } from 'next/headers';
 import { getSelectorsByUserAgent } from 'react-device-detect';
 import { getBasePath, getImagePath } from '@/utils';
 import './globals.css';
@@ -66,10 +66,7 @@ const Layout = async ({
 }>) => {
   const headersList = await headers();
   const userAgent = headersList.get('user-agent');
-  const cookieStore = await cookies();
-  const themeMode = (cookieStore.get('theme_mode')?.value || 'light') as
-    | 'light'
-    | 'dark';
+  const themeMode = 'light' as const;
 
   let error: any = null;
 
@@ -124,9 +121,7 @@ const Layout = async ({
           __html: `window._BASE_PATH_ = '${basePath}';window.__KB_ID__=${JSON.stringify(kbIdForClient)};`,
         }}
       />
-      <body
-        className={`${gilory.variable} ${themeMode === 'dark' ? 'dark' : 'light'}`}
-      >
+      <body className={`${gilory.variable} light`}>
         <AppRouterCacheProvider>
           <ThemeStoreProvider themeMode={themeMode}>
             <StoreProvider

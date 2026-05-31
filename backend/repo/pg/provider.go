@@ -22,6 +22,7 @@ var ProviderSet = wire.NewSet(
 	NewCategoryPromptRepo,
 	NewImageDescriptionTemplateRepo,
 	NewMethodRuleRepo,
+	NewConsultRepo,
 	NewBlockWordRepo,
 	NewAuthRepo,
 	NewWechatRepository,

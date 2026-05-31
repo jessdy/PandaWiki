@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -152,6 +153,21 @@ func (u *AuthUsecase) genState(ctx context.Context, stateInfo StateInfo) (string
 	return state, nil
 }
 
+// GetDisplayNameByAuthID 按 auths 主键取展示名（username），供疑难咨询等场景落库 sender_name。
+func (u *AuthUsecase) GetDisplayNameByAuthID(ctx context.Context, authID uint) string {
+	if authID == 0 {
+		return ""
+	}
+	authMap, err := u.AuthRepo.GetAuthUserinfoByIDs(ctx, []uint{authID})
+	if err != nil || len(authMap) == 0 {
+		return ""
+	}
+	if info, ok := authMap[authID]; ok && info != nil {
+		return strings.TrimSpace(info.AuthUserInfo.Username)
+	}
+	return ""
+}
+
 func (u *AuthUsecase) SaveNewSession(c echo.Context, auth *domain.Auth) error {
 	s := c.Get(domain.SessionCacheKey)
 	if s == nil {
@@ -170,6 +186,9 @@ func (u *AuthUsecase) SaveNewSession(c echo.Context, auth *domain.Auth) error {
 
 	newSess.Values["user_id"] = auth.ID
 	newSess.Values["kb_id"] = auth.KBID
+	if name := strings.TrimSpace(auth.UserInfo.Username); name != "" {
+		newSess.Values["auth_user_name"] = name
+	}
 
 	if err := newSess.Save(c.Request(), c.Response()); err != nil {
 		return err

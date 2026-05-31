@@ -3,12 +3,13 @@ import Qrcode from '@/assets/images/qrcode.png';
 import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { ConstsUserKBPermission, ConstsUserRole } from '@/request/types';
 import { Modal } from '@ctzhian/ui';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Avatar from '../Avatar';
 import Version from './Version';
 import { useAppSelector } from '@/store';
 import { useAdminSiteBranding } from '@/hooks/useAdminSiteBranding';
+import { getApiV1ConsultOpenCount } from '@/request/Consult';
 import {
   IconBangzhuwendang1,
   IconNeirongguanli,
@@ -82,6 +83,20 @@ const MENUS = [
     ],
   },
   {
+    label: '咨询',
+    value: '/consult',
+    pathname: 'consult',
+    icon: IconBangzhuwendang1,
+    show: true,
+    // 后端 /api/v1/consult/* 仅 admin 角色可访问，不依赖 KB 权限。
+    // 这里给一个最宽松的 perms，便于普通管理员也能看到入口；最终鉴权由后端兜底。
+    perms: [
+      ConstsUserKBPermission.UserKBPermissionFullControl,
+      ConstsUserKBPermission.UserKBPermissionDataOperate,
+      ConstsUserKBPermission.UserKBPermissionAuditManage,
+    ],
+  },
+  {
     label: '发布',
     value: '/release',
     pathname: 'release',
@@ -127,6 +142,7 @@ const Sidebar = () => {
   const { displayTitle, logoSrc } = useAdminSiteBranding(kb_id || null);
   const theme = useTheme();
   const [showQrcode, setShowQrcode] = useState(false);
+  const [consultOpenCount, setConsultOpenCount] = useState(0);
   const navigate = useNavigate();
   const menus = useMemo(() => {
     const isAdmin = user.role === ConstsUserRole.UserRoleAdmin;
@@ -137,6 +153,37 @@ const Sidebar = () => {
       return it.perms.some(p => userPerms.includes(p));
     });
   }, [kbDetail, user]);
+
+  const showConsultMenu = useMemo(
+    () => menus.some(it => it.pathname === 'consult'),
+    [menus],
+  );
+
+  const loadConsultOpenCount = useCallback(async () => {
+    if (!showConsultMenu) {
+      setConsultOpenCount(0);
+      return;
+    }
+    try {
+      const res = (await getApiV1ConsultOpenCount()) as { count?: number };
+      setConsultOpenCount(Math.max(0, res?.count ?? 0));
+    } catch {
+      // 非 admin 或网络异常时静默忽略
+    }
+  }, [showConsultMenu]);
+
+  useEffect(() => {
+    void loadConsultOpenCount();
+    const timer = window.setInterval(() => void loadConsultOpenCount(), 60000);
+    return () => window.clearInterval(timer);
+  }, [loadConsultOpenCount, pathname]);
+
+  useEffect(() => {
+    const onRefresh = () => void loadConsultOpenCount();
+    window.addEventListener('consult-open-count-changed', onRefresh);
+    return () =>
+      window.removeEventListener('consult-open-count-changed', onRefresh);
+  }, [loadConsultOpenCount]);
 
   useEffect(() => {
     const menu = menus.find(it => {
@@ -233,6 +280,26 @@ const Sidebar = () => {
                   }}
                 />
                 {it.label}
+                {it.pathname === 'consult' && consultOpenCount > 0 && (
+                  <Box
+                    component='span'
+                    sx={{
+                      ml: 'auto',
+                      minWidth: 18,
+                      height: 18,
+                      px: 0.5,
+                      borderRadius: 9,
+                      bgcolor: isActive ? '#FFFFFF' : 'error.main',
+                      color: isActive ? 'error.main' : '#FFFFFF',
+                      fontSize: 11,
+                      lineHeight: '18px',
+                      textAlign: 'center',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {consultOpenCount > 99 ? '99+' : consultOpenCount}
+                  </Box>
+                )}
               </Button>
             </NavLink>
           );

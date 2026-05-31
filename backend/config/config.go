@@ -96,14 +96,15 @@ func NewConfig() (*Config, error) {
 			Port: 8000,
 		},
 		PG: PGConfig{
-			DSN: "host=panda-wiki-postgres user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai",
+			DSN: "host=10.10.10.252 user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5434 sslmode=disable TimeZone=Asia/Shanghai",
 		},
 		MQ: MQConfig{
 			Type: "nats",
 			NATS: NATSConfig{
-				Server:   fmt.Sprintf("nats://%s.13:4222", SUBNET_PREFIX),
+				// Server:   fmt.Sprintf("nats://%s.13:4222", SUBNET_PREFIX),
+				Server:   "nats://10.10.10.252:4222",
 				User:     "panda-wiki",
-				Password: "",
+				Password: "panda-wiki-nats-password",
 			},
 		},
 		RAG: RAGConfig{
