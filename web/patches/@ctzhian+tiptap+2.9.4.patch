@@ -1,8 +1,7 @@
-diff --git a/node_modules/@ctzhian/tiptap/dist/component/FloatingPopover/index.js b/node_modules/@ctzhian/tiptap/dist/component/FloatingPopover/index.js
-index 600384f..7013c3f 100644
---- a/node_modules/@ctzhian/tiptap/dist/component/FloatingPopover/index.js
-+++ b/node_modules/@ctzhian/tiptap/dist/component/FloatingPopover/index.js
-@@ -66,8 +66,15 @@ export var FloatingPopover = function FloatingPopover(_ref) {
+diff -ruN a/dist/component/FloatingPopover/index.js b/dist/component/FloatingPopover/index.js
+--- a/dist/component/FloatingPopover/index.js	1985-10-26 16:15:00
++++ b/dist/component/FloatingPopover/index.js	2026-05-31 19:22:29
+@@ -66,8 +66,15 @@
    }, [open, anchorEl, placement, offsetValue]);
    useEffect(function () {
      if (!open) return;
@@ -18,7 +17,7 @@ index 600384f..7013c3f 100644
          onClose();
        }
      };
-@@ -75,7 +82,7 @@ export var FloatingPopover = function FloatingPopover(_ref) {
+@@ -75,7 +82,7 @@
        if (popoverRef.current && !popoverRef.current.contains(event.target)) {
          // 仅当锚点为真实元素时，才检测是否点击在锚点上
          var isHitAnchor = anchorEl instanceof HTMLElement && anchorEl.contains(event.target);
@@ -27,11 +26,10 @@ index 600384f..7013c3f 100644
            onClose();
          }
        }
-diff --git a/node_modules/@ctzhian/tiptap/dist/component/HoverPopover/index.js b/node_modules/@ctzhian/tiptap/dist/component/HoverPopover/index.js
-index 4cd06a2..ebdc94f 100644
---- a/node_modules/@ctzhian/tiptap/dist/component/HoverPopover/index.js
-+++ b/node_modules/@ctzhian/tiptap/dist/component/HoverPopover/index.js
-@@ -148,7 +148,11 @@ export var HoverPopover = function HoverPopover(_ref) {
+diff -ruN a/dist/component/HoverPopover/index.js b/dist/component/HoverPopover/index.js
+--- a/dist/component/HoverPopover/index.js	1985-10-26 16:15:00
++++ b/dist/component/HoverPopover/index.js	2026-05-31 19:22:29
+@@ -148,7 +148,11 @@
      onMouseEnter: handleMouseEnter,
      onMouseLeave: handleMouseLeave,
      className: "hover-popover-child ".concat(className || ''),
@@ -44,11 +42,10 @@ index 4cd06a2..ebdc94f 100644
    }, children), /*#__PURE__*/React.createElement(FloatingPopover, {
      open: Boolean(anchorEl),
      anchorEl: anchorEl,
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Image/Insert.js b/node_modules/@ctzhian/tiptap/dist/extension/component/Image/Insert.js
-index 27db328..8396eb6 100644
---- a/node_modules/@ctzhian/tiptap/dist/extension/component/Image/Insert.js
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Image/Insert.js
-@@ -60,40 +60,25 @@ var InsertImage = function InsertImage(_ref) {
+diff -ruN a/dist/extension/component/Image/Insert.js b/dist/extension/component/Image/Insert.js
+--- a/dist/extension/component/Image/Insert.js	1985-10-26 16:15:00
++++ b/dist/extension/component/Image/Insert.js	2026-05-31 19:22:29
+@@ -60,40 +60,25 @@
      return setInsertType(newValue);
    };
  
@@ -95,7 +92,7 @@ index 27db328..8396eb6 100644
      }));
      return function updateImageAttributes(_x, _x2) {
        return _ref2.apply(this, arguments);
-@@ -127,10 +112,10 @@ var InsertImage = function InsertImage(_ref) {
+@@ -127,10 +112,10 @@
              url = _context2.sent;
              setEditSrc(url);
  
@@ -108,11 +105,10 @@ index 27db328..8396eb6 100644
              });
              _context2.next = 19;
              break;
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js b/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js
-index 46d7158..585a121 100644
---- a/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js
-@@ -107,6 +107,10 @@ var ImageViewWrapper = function ImageViewWrapper(_ref) {
+diff -ruN a/dist/extension/component/Image/index.js b/dist/extension/component/Image/index.js
+--- a/dist/extension/component/Image/index.js	1985-10-26 16:15:00
++++ b/dist/extension/component/Image/index.js	2026-05-31 19:22:29
+@@ -107,6 +107,10 @@
      _useState12 = _slicedToArray(_useState11, 2),
      dragCorner = _useState12[0],
      setDragCorner = _useState12[1];
@@ -123,7 +119,7 @@ index 46d7158..585a121 100644
    var dragStartXRef = useRef(0);
    var dragStartWidthRef = useRef(0);
    var _useState13 = useState(null),
-@@ -132,6 +136,12 @@ var ImageViewWrapper = function ImageViewWrapper(_ref) {
+@@ -132,6 +136,12 @@
    var getCurrentDisplayWidth = function getCurrentDisplayWidth() {
      if (!imageRef.current) return attrs.width;
  
@@ -136,7 +132,7 @@ index 46d7158..585a121 100644
      // 获取图片的实际显示宽度（考虑 maxWidth: 100% 的限制）
      var computedStyle = window.getComputedStyle(imageRef.current);
      var displayWidth = imageRef.current.offsetWidth;
-@@ -557,7 +567,33 @@ var ImageViewWrapper = function ImageViewWrapper(_ref) {
+@@ -557,7 +567,33 @@
        lineHeight: '1.5',
        my: 1
      }
@@ -171,7 +167,7 @@ index 46d7158..585a121 100644
      fullWidth: true,
      size: "small",
      value: editTitle,
-@@ -565,7 +601,34 @@ var ImageViewWrapper = function ImageViewWrapper(_ref) {
+@@ -565,7 +601,34 @@
        return setEditTitle(e.target.value);
      },
      placeholder: "\u8F93\u5165\u56FE\u7247\u63CF\u8FF0\uFF08\u53EF\u9009\uFF09"
@@ -207,612 +203,10 @@ index 46d7158..585a121 100644
      direction: 'row',
      gap: 1,
      alignItems: 'center',
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js.orig b/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js.orig
-new file mode 100644
-index 0000000..3ee9723
---- /dev/null
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Image/index.js.orig
-@@ -0,0 +1,594 @@
-+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-+function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */ _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw new Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator.return && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw new Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, catch: function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw new Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
-+function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { Promise.resolve(value).then(_next, _throw); } }
-+function _asyncToGenerator(fn) { return function () { var self = this, args = arguments; return new Promise(function (resolve, reject) { var gen = fn.apply(self, args); function _next(value) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value); } function _throw(err) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err); } _next(undefined); }); }; }
-+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
-+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
-+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; }
-+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
-+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
-+import { FloatingPopover } from "../../../component";
-+import { AlignCenterIcon, AlignLeftIcon, AlignRightIcon, CustomSizeIcon, DeleteLineIcon, EditLineIcon } from "../../../component/Icons";
-+import { ToolbarItem } from "../../../component/Toolbar";
-+import { alpha, Box, Button, Divider, Stack, TextField, useTheme } from "@mui/material";
-+import { NodeViewWrapper } from "@tiptap/react";
-+import React, { useCallback, useEffect, useRef, useState } from "react";
-+import { HoverPopover } from "../../../component/HoverPopover";
-+import { ImageViewerItem } from "../../../component/ImageViewer";
-+import CropImage from "./Crop";
-+import InsertImage from "./Insert";
-+import ReadonlyImage from "./Readonly";
-+// 图片尺寸缓存，避免重复加载
-+export var imageDimensionsCache = new Map();
-+
-+// 获取图片尺寸的函数（带缓存）
-+export var getImageDimensions = function getImageDimensions(src) {
-+  // 检查缓存
-+  if (imageDimensionsCache.has(src)) {
-+    return Promise.resolve(imageDimensionsCache.get(src));
-+  }
-+  return new Promise(function (resolve, reject) {
-+    var img = new Image();
-+    img.onload = function () {
-+      var dimensions = {
-+        width: img.naturalWidth,
-+        height: img.naturalHeight
-+      };
-+      // 缓存结果
-+      imageDimensionsCache.set(src, dimensions);
-+      resolve(dimensions);
-+    };
-+    img.onerror = function () {
-+      reject(new Error('无法加载图片'));
-+    };
-+    img.src = src;
-+  });
-+};
-+
-+// 从文件获取图片尺寸（避免重复加载）
-+export var getImageDimensionsFromFile = function getImageDimensionsFromFile(file) {
-+  return new Promise(function (resolve, reject) {
-+    var reader = new FileReader();
-+    reader.onload = function (e) {
-+      var _e$target;
-+      var img = new Image();
-+      img.onload = function () {
-+        resolve({
-+          width: img.naturalWidth,
-+          height: img.naturalHeight
-+        });
-+      };
-+      img.onerror = function () {
-+        reject(new Error('无法读取图片文件'));
-+      };
-+      img.src = (_e$target = e.target) === null || _e$target === void 0 ? void 0 : _e$target.result;
-+    };
-+    reader.onerror = function () {
-+      reject(new Error('无法读取文件'));
-+    };
-+    reader.readAsDataURL(file);
-+  });
-+};
-+var ImageViewWrapper = function ImageViewWrapper(_ref) {
-+  var editor = _ref.editor,
-+    node = _ref.node,
-+    updateAttributes = _ref.updateAttributes,
-+    deleteNode = _ref.deleteNode,
-+    selected = _ref.selected,
-+    onUpload = _ref.onUpload,
-+    _onError = _ref.onError,
-+    onValidateUrl = _ref.onValidateUrl,
-+    getPos = _ref.getPos;
-+  var attrs = node.attrs;
-+  var imageRef = useRef(null);
-+  var theme = useTheme();
-+  var _useState = useState(false),
-+    _useState2 = _slicedToArray(_useState, 2),
-+    isDragging = _useState2[0],
-+    setIsDragging = _useState2[1];
-+  var _useState3 = useState(false),
-+    _useState4 = _slicedToArray(_useState3, 2),
-+    isHovering = _useState4[0],
-+    setIsHovering = _useState4[1];
-+  var _useState5 = useState(false),
-+    _useState6 = _slicedToArray(_useState5, 2),
-+    isCropping = _useState6[0],
-+    setIsCropping = _useState6[1];
-+  var _useState7 = useState(attrs.src || ''),
-+    _useState8 = _slicedToArray(_useState7, 2),
-+    editSrc = _useState8[0],
-+    setEditSrc = _useState8[1];
-+  var _useState9 = useState(attrs.title || ''),
-+    _useState10 = _slicedToArray(_useState9, 2),
-+    editTitle = _useState10[0],
-+    setEditTitle = _useState10[1];
-+  var _useState11 = useState(null),
-+    _useState12 = _slicedToArray(_useState11, 2),
-+    dragCorner = _useState12[0],
-+    setDragCorner = _useState12[1];
-+  var dragStartXRef = useRef(0);
-+  var dragStartWidthRef = useRef(0);
-+  var _useState13 = useState(null),
-+    _useState14 = _slicedToArray(_useState13, 2),
-+    anchorEl = _useState14[0],
-+    setAnchorEl = _useState14[1];
-+  var imageContentRef = useRef(null);
-+  var editButtonRef = useRef(null);
-+  var _useState15 = useState(false),
-+    _useState16 = _slicedToArray(_useState15, 2),
-+    keepHoverPopoverOpen = _useState16[0],
-+    setKeepHoverPopoverOpen = _useState16[1];
-+  var handleShowPopover = function handleShowPopover() {
-+    setKeepHoverPopoverOpen(true);
-+    setAnchorEl(editButtonRef.current);
-+  };
-+  var handleClosePopover = function handleClosePopover() {
-+    setAnchorEl(null);
-+    setKeepHoverPopoverOpen(false);
-+  };
-+
-+  // 获取当前实际显示的图片宽度
-+  var getCurrentDisplayWidth = function getCurrentDisplayWidth() {
-+    if (!imageRef.current) return attrs.width;
-+
-+    // PandaWiki 定制：width 可能是 '25%' 这类百分比字符串（上传时的默认值），
-+    // 此时拖拽起点必须用真实像素 offsetWidth，否则 parseInt('25%') = 25 会让首拖瞬间塌缩。
-+    if (typeof attrs.width === 'string') {
-+      return imageRef.current.offsetWidth;
-+    }
-+
-+    // 获取图片的实际显示宽度（考虑 maxWidth: 100% 的限制）
-+    var computedStyle = window.getComputedStyle(imageRef.current);
-+    var displayWidth = imageRef.current.offsetWidth;
-+
-+    // 如果图片被 CSS 限制为 100%，则使用容器宽度
-+    if (computedStyle.maxWidth === '100%' && displayWidth < attrs.width) {
-+      return displayWidth;
-+    }
-+    return attrs.width;
-+  };
-+  var handleMouseDown = function handleMouseDown(e, corner) {
-+    e.preventDefault();
-+    e.stopPropagation();
-+    setIsDragging(true);
-+    setDragCorner(corner);
-+    dragStartXRef.current = e.clientX;
-+    dragStartWidthRef.current = getCurrentDisplayWidth();
-+  };
-+  var handleImageClick = function handleImageClick(e) {
-+    // 如果正在拖拽调整大小，阻止预览
-+    if (isDragging || dragCorner) {
-+      e.preventDefault();
-+      e.stopPropagation();
-+      return;
-+    }
-+    // 事件会冒泡到 ImageViewerItem 处理
-+  };
-+  var handleMouseMove = useCallback(function (e) {
-+    if (!isDragging || !dragCorner) return;
-+    var deltaX = e.clientX - dragStartXRef.current;
-+    var newWidth;
-+
-+    // 根据不同的角计算宽度变化
-+    if (dragCorner === 'top-right' || dragCorner === 'bottom-right') {
-+      // 右侧角：向右拉伸，宽度增加
-+      newWidth = dragStartWidthRef.current + deltaX;
-+    } else {
-+      // 左侧角：向左拉伸，宽度增加（deltaX 为负时宽度增加）
-+      newWidth = dragStartWidthRef.current - deltaX;
-+    }
-+    newWidth = Math.max(100, Math.min(1200, newWidth));
-+    updateAttributes({
-+      width: newWidth
-+    });
-+  }, [isDragging, dragCorner, updateAttributes]);
-+  var handleMouseUp = useCallback(function () {
-+    setIsDragging(false);
-+    setDragCorner(null);
-+  }, []);
-+  var handleCropClick = function handleCropClick() {
-+    return setIsCropping(true);
-+  };
-+  var handleCropCancel = function handleCropCancel() {
-+    return setIsCropping(false);
-+  };
-+  var handleCropConfirm = function handleCropConfirm(imageUrl) {
-+    updateAttributes({
-+      src: imageUrl
-+    });
-+    setIsCropping(false);
-+  };
-+  var handleSave = /*#__PURE__*/function () {
-+    var _ref2 = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
-+      var validatedUrl, currentWidth;
-+      return _regeneratorRuntime().wrap(function _callee$(_context) {
-+        while (1) switch (_context.prev = _context.next) {
-+          case 0:
-+            if (!editSrc.trim()) {
-+              _context.next = 15;
-+              break;
-+            }
-+            _context.prev = 1;
-+            validatedUrl = editSrc.trim();
-+            if (!onValidateUrl) {
-+              _context.next = 7;
-+              break;
-+            }
-+            _context.next = 6;
-+            return Promise.resolve(onValidateUrl(validatedUrl, 'image'));
-+          case 6:
-+            validatedUrl = _context.sent;
-+          case 7:
-+            currentWidth = getCurrentDisplayWidth();
-+            updateAttributes({
-+              src: validatedUrl,
-+              width: currentWidth,
-+              error: true,
-+              title: editTitle.trim()
-+            });
-+            setEditSrc(validatedUrl);
-+            _context.next = 15;
-+            break;
-+          case 12:
-+            _context.prev = 12;
-+            _context.t0 = _context["catch"](1);
-+            _onError === null || _onError === void 0 || _onError(_context.t0);
-+          case 15:
-+            handleClosePopover();
-+          case 16:
-+          case "end":
-+            return _context.stop();
-+        }
-+      }, _callee, null, [[1, 12]]);
-+    }));
-+    return function handleSave() {
-+      return _ref2.apply(this, arguments);
-+    };
-+  }();
-+  var runTextAlignOnImageParagraph = function runTextAlignOnImageParagraph(align) {
-+    var pos = typeof getPos === 'function' ? getPos() : null;
-+    var chain = editor.chain().focus();
-+    if (pos != null) {
-+      chain.setTextSelection(pos);
-+    }
-+    chain.toggleTextAlign(align).run();
-+  };
-+  useEffect(function () {
-+    if (attrs.src && (!attrs.width || attrs.width <= 0)) {
-+      getImageDimensions(attrs.src).then(function (dimensions) {
-+        try {
-+          var pos = typeof getPos === 'function' ? getPos() : null;
-+          if (pos === null || pos === undefined) return;
-+          var currentNode = editor.state.doc.nodeAt(pos);
-+          if (!currentNode || currentNode.type.name !== 'image') return;
-+          updateAttributes({
-+            src: attrs.src,
-+            title: attrs.title || '',
-+            width: dimensions.width
-+          });
-+        } catch (error) {}
-+      }).catch(function () {
-+        try {
-+          var pos = typeof getPos === 'function' ? getPos() : null;
-+          if (pos === null || pos === undefined) return;
-+          var currentNode = editor.state.doc.nodeAt(pos);
-+          if (!currentNode || currentNode.type.name !== 'image') return;
-+          updateAttributes({
-+            src: attrs.src,
-+            title: attrs.title || '',
-+            width: 400
-+          });
-+        } catch (updateError) {}
-+      });
-+    }
-+  }, [attrs, updateAttributes, getPos, editor]);
-+  useEffect(function () {
-+    setEditSrc(attrs.src || '');
-+    setEditTitle(attrs.title || '');
-+  }, [attrs.src, attrs.title]);
-+  useEffect(function () {
-+    if (isDragging) {
-+      document.addEventListener('mousemove', handleMouseMove);
-+      document.addEventListener('mouseup', handleMouseUp);
-+      return function () {
-+        document.removeEventListener('mousemove', handleMouseMove);
-+        document.removeEventListener('mouseup', handleMouseUp);
-+      };
-+    }
-+  }, [isDragging, handleMouseMove, handleMouseUp]);
-+  if (!attrs.src && !editor.isEditable) {
-+    return null;
-+  }
-+  if (!editor.isEditable) {
-+    return /*#__PURE__*/React.createElement(ReadonlyImage, {
-+      attrs: attrs
-+    });
-+  }
-+  if (!attrs.src) {
-+    return /*#__PURE__*/React.createElement(InsertImage, {
-+      selected: selected,
-+      attrs: attrs,
-+      onUpload: onUpload,
-+      updateAttributes: updateAttributes,
-+      onError: _onError,
-+      onValidateUrl: onValidateUrl
-+    });
-+  }
-+  if (isCropping) {
-+    return /*#__PURE__*/React.createElement(CropImage, {
-+      selected: selected,
-+      attrs: attrs,
-+      onConfirm: handleCropConfirm,
-+      onCancel: handleCropCancel,
-+      onUpload: onUpload,
-+      onError: _onError
-+    });
-+  }
-+  return /*#__PURE__*/React.createElement(NodeViewWrapper, {
-+    className: "image-wrapper ".concat(selected ? 'ProseMirror-selectednode' : ''),
-+    as: 'span',
-+    'data-drag-handle': false
-+  }, /*#__PURE__*/React.createElement(HoverPopover, {
-+    keepOpen: keepHoverPopoverOpen,
-+    placement: "top",
-+    offset: 4,
-+    actions: /*#__PURE__*/React.createElement(Stack, {
-+      direction: 'row',
-+      alignItems: 'center',
-+      sx: {
-+        p: 0.5
-+      }
-+    }, /*#__PURE__*/React.createElement(ToolbarItem, {
-+      ref: editButtonRef,
-+      icon: /*#__PURE__*/React.createElement(EditLineIcon, {
-+        sx: {
-+          fontSize: '1rem'
-+        }
-+      }),
-+      tip: "\u7F16\u8F91\u56FE\u7247",
-+      onClick: handleShowPopover
-+    }), /*#__PURE__*/React.createElement(ToolbarItem, {
-+      icon: /*#__PURE__*/React.createElement(CustomSizeIcon, {
-+        sx: {
-+          fontSize: '1rem'
-+        }
-+      }),
-+      tip: "\u88C1\u5207\u56FE\u7247",
-+      onClick: handleCropClick
-+    }), /*#__PURE__*/React.createElement(Divider, {
-+      orientation: "vertical",
-+      flexItem: true,
-+      sx: {
-+        height: '1rem',
-+        mx: 0.5,
-+        alignSelf: 'center',
-+        borderColor: 'divider'
-+      }
-+    }), /*#__PURE__*/React.createElement(ToolbarItem, {
-+      icon: /*#__PURE__*/React.createElement(AlignLeftIcon, {
-+        sx: {
-+          fontSize: '1rem'
-+        }
-+      }),
-+      tip: "\u5DE6\u4FA7\u5BF9\u9F50",
-+      onClick: function onClick() {
-+        runTextAlignOnImageParagraph('left');
-+      }
-+    }), /*#__PURE__*/React.createElement(ToolbarItem, {
-+      icon: /*#__PURE__*/React.createElement(AlignCenterIcon, {
-+        sx: {
-+          fontSize: '1rem'
-+        }
-+      }),
-+      tip: "\u5C45\u4E2D\u5BF9\u9F50",
-+      onClick: function onClick() {
-+        runTextAlignOnImageParagraph('center');
-+      }
-+    }), /*#__PURE__*/React.createElement(ToolbarItem, {
-+      icon: /*#__PURE__*/React.createElement(AlignRightIcon, {
-+        sx: {
-+          fontSize: '1rem'
-+        }
-+      }),
-+      tip: "\u53F3\u4FA7\u5BF9\u9F50",
-+      onClick: function onClick() {
-+        runTextAlignOnImageParagraph('right');
-+      }
-+    }), /*#__PURE__*/React.createElement(Divider, {
-+      orientation: "vertical",
-+      flexItem: true,
-+      sx: {
-+        height: '1rem',
-+        mx: 0.5,
-+        alignSelf: 'center',
-+        borderColor: 'divider'
-+      }
-+    }), /*#__PURE__*/React.createElement(ToolbarItem, {
-+      icon: /*#__PURE__*/React.createElement(DeleteLineIcon, {
-+        sx: {
-+          fontSize: '1rem'
-+        }
-+      }),
-+      tip: "\u5220\u9664\u56FE\u7247",
-+      onClick: deleteNode
-+    }))
-+  }, /*#__PURE__*/React.createElement(Box, {
-+    component: 'span',
-+    ref: imageContentRef,
-+    sx: {
-+      position: 'relative',
-+      display: 'inline-block'
-+    },
-+    onMouseEnter: function onMouseEnter() {
-+      return setIsHovering(true);
-+    },
-+    onMouseLeave: function onMouseLeave() {
-+      return setIsHovering(false);
-+    }
-+  }, /*#__PURE__*/React.createElement(ImageViewerItem, {
-+    src: attrs.src
-+  }, /*#__PURE__*/React.createElement("img", {
-+    ref: imageRef,
-+    src: attrs.src,
-+    width: attrs.width,
-+    style: {
-+      maxWidth: '100%',
-+      height: 'auto',
-+      cursor: isDragging ? 'default' : 'pointer',
-+      border: '2px solid',
-+      borderColor: isHovering || isDragging ? alpha(theme.palette.primary.main, 0.3) : 'transparent'
-+    },
-+    onClick: handleImageClick,
-+    onError: function onError(e) {
-+      _onError === null || _onError === void 0 || _onError(e);
-+    }
-+  })), (isHovering || isDragging) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Box, {
-+    onMouseDown: function onMouseDown(e) {
-+      return handleMouseDown(e, 'top-left');
-+    },
-+    sx: {
-+      position: 'absolute',
-+      left: -4,
-+      top: -4,
-+      width: 12,
-+      height: 12,
-+      bgcolor: 'background.default',
-+      cursor: 'nwse-resize',
-+      borderRadius: '50%',
-+      border: '2px solid',
-+      borderColor: isDragging && dragCorner === 'top-left' ? 'primary.main' : alpha(theme.palette.primary.main, 0.3),
-+      '&:hover': {
-+        borderColor: 'primary.main'
-+      },
-+      transition: 'background-color 0.2s ease'
-+    }
-+  }), /*#__PURE__*/React.createElement(Box, {
-+    onMouseDown: function onMouseDown(e) {
-+      return handleMouseDown(e, 'top-right');
-+    },
-+    sx: {
-+      position: 'absolute',
-+      right: -4,
-+      top: -4,
-+      width: 12,
-+      height: 12,
-+      bgcolor: 'background.default',
-+      cursor: 'nesw-resize',
-+      borderRadius: '50%',
-+      border: '2px solid',
-+      borderColor: isDragging && dragCorner === 'top-right' ? 'primary.main' : alpha(theme.palette.primary.main, 0.3),
-+      '&:hover': {
-+        borderColor: 'primary.main'
-+      },
-+      transition: 'background-color 0.2s ease'
-+    }
-+  }), /*#__PURE__*/React.createElement(Box, {
-+    onMouseDown: function onMouseDown(e) {
-+      return handleMouseDown(e, 'bottom-left');
-+    },
-+    sx: {
-+      position: 'absolute',
-+      left: -4,
-+      bottom: -2,
-+      width: 12,
-+      height: 12,
-+      cursor: 'nesw-resize',
-+      borderRadius: '50%',
-+      border: '2px solid',
-+      bgcolor: 'background.default',
-+      borderColor: isDragging && dragCorner === 'bottom-left' ? 'primary.main' : alpha(theme.palette.primary.main, 0.3),
-+      '&:hover': {
-+        borderColor: 'primary.main'
-+      },
-+      transition: 'background-color 0.2s ease'
-+    }
-+  }), /*#__PURE__*/React.createElement(Box, {
-+    onMouseDown: function onMouseDown(e) {
-+      return handleMouseDown(e, 'bottom-right');
-+    },
-+    sx: {
-+      position: 'absolute',
-+      right: -4,
-+      bottom: -2,
-+      width: 12,
-+      height: 12,
-+      bgcolor: 'background.default',
-+      cursor: 'nwse-resize',
-+      borderRadius: '50%',
-+      border: '2px solid',
-+      borderColor: isDragging && dragCorner === 'bottom-right' ? 'primary.main' : alpha(theme.palette.primary.main, 0.3),
-+      '&:hover': {
-+        borderColor: 'primary.main'
-+      },
-+      transition: 'background-color 0.2s ease'
-+    }
-+  }))), attrs.title && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement(Box, {
-+    component: "span",
-+    className: "editor-image-title",
-+    sx: {
-+      display: 'inline-block',
-+      fontSize: '0.75rem',
-+      color: 'text.tertiary'
-+    }
-+  }, attrs.title))), /*#__PURE__*/React.createElement(FloatingPopover, {
-+    open: Boolean(anchorEl),
-+    anchorEl: anchorEl,
-+    onClose: handleClosePopover,
-+    placement: "bottom"
-+  }, /*#__PURE__*/React.createElement(Stack, {
-+    sx: {
-+      p: 2,
-+      width: 350
-+    }
-+  }, /*#__PURE__*/React.createElement(Box, {
-+    sx: {
-+      fontSize: '0.75rem',
-+      color: 'text.secondary',
-+      lineHeight: '1.5',
-+      mb: 1
-+    }
-+  }, "\u56FE\u7247\u5730\u5740"), /*#__PURE__*/React.createElement(TextField, {
-+    fullWidth: true,
-+    size: "small",
-+    value: editSrc,
-+    onChange: function onChange(e) {
-+      return setEditSrc(e.target.value);
-+    },
-+    placeholder: "\u8F93\u5165\u56FE\u7247\u7684 URL"
-+  }), /*#__PURE__*/React.createElement(Box, {
-+    sx: {
-+      fontSize: '0.75rem',
-+      color: 'text.secondary',
-+      lineHeight: '1.5',
-+      my: 1
-+    }
-+  }, "\u56FE\u7247\u63CF\u8FF0"), /*#__PURE__*/React.createElement(TextField, {
-+    fullWidth: true,
-+    size: "small",
-+    value: editTitle,
-+    onChange: function onChange(e) {
-+      return setEditTitle(e.target.value);
-+    },
-+    placeholder: "\u8F93\u5165\u56FE\u7247\u63CF\u8FF0\uFF08\u53EF\u9009\uFF09"
-+  }), /*#__PURE__*/React.createElement(Stack, {
-+    direction: 'row',
-+    gap: 1,
-+    alignItems: 'center',
-+    sx: {
-+      mt: 2
-+    }
-+  }, /*#__PURE__*/React.createElement(Button, {
-+    variant: "outlined",
-+    size: "small",
-+    fullWidth: true,
-+    onClick: handleClosePopover
-+  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement(Button, {
-+    variant: "contained",
-+    size: "small",
-+    fullWidth: true,
-+    onClick: handleSave,
-+    disabled: !editSrc.trim()
-+  }, "\u4FDD\u5B58")))));
-+};
-+export default ImageViewWrapper;
-\ No newline at end of file
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js
-index 0961072..0c05a4a 100644
---- a/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js
-@@ -139,7 +139,26 @@ var InsertLink = function InsertLink(_ref) {
+diff -ruN a/dist/extension/component/Link/Insert.js b/dist/extension/component/Link/Insert.js
+--- a/dist/extension/component/Link/Insert.js	1985-10-26 16:15:00
++++ b/dist/extension/component/Link/Insert.js	2026-05-31 19:22:29
+@@ -139,7 +139,26 @@
      required: true,
      error: href.length > 0 && !href.trim(),
      helperText: href.length > 0 && !href.trim() ? "请输入有效的链接地址" : ""
@@ -840,45 +234,10 @@ index 0961072..0c05a4a 100644
      direction: 'row',
      gap: 2,
      alignItems: 'center'
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js.rej b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js.rej
-new file mode 100644
-index 0000000..ab49e9e
---- /dev/null
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/Insert.js.rej
-@@ -0,0 +1,28 @@
-+@@ -139,7 +139,26 @@
-+     required: true,
-+     error: href.length > 0 && !href.trim(),
-+     helperText: href.length > 0 && !href.trim() ? "请输入有效的链接地址" : ""
-+-  })), /*#__PURE__*/React.createElement(Stack, {
-++  })), /*#__PURE__*/React.createElement(Button, {
-++    variant: "text",
-++    size: "small",
-++    fullWidth: true,
-++    sx: {
-++      mt: -0.5,
-++      mb: 0.5,
-++      justifyContent: 'flex-start'
-++    },
-++    onClick: function onClick() {
-++      var _editor$storage, _pwKbDocLinkPicker;
-++      var pick = editor === null || editor === void 0 || (_editor$storage = editor.storage) === null || _editor$storage === void 0 || (_pwKbDocLinkPicker = _editor$storage.pwKbDocLinkPicker) === null || _pwKbDocLinkPicker === void 0 ? void 0 : _pwKbDocLinkPicker.open;
-++      if (typeof pick === 'function') {
-++        pick({
-++          setHref: setHref,
-++          setTitle: setTitle
-++        });
-++      }
-++    }
-++  }, "\u4ece\u77e5\u8bc6\u5e93\u6587\u6863\u9009\u62e9"), /*#__PURE__*/React.createElement(Stack, {
-+     direction: 'row',
-+     gap: 2,
-+     alignItems: 'center'
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js
-index 70a0631..84441c1 100644
---- a/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js
-@@ -326,7 +326,26 @@ var LinkViewWrapper = function LinkViewWrapper(_ref) {
+diff -ruN a/dist/extension/component/Link/index.js b/dist/extension/component/Link/index.js
+--- a/dist/extension/component/Link/index.js	1985-10-26 16:15:00
++++ b/dist/extension/component/Link/index.js	2026-05-31 19:22:29
+@@ -326,7 +326,26 @@
      required: true,
      error: href.length > 0 && !href.trim(),
      helperText: href.length > 0 && !href.trim() ? "请输入有效的链接地址" : ""
@@ -906,45 +265,10 @@ index 70a0631..84441c1 100644
      direction: 'row',
      gap: 2,
      alignItems: 'center'
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js.rej b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js.rej
-new file mode 100644
-index 0000000..6439d0f
---- /dev/null
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js.rej
-@@ -0,0 +1,28 @@
-+@@ -326,7 +326,26 @@
-+     required: true,
-+     error: href.length > 0 && !href.trim(),
-+     helperText: href.length > 0 && !href.trim() ? "请输入有效的链接地址" : ""
-+-  })), /*#__PURE__*/React.createElement(Stack, {
-++  })), /*#__PURE__*/React.createElement(Button, {
-++    variant: "text",
-++    size: "small",
-++    fullWidth: true,
-++    sx: {
-++      mt: -0.5,
-++      mb: 0.5,
-++      justifyContent: 'flex-start'
-++    },
-++    onClick: function onClick() {
-++      var _editor$storage2, _pwKbDocLinkPicker2;
-++      var pick = editor === null || editor === void 0 || (_editor$storage2 = editor.storage) === null || _editor$storage2 === void 0 || (_pwKbDocLinkPicker2 = _editor$storage2.pwKbDocLinkPicker) === null || _pwKbDocLinkPicker2 === void 0 ? void 0 : _pwKbDocLinkPicker2.open;
-++      if (typeof pick === 'function') {
-++        pick({
-++          setHref: setHref,
-++          setTitle: setTitle
-++        });
-++      }
-++    }
-++  }, "\u4ece\u77e5\u8bc6\u5e93\u6587\u6863\u9009\u62e9"), /*#__PURE__*/React.createElement(Stack, {
-+     direction: 'row',
-+     gap: 2,
-+     alignItems: 'center'
-diff --git a/node_modules/@ctzhian/tiptap/dist/extension/node/Image.js b/node_modules/@ctzhian/tiptap/dist/extension/node/Image.js
-index 6e528b0..b011b67 100644
---- a/node_modules/@ctzhian/tiptap/dist/extension/node/Image.js
-+++ b/node_modules/@ctzhian/tiptap/dist/extension/node/Image.js
-@@ -14,6 +14,12 @@ import { ReactNodeViewRenderer } from "@tiptap/react";
+diff -ruN a/dist/extension/node/Image.js b/dist/extension/node/Image.js
+--- a/dist/extension/node/Image.js	1985-10-26 16:15:00
++++ b/dist/extension/node/Image.js	2026-05-31 19:22:29
+@@ -14,6 +14,12 @@
  import ImageViewWrapper, { getImageDimensionsFromFile } from "../component/Image";
  var customImage = function customImage(props) {
    return Image.extend({
@@ -957,7 +281,7 @@ index 6e528b0..b011b67 100644
      addAttributes: function addAttributes() {
        var _this$parent;
        return _objectSpread(_objectSpread({}, (_this$parent = this.parent) === null || _this$parent === void 0 ? void 0 : _this$parent.call(this)), {}, {
-@@ -143,9 +149,10 @@ var customImage = function customImage(props) {
+@@ -143,9 +149,10 @@
                              return getImageDimensionsFromFile(file);
                            case 15:
                              dimensions = _context.sent;
@@ -969,7 +293,7 @@ index 6e528b0..b011b67 100644
                              }).run();
                              _context.next = 24;
                              break;
-@@ -158,7 +165,7 @@ var customImage = function customImage(props) {
+@@ -158,7 +165,7 @@
                              }
                              fallbackChain.setImage({
                                src: url,
@@ -978,7 +302,7 @@ index 6e528b0..b011b67 100644
                              }).run();
                            case 24:
                              _context.next = 33;
-@@ -174,7 +181,7 @@ var customImage = function customImage(props) {
+@@ -174,7 +181,7 @@
                              }
                              _chain.setImage({
                                src: '',
