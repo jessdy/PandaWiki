@@ -1,9 +1,20 @@
 /* 图片说明：换行与限宽，避免 inline-block 链条把编辑器/段落撑出横向滚动 */
 .tiptap .image-wrapper,
 .ProseMirror .image-wrapper {
+  display: inline-block;
+  width: 25%;
+  max-width: 25%;
+  box-sizing: border-box;
+  vertical-align: top;
+}
+
+.tiptap .image-wrapper > .hover-popover-child,
+.ProseMirror .image-wrapper > .hover-popover-child {
+  display: inline-block;
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  vertical-align: bottom;
+  vertical-align: top;
 }
 
 .tiptap .image-wrapper > span,
@@ -11,6 +22,13 @@
   max-width: 100%;
   box-sizing: border-box;
   vertical-align: bottom;
+}
+
+.tiptap .image-wrapper img,
+.ProseMirror .image-wrapper img {
+  width: 100% !important;
+  max-width: 100%;
+  height: auto;
 }
 
 .editor-image-caption {
