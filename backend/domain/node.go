@@ -122,11 +122,11 @@ type NodeMeta struct {
 	Summary     string `json:"summary"`
 	Emoji       string `json:"emoji"`
 	ContentType string `json:"content_type"`
-	// WorkModeDirectory 为 true 时，该文件夹及其子目录下的已发布文档纳入「工作模式」问答检索范围（可多选根目录）。
+	// WorkModeDirectory 为 true 时，该文件夹及其子目录下的已发布文档纳入「实战模式」问答检索范围（可多选根目录）。
 	WorkModeDirectory bool `json:"work_mode_directory"`
-	// WorkModeCategory 该文档所属「工作模式」品类名（与后台「提示词管理」中的品类对齐）。
+	// WorkModeCategory 该文档所属「实战模式」品类名（与后台「提示词管理」中的品类对齐）。
 	WorkModeCategory string `json:"work_mode_category,omitempty"`
-	// Attributes 工作模式识别用的结构化属性键值对，键必须是该品类「属性维护」中配置过的项。
+	// Attributes 实战模式识别用的结构化属性键值对，键必须是该品类「属性维护」中配置过的项。
 	Attributes map[string]string `json:"attributes,omitempty"`
 }
 
@@ -185,25 +185,25 @@ type GetNodeListReq struct {
 }
 
 type NodeListItemResp struct {
-	ID          string          `json:"id"`
-	Type        NodeType        `json:"type"`
-	Status      NodeStatus      `json:"status"`
-	RagInfo     RagInfo         `json:"rag_info"`
-	Name        string          `json:"name"`
-	Summary     string          `json:"summary"`
-	Emoji       string          `json:"emoji"`
-	ContentType          string          `json:"content_type"`
-	WorkModeDirectory    bool            `json:"work_mode_directory"`
-	Position             float64         `json:"position"`
-	ParentID    string          `json:"parent_id"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-	CreatorId   string          `json:"creator_id"`
-	EditorId    string          `json:"editor_id"`
-	Creator     string          `json:"creator"`
-	Editor      string          `json:"editor"`
-	PublisherId string          `json:"publisher_id" gorm:"-"`
-	Permissions NodePermissions `json:"permissions" gorm:"type:jsonb"`
+	ID                string          `json:"id"`
+	Type              NodeType        `json:"type"`
+	Status            NodeStatus      `json:"status"`
+	RagInfo           RagInfo         `json:"rag_info"`
+	Name              string          `json:"name"`
+	Summary           string          `json:"summary"`
+	Emoji             string          `json:"emoji"`
+	ContentType       string          `json:"content_type"`
+	WorkModeDirectory bool            `json:"work_mode_directory"`
+	Position          float64         `json:"position"`
+	ParentID          string          `json:"parent_id"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	CreatorId         string          `json:"creator_id"`
+	EditorId          string          `json:"editor_id"`
+	Creator           string          `json:"creator"`
+	Editor            string          `json:"editor"`
+	PublisherId       string          `json:"publisher_id" gorm:"-"`
+	Permissions       NodePermissions `json:"permissions" gorm:"type:jsonb"`
 }
 
 type NodeContentChunk struct {
@@ -222,9 +222,9 @@ type RankedNodeChunks struct {
 	NodeSummary   string
 	NodeEmoji     string
 	NodePathNames []string
-	// NodePathIDs 自根到当前文档的 node_id 链（含文档自身），用于工作模式按目录过滤等。
-	NodePathIDs   []string
-	Chunks        []*NodeContentChunk
+	// NodePathIDs 自根到当前文档的 node_id 链（含文档自身），用于实战模式按目录过滤等。
+	NodePathIDs []string
+	Chunks      []*NodeContentChunk
 }
 
 func (n *RankedNodeChunks) GetURL(baseURL string) string {
@@ -278,11 +278,11 @@ type UpdateNodeReq struct {
 	Summary     *string  `json:"summary"`
 	Position    *float64 `json:"position"`
 	ContentType *string  `json:"content_type"`
-	// WorkModeDirectory 仅对文件夹（type=1）生效：为 true 时本目录及子目录纳入工作模式问答检索范围。
+	// WorkModeDirectory 仅对文件夹（type=1）生效：为 true 时本目录及子目录纳入实战模式问答检索范围。
 	WorkModeDirectory *bool `json:"work_mode_directory"`
-	// WorkModeCategory 仅对文档（type=2）生效：所属工作模式品类名；空字符串表示清空。
+	// WorkModeCategory 仅对文档（type=2）生效：所属实战模式品类名；空字符串表示清空。
 	WorkModeCategory *string `json:"work_mode_category"`
-	// Attributes 仅对文档（type=2）生效：工作模式识别用的属性键值对；nil 表示不修改，{} 表示清空。
+	// Attributes 仅对文档（type=2）生效：实战模式识别用的属性键值对；nil 表示不修改，{} 表示清空。
 	Attributes *map[string]string `json:"attributes"`
 }
 

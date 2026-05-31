@@ -1053,12 +1053,12 @@ const AiQaContent: React.FC<{
                       !identified &&
                       (meta.missing?.length ?? 0) === 0;
                     const headerLabel = identified
-                      ? '工作模式 · 已识别文档'
+                      ? '实战模式 · 已识别文档'
                       : isTerminal
-                        ? '工作模式 · 终态'
+                        ? '实战模式 · 终态'
                         : meta && meta.candidates >= 2
-                          ? '工作模式 · 候选差异核对'
-                          : '工作模式 · 信息完备性核对';
+                          ? '实战模式 · 候选差异核对'
+                          : '实战模式 · 信息完备性核对';
                     return (
                       <>
                         {meta && (

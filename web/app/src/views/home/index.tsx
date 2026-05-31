@@ -378,7 +378,7 @@ const Welcome = () => {
 };
 
 /**
- * 工作模式下用淘宝橙子主题包整个欢迎页（Banner / 文档卡片 / FAQ 等），
+ * 实战模式下用淘宝橙子主题包整个欢迎页（Banner / 文档卡片 / FAQ 等），
  * 让所有 styled 组件里 theme.palette.primary.main 等自动切换为橙红主色。
  * 通过 QA_APP_MODE_CHANGE_EVENT 与其它入口（顶部弹窗、Banner 自带的开关）保持同步。
  */

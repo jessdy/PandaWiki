@@ -146,7 +146,7 @@ func (r *NodeRepository) GetList(ctx context.Context, req *domain.GetNodeListReq
 	return nodes, nil
 }
 
-// GetWorkModeDirectoryRootNodeIDs 返回标记为「工作模式检索根目录」的文件夹 node id（可多根）。
+// GetWorkModeDirectoryRootNodeIDs 返回标记为「实战模式检索根目录」的文件夹 node id（可多根）。
 func (r *NodeRepository) GetWorkModeDirectoryRootNodeIDs(ctx context.Context, kbID string) ([]string, error) {
 	var ids []string
 	err := r.db.WithContext(ctx).Model(&domain.Node{}).
@@ -492,7 +492,7 @@ func (r *NodeRepository) buildNodePath(ctx context.Context, kbID string, nodeRel
 	return path, nil
 }
 
-// GetWorkModeDocsByCategory 枚举打了某「工作模式品类」标签的所有文档，便于在工作模式状态机里
+// GetWorkModeDocsByCategory 枚举打了某「实战模式品类」标签的所有文档，便于在实战模式状态机里
 // 兜底向量 top-K 漏掉的结构化文档。返回的 RankedNodeChunks 只填 NodeID/NodeName/NodeSummary/NodeEmoji，
 // Chunks 与 NodePathIDs 留空（属性收敛阶段不需要）。
 func (r *NodeRepository) GetWorkModeDocsByCategory(
@@ -529,7 +529,7 @@ func (r *NodeRepository) GetWorkModeDocsByCategory(
 	return out, nil
 }
 
-// GetNodeMetaByNodeIDs 批量读取 nodes.meta，仅取本工作模式识别需要的字段。
+// GetNodeMetaByNodeIDs 批量读取 nodes.meta，仅取本实战模式识别需要的字段。
 // 返回的 NodeMeta 仅保证 WorkModeCategory 与 Attributes 可用。
 func (r *NodeRepository) GetNodeMetaByNodeIDs(ctx context.Context, kbID string, ids []string) (map[string]domain.NodeMeta, error) {
 	if len(ids) == 0 {

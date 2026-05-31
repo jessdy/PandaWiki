@@ -265,7 +265,9 @@ const DocContent = ({
           <Box sx={{ fontWeight: 'bold', mb: 2, lineHeight: '22px' }}>
             内容摘要
           </Box>
-          <Box>{info?.meta?.summary}</Box>
+          <Box sx={{ fontSize: 16, fontWeight: 'bold' }}>
+            {info?.meta?.summary}
+          </Box>
         </Box>
       )}
       <Box

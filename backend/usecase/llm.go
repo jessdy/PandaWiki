@@ -63,7 +63,7 @@ func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *
 	}
 }
 
-// workModeNoThinkSuffix 工作模式下所有「结构化轻量任务」的 system prompt 都会附上此后缀。
+// workModeNoThinkSuffix 实战模式下所有「结构化轻量任务」的 system prompt 都会附上此后缀。
 //
 //   - `/no_think` 是 Qwen3 系列约定关键字，被识别后模型不会输出 <think>...</think>
 //     推理段，等同于"非思考模式"。
@@ -72,7 +72,7 @@ func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *
 //   - 显式约束模型「不要解释，按要求输出」是对所有提供商通用的、对结构化输出有效的二次保险。
 const workModeNoThinkSuffix = "\n\n/no_think\n输出要求：仅给出结果本身，不要解释、不要复述、不要任何思考过程或前后缀。"
 
-// withWorkModeNoThink 把工作模式专用的非思考约束追加到 system prompt 末尾。
+// withWorkModeNoThink 把实战模式专用的非思考约束追加到 system prompt 末尾。
 func withWorkModeNoThink(systemPrompt string) string {
 	return strings.TrimSpace(systemPrompt) + workModeNoThinkSuffix
 }
@@ -109,7 +109,7 @@ func (u *LLMUsecase) GetNodeNamesByIDs(ctx context.Context, kbID string, ids []s
 
 // BuildRAGOption 可选行为开关；零值即旧行为。
 type BuildRAGOption struct {
-	// PinnedNodeIDs 非空时，把 RAG 限定到这些文档（工作模式识别成功后传入）。
+	// PinnedNodeIDs 非空时，把 RAG 限定到这些文档（实战模式识别成功后传入）。
 	PinnedNodeIDs []string
 	// IdentifiedDocName 非空时，会注入到 system prompt 末尾，提示模型仅依据该文档作答。
 	IdentifiedDocName string
@@ -172,7 +172,7 @@ func (u *LLMUsecase) BuildConversationMessageWithRAG(
 			systemPrompt = domain.AugmentSystemPromptWithQaMode(systemPrompt, qaMode)
 			if name := strings.TrimSpace(opt.IdentifiedDocName); name != "" {
 				systemPrompt = strings.TrimSpace(systemPrompt) +
-					"\n\n【已识别文档】用户在工作模式中已收敛到唯一文档「" + name + "」，回答时请仅基于该文档的内容，不要引用知识库中其他文档。"
+					"\n\n【已识别文档】用户在实战模式中已收敛到唯一文档「" + name + "」，回答时请仅基于该文档的内容，不要引用知识库中其他文档。"
 			}
 
 			template := prompt.FromMessages(schema.GoTemplate,
@@ -456,7 +456,7 @@ func (u *LLMUsecase) GetWorkModeCategoryPrompts(ctx context.Context, kbID string
 	}), nil
 }
 
-// GetConversationMessages 转发到 conversationRepo，便于 chat.go 在工作模式状态机中读取历史。
+// GetConversationMessages 转发到 conversationRepo，便于 chat.go 在实战模式状态机中读取历史。
 func (u *LLMUsecase) GetConversationMessages(ctx context.Context, conversationID string) ([]*domain.ConversationMessage, error) {
 	if u.conversationRepo == nil || strings.TrimSpace(conversationID) == "" {
 		return nil, nil
@@ -573,7 +573,7 @@ func parseWorkModeMissingAttributes(raw string, attrs []string) []string {
 	return addAllowed(strings.Split(norm, ","))
 }
 
-// 工作模式：候选检索（用于差异化追问）。返回 0/1/多 个候选；调用方决定是否追问。
+// 实战模式：候选检索（用于差异化追问）。返回 0/1/多 个候选；调用方决定是否追问。
 // 门控目的是「检测歧义」，因此放宽阈值与 TopK，避免把潜在候选误过滤。
 const (
 	workModeGateRetrieveTopK = 8
@@ -631,14 +631,14 @@ func (u *LLMUsecase) RetrieveCandidateNodesForWorkMode(
 		workModeDirRoots = nil
 	}
 	_, ranked, err := u.GetRankNodes(ctx, GetRankNodesRequest{
-		DatasetID:                  kb.DatasetID,
-		Question:                   question,
-		GroupIDs:                   groupIDs,
-		SimilarityThreshold:        workModeGateSimilarityThreshold,
+		DatasetID:                kb.DatasetID,
+		Question:                 question,
+		GroupIDs:                 groupIDs,
+		SimilarityThreshold:      workModeGateSimilarityThreshold,
 		HistoryMessages:          nil,
-		TopK:                       workModeGateRetrieveTopK,
-		MaxChunksPerDoc:            1,
-		WorkModeDirectoryRootIDs:   workModeDirRoots,
+		TopK:                     workModeGateRetrieveTopK,
+		MaxChunksPerDoc:          1,
+		WorkModeDirectoryRootIDs: workModeDirRoots,
 	})
 	if err != nil {
 		return nil, err
@@ -769,7 +769,7 @@ func (u *LLMUsecase) WorkModeListDistinguishingMissing(
 		return nil, nil
 	}
 	briefs := formatWorkModeCandidateBriefs(candidates)
-	system := `你是工作模式下的差异化属性核对助手。后台为某品类配置了若干属性维度，知识库可能存在多份相似文档。
+	system := `你是实战模式下的差异化属性核对助手。后台为某品类配置了若干属性维度，知识库可能存在多份相似文档。
 请判断：在「后台属性列表」中，哪些属性同时满足以下两个条件，需要让用户补充才能定位到唯一文档：
 1. 该属性在「候选文档」之间存在差异（不同文档表述不同）；
 2. 用户尚未在问题、上下文或附图理解中明确给出该属性的具体值。
@@ -816,7 +816,7 @@ func (u *LLMUsecase) WorkModeListMissingAttributes(
 	if len(attrs) == 0 {
 		return nil, nil
 	}
-	system := `你是工作模式下的属性完备性检查助手。请判断用户已陈述的信息是否明确覆盖后台配置的所有属性维度。
+	system := `你是实战模式下的属性完备性检查助手。请判断用户已陈述的信息是否明确覆盖后台配置的所有属性维度。
 规则：
 1. 只能基于用户当前问题、最近对话上下文，以及可选的附图理解信息判断；不要臆测。
 2. 若某属性未提及、无法从上下文或附图理解中明确推出，就视为缺失。
@@ -939,7 +939,7 @@ func (u *LLMUsecase) ExtractCollectedAttributes(
 		attrs = append(attrs, s.Name)
 	}
 
-	system := `你是工作模式下的属性抽取助手。请仅基于用户陈述与可选的附图理解，抽取「明确给出」的属性键值对。
+	system := `你是实战模式下的属性抽取助手。请仅基于用户陈述与可选的附图理解，抽取「明确给出」的属性键值对。
 规则：
 1. 仅允许使用「后台属性列表」中的键名作为 key，键名需与列表中的原文完全一致。
 2. 如果该属性配置了「允许值枚举」：value 必须严格从枚举中选取（与枚举原文完全一致）；若用户描述与所有枚举都不匹配或不确定，请不要列出该项。
@@ -1242,9 +1242,9 @@ type GetRankNodesRequest struct {
 	HistoryMessages     []*schema.Message
 	MaxChunksPerDoc     int
 	TopK                int
-	// WorkModeDirectoryRootIDs 非空时，仅保留路径上包含任一该文件夹 node_id 的文档（工作模式问答目录范围）。
+	// WorkModeDirectoryRootIDs 非空时，仅保留路径上包含任一该文件夹 node_id 的文档（实战模式问答目录范围）。
 	WorkModeDirectoryRootIDs []string
-	// PinnedNodeIDs 非空时，最终结果仅保留 NodeID ∈ 该集合的文档（工作模式识别成功后强制锚定到唯一文档）。
+	// PinnedNodeIDs 非空时，最终结果仅保留 NodeID ∈ 该集合的文档（实战模式识别成功后强制锚定到唯一文档）。
 	PinnedNodeIDs []string
 }
 
@@ -1384,7 +1384,7 @@ func (u *LLMUsecase) ensurePinnedDocsInRanked(
 }
 
 // filterRankedNodesByPinnedNodeIDs 仅保留 NodeID ∈ pinnedIDs 的检索结果。
-// 用于「工作模式识别已锚定唯一文档」时把 RAG 上下文限制到该文档。
+// 用于「实战模式识别已锚定唯一文档」时把 RAG 上下文限制到该文档。
 func filterRankedNodesByPinnedNodeIDs(ranked []*domain.RankedNodeChunks, pinnedIDs []string) []*domain.RankedNodeChunks {
 	if len(ranked) == 0 || len(pinnedIDs) == 0 {
 		return ranked

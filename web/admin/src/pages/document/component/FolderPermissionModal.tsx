@@ -184,7 +184,7 @@ const FolderPermissionModal = ({
             />
           </FormItem>
         )}
-        <FormItem label='工作模式问答'>
+        <FormItem label='实战模式问答'>
           <Stack spacing={0.5}>
             <Controller
               control={control}
@@ -198,12 +198,12 @@ const FolderPermissionModal = ({
                       onChange={(_, c) => field.onChange(c)}
                     />
                   }
-                  label='将本目录及子目录纳入前台「工作模式」检索范围'
+                  label='将本目录及子目录纳入前台「实战模式」检索范围'
                 />
               )}
             />
             <Typography variant='caption' color='text.secondary'>
-              未勾选任何目录时，工作模式仍检索全库；可多选文件夹分别圈定范围。
+              未勾选任何目录时，实战模式仍检索全库；可多选文件夹分别圈定范围。
             </Typography>
           </Stack>
         </FormItem>

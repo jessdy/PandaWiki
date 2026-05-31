@@ -160,7 +160,7 @@ const AiQaContent: React.FC<{
   hotSearch: string[];
   placeholder: string;
   inputRef: React.RefObject<HTMLInputElement | null>;
-  /** 工作模式：问答区采用偏商务的冷灰 / 藏青配色 */
+  /** 实战模式：问答区采用偏商务的冷灰 / 藏青配色 */
   qaWorkMode?: boolean;
 }> = ({ hotSearch, placeholder, inputRef, qaWorkMode = false }) => {
   const sseClientRef = useRef<SSEClient<{
@@ -173,7 +173,7 @@ const AiQaContent: React.FC<{
 
   const workChrome = useMemo(() => {
     if (!qaWorkMode) return null;
-    // 工作模式：淘宝橙风格，浅暖白底 + 橙红主色，与培训模式形成清晰差异
+    // 实战模式：淘宝橙风格，浅暖白底 + 橙红主色，与培训模式形成清晰差异
     const ACCENT = '#ff4400'; // 淘宝主色橙红
     const ACCENT_BRIGHT = '#ff6a00'; // 高亮橙
     const ACCENT_DEEP = '#cc3300'; // 深橙红
@@ -1301,12 +1301,12 @@ const AiQaContent: React.FC<{
                       !identified &&
                       (meta.missing?.length ?? 0) === 0;
                     const headerLabel = identified
-                      ? '工作模式 · 已识别文档'
+                      ? '实战模式 · 已识别文档'
                       : isTerminal
-                        ? '工作模式 · 终态'
+                        ? '实战模式 · 终态'
                         : meta && meta.candidates >= 2
-                          ? '工作模式 · 候选差异核对'
-                          : '工作模式 · 信息完备性核对';
+                          ? '实战模式 · 候选差异核对'
+                          : '实战模式 · 信息完备性核对';
                     return (
                       <>
                         {meta && (

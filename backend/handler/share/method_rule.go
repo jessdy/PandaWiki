@@ -12,14 +12,14 @@ import (
 	"github.com/chaitin/panda-wiki/usecase"
 )
 
-// ShareMethodRuleHandler 为前台「工作模式属性面板」提供实时联动接口。
+// ShareMethodRuleHandler 为前台「实战模式属性面板」提供实时联动接口。
 // 不走 LLM、不写 conversation；调用方拖动 Select 后用本接口刷新方法卡片即可。
 type ShareMethodRuleHandler struct {
 	*handler.BaseHandler
-	logger   *log.Logger
-	kbUC     *usecase.KnowledgeBaseUsecase
-	llmUC    *usecase.LLMUsecase
-	nodeUC   *usecase.NodeUsecase
+	logger         *log.Logger
+	kbUC           *usecase.KnowledgeBaseUsecase
+	llmUC          *usecase.LLMUsecase
+	nodeUC         *usecase.NodeUsecase
 	categoryHelper *categoryHelper
 }
 

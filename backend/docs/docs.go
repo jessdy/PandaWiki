@@ -6706,7 +6706,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "work_mode_directory": {
-                    "description": "文件夹：是否为工作模式检索根目录",
+                    "description": "文件夹：是否为实战模式检索根目录",
                     "type": "boolean"
                 }
             }
@@ -6715,7 +6715,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attributes": {
-                    "description": "工作模式识别用的结构化属性键值对",
+                    "description": "实战模式识别用的结构化属性键值对",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -6731,11 +6731,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "work_mode_category": {
-                    "description": "文档：所属工作模式品类名",
+                    "description": "文档：所属实战模式品类名",
                     "type": "string"
                 },
                 "work_mode_directory": {
-                    "description": "文件夹：工作模式检索根目录标记",
+                    "description": "文件夹：实战模式检索根目录标记",
                     "type": "boolean"
                 }
             }
@@ -7643,7 +7643,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "attributes": {
-                    "description": "仅文档：工作模式识别用属性键值对；nil 表示不修改，{} 表示清空",
+                    "description": "仅文档：实战模式识别用属性键值对；nil 表示不修改，{} 表示清空",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -7674,11 +7674,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "work_mode_category": {
-                    "description": "仅文档：所属工作模式品类名；空字符串表示清空",
+                    "description": "仅文档：所属实战模式品类名；空字符串表示清空",
                     "type": "string"
                 },
                 "work_mode_directory": {
-                    "description": "仅文件夹：为 true 时本目录及子目录纳入工作模式问答检索",
+                    "description": "仅文件夹：为 true 时本目录及子目录纳入实战模式问答检索",
                     "type": "boolean"
                 }
             }

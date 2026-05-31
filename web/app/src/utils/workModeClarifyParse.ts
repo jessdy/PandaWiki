@@ -61,7 +61,7 @@ export function isWorkModeIdentified(
 }
 
 /**
- * 若含工作模式追问标记且并非识别终态（identified_doc_id 为空），则清空整条助手回复
+ * 若含实战模式追问标记且并非识别终态（identified_doc_id 为空），则清空整条助手回复
  * （标记 + 追问正文）以便由 chip 单独承载；否则返回 null 表示无需清空。
  */
 export function removeWorkModeClarifyFromAnswer(

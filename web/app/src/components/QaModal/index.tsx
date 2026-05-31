@@ -238,7 +238,7 @@ const QaModal: React.FC<QaModalProps> = () => {
                       setQaAppMode(m);
                       persistQaAppMode(m);
                     }}
-                    inputProps={{ 'aria-label': '培训模式与工作模式切换' }}
+                    inputProps={{ 'aria-label': '培训模式与实战模式切换' }}
                     sx={
                       qaWorkMode
                         ? {
@@ -276,7 +276,7 @@ const QaModal: React.FC<QaModalProps> = () => {
                       persistQaAppMode('work');
                     }}
                   >
-                    工作模式
+                    实战模式
                   </Typography>
                 </Stack>
               </Stack>

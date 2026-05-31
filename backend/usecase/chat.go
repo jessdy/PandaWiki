@@ -72,7 +72,7 @@ func (u *ChatUsecase) pickVisionModel(ctx context.Context, chatFallback *domain.
 	return chatFallback, nil
 }
 
-// pickGateChatModel 工作模式状态机里的「N1 分类 / N2 抽属性 / N5 追问」都是结构化轻量任务：
+// pickGateChatModel 实战模式状态机里的「N1 分类 / N2 抽属性 / N5 追问」都是结构化轻量任务：
 // 优先用后台配置的 ModelTypeAnalysis 小模型；未配置时回退到用户当前对话用的 chat 模型。
 // 走小模型 + system prompt 末尾追加 /no_think（见 llm.go），让响应更快、更省 token。
 func (u *ChatUsecase) pickGateChatModel(ctx context.Context, chatFallback *domain.Model) *domain.Model {
@@ -96,7 +96,7 @@ const (
 	workModeClarifyMarker = "WORK_MODE_CLARIFY"
 	workModeMaxRounds     = 3
 
-	// attributePanelMarker 标记是 Phase 2 引入的新工作模式终态：
+	// attributePanelMarker 标记是 Phase 2 引入的新实战模式终态：
 	// 当后台为命中品类配置了 method_rules 时，状态机不再走候选检索/追问/RAG，
 	// 而是给前台推一段结构化数据（品类 + 属性 specs + 已收集 + 命中规则列表）。
 	// 前台据此渲染「属性面板（Select 联动）+ 方法卡片」，并通过单独的 share
@@ -140,7 +140,7 @@ type workModeClarifyMeta struct {
 
 var workModeClarifyRegex = regexp.MustCompile(`<!--\s*WORK_MODE_CLARIFY\s+(\{[\s\S]*?\})\s*-->`)
 
-// extractLatestWorkModeClarifyMeta 从历史 assistant 消息里取最近一条带工作模式追问标记的 meta。
+// extractLatestWorkModeClarifyMeta 从历史 assistant 消息里取最近一条带实战模式追问标记的 meta。
 // 没有则返回 nil；JSON 解析失败也返回 nil。
 func extractLatestWorkModeClarifyMeta(msgs []*domain.ConversationMessage) *workModeClarifyMeta {
 	for i := len(msgs) - 1; i >= 0; i-- {
@@ -166,9 +166,9 @@ func formatWorkModeAttributeClarify(meta workModeClarifyMeta) string {
 	list := strings.Join(meta.Missing, "、")
 	var body string
 	if meta.Candidates >= 2 {
-		body = "当前为「工作模式」。您的描述命中品类「" + name + "」，但与多份候选文档都吻合，仅在以下维度上存在差异：" + list + "。\n\n请逐项补充以便定位到唯一文档；若某项不适用请写明「不适用」及原因。"
+		body = "当前为「实战模式」。您的描述命中品类「" + name + "」，但与多份候选文档都吻合，仅在以下维度上存在差异：" + list + "。\n\n请逐项补充以便定位到唯一文档；若某项不适用请写明「不适用」及原因。"
 	} else {
-		body = "当前为「工作模式」。您的描述命中品类「" + name + "」，但所提供的信息不足以确定具体文档，请补充以下信息：" + list + "。\n\n请逐项说明；若某项不适用请写明「不适用」及原因。"
+		body = "当前为「实战模式」。您的描述命中品类「" + name + "」，但所提供的信息不足以确定具体文档，请补充以下信息：" + list + "。\n\n请逐项说明；若某项不适用请写明「不适用」及原因。"
 	}
 	if meta.MaxRounds > 0 && meta.Round > 0 {
 		body += "\n\n（追问轮次 " + fmt.Sprint(meta.Round) + "/" + fmt.Sprint(meta.MaxRounds) + "）"
@@ -181,7 +181,7 @@ func formatWorkModeAttributeClarify(meta workModeClarifyMeta) string {
 
 // formatWorkModeNotFound 终态：候选为零，礼貌兜底。
 func formatWorkModeNotFound(category string, collected map[string]string) string {
-	body := "当前为「工作模式」。根据您提供的描述与已补充的属性，未能在知识库的工作模式范围内匹配到「" + strings.TrimSpace(category) + "」相关文档。\n\n您可以：补充更具体的信息再问一次；或在管理后台核对该品类下是否已收录对应文档与属性。"
+	body := "当前为「实战模式」。根据您提供的描述与已补充的属性，未能在知识库的实战模式范围内匹配到「" + strings.TrimSpace(category) + "」相关文档。\n\n您可以：补充更具体的信息再问一次；或在管理后台核对该品类下是否已收录对应文档与属性。"
 	meta := workModeClarifyMeta{
 		Category:  strings.TrimSpace(category),
 		Missing:   nil,
@@ -203,7 +203,7 @@ func formatWorkModeDisambiguate(category string, collected map[string]string, ca
 		}
 		names = append(names, "「"+strings.TrimSpace(c.NodeName)+"」")
 	}
-	body := "当前为「工作模式」。已追问 " + fmt.Sprint(maxRounds) + " 轮仍未能将候选收敛到唯一文档。剩余候选：" + strings.Join(names, "、") + "。\n\n请选择其中一项，或换一种更具识别度的描述再问一次。"
+	body := "当前为「实战模式」。已追问 " + fmt.Sprint(maxRounds) + " 轮仍未能将候选收敛到唯一文档。剩余候选：" + strings.Join(names, "、") + "。\n\n请选择其中一项，或换一种更具识别度的描述再问一次。"
 	meta := workModeClarifyMeta{
 		Category:  strings.TrimSpace(category),
 		Collected: collected,
@@ -228,7 +228,6 @@ func buildIdentifiedClarifyMeta(category, docID, docName string, collected map[s
 		Missing:         nil,
 	}
 }
-
 
 // workModeGateResult 状态机结果。
 //   - handled 为 true 表示已发送回答（追问 / 未找到 / 超轮选择）并 done，调用方直接 return。
@@ -268,7 +267,7 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		return skip
 	}
 
-	// 工作模式：优先用后台配的 analysis 小模型；未配则回退到用户的 chat 模型。
+	// 实战模式：优先用后台配的 analysis 小模型；未配则回退到用户的 chat 模型。
 	gateModel := u.pickGateChatModel(ctx, req.ModelInfo)
 	logger.Info("work mode gate model picked",
 		log.String("type", string(gateModel.Type)),
@@ -425,7 +424,7 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		meta := buildIdentifiedClarifyMeta(matchedForGate.Name, c.NodeID, c.NodeName, collected, round, workModeMaxRounds)
 		if b, jErr := json.Marshal(map[string]any{
 			"step":   5,
-			"title":  "工作模式：已识别",
+			"title":  "实战模式：已识别",
 			"detail": fmt.Sprintf("品类「%s」收敛到唯一文档「%s」，将仅基于该文档作答。", matchedForGate.Name, c.NodeName),
 		}); jErr == nil {
 			eventCh <- domain.SSEEvent{Type: "chain_step", Content: string(b)}
@@ -442,8 +441,8 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		// NotFound 终态
 		if b, jErr := json.Marshal(map[string]any{
 			"step":   5,
-			"title":  "工作模式：未找到匹配文档",
-			"detail": fmt.Sprintf("品类「%s」在工作模式范围内没有命中任何候选。", matchedForGate.Name),
+			"title":  "实战模式：未找到匹配文档",
+			"detail": fmt.Sprintf("品类「%s」在实战模式范围内没有命中任何候选。", matchedForGate.Name),
 		}); jErr == nil {
 			eventCh <- domain.SSEEvent{Type: "chain_step", Content: string(b)}
 		}
@@ -455,7 +454,7 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 		// 超轮终态：让用户从剩余候选挑
 		if b, jErr := json.Marshal(map[string]any{
 			"step":   5,
-			"title":  "工作模式：达到最大追问轮次",
+			"title":  "实战模式：达到最大追问轮次",
 			"detail": fmt.Sprintf("品类「%s」已追问 %d 轮，仍剩 %d 个候选。", matchedForGate.Name, workModeMaxRounds, len(candidates)),
 		}); jErr == nil {
 			eventCh <- domain.SSEEvent{Type: "chain_step", Content: string(b)}
@@ -496,11 +495,11 @@ func (u *ChatUsecase) runWorkModeStateMachine(
 			return skip
 		}
 
-		chainTitle := "工作模式：候选差异核对"
+		chainTitle := "实战模式：候选差异核对"
 		chainDetail := fmt.Sprintf("品类「%s」匹配到 %d 个候选；待确认：%s（第 %d/%d 轮）",
 			matchedForGate.Name, len(candidates), strings.Join(missing, "、"), round, workModeMaxRounds)
 		if mode == "complete_attrs" {
-			chainTitle = "工作模式：信息完备性核对"
+			chainTitle = "实战模式：信息完备性核对"
 			chainDetail = fmt.Sprintf("品类「%s」需要补充：%s（第 %d/%d 轮）",
 				matchedForGate.Name, strings.Join(missing, "、"), round, workModeMaxRounds)
 		}
@@ -579,7 +578,7 @@ func (u *ChatUsecase) maybeHandleAttributePanel(
 
 	if b, jErr := json.Marshal(map[string]any{
 		"step":   5,
-		"title":  "工作模式：结构化匹配",
+		"title":  "实战模式：结构化匹配",
 		"detail": fmt.Sprintf("品类「%s」已配置 %d 条规则，本轮命中 %d 条。请在面板内调整属性以联动刷新方法卡片。", category.Name, len(rules), len(matched)),
 	}); jErr == nil {
 		eventCh <- domain.SSEEvent{Type: "chain_step", Content: string(b)}
@@ -629,7 +628,7 @@ func (u *ChatUsecase) buildAttributePanelMethods(
 // formatAttributePanel 拼装写入 assistant message 的 marker + 可读 fallback 文本。
 func formatAttributePanel(meta attributePanelMeta) string {
 	// 可读 fallback：老前端没识别 marker 时仍能看到关键信息
-	body := "当前为「工作模式」。已识别品类「" + meta.Category + "」。"
+	body := "当前为「实战模式」。已识别品类「" + meta.Category + "」。"
 	if len(meta.Collected) > 0 {
 		body += "已采集属性："
 		parts := make([]string, 0, len(meta.Collected))
@@ -962,7 +961,7 @@ func (u *ChatUsecase) Chat(ctx context.Context, req *domain.ChatRequest) (<-chan
 		// get words
 		onChunkAC, flushBuffer := u.CreateAcOnChunk(ctx, req.KBID, &answer, eventCh, blockWords)
 
-		// 工作模式识别成功时，先把识别 meta 注释推到流里，让前端在收到首段回答前就能展示已识别 chip
+		// 实战模式识别成功时，先把识别 meta 注释推到流里，让前端在收到首段回答前就能展示已识别 chip
 		if workModeRes.HasIdentifiedMeta {
 			if mb, jErr := json.Marshal(workModeRes.IdentifiedClarifyMeta); jErr == nil {
 				prefix := "<!-- " + workModeClarifyMarker + " " + string(mb) + " -->\n"

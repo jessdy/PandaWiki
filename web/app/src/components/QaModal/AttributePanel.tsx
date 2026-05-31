@@ -155,7 +155,7 @@ const AttributePanel: React.FC<AttributePanelProps> = ({
               letterSpacing: '0.04em',
             }}
           >
-            工作模式 · 已识别品类「{meta.category}」
+            实战模式 · 已识别品类「{meta.category}」
           </Typography>
           {matching && (
             <Stack direction='row' alignItems='center' gap={0.5}>

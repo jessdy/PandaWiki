@@ -287,7 +287,7 @@ const DocPropertiesModal = ({
         );
       });
 
-      // 仅文档节点考虑工作模式属性维护
+      // 仅文档节点考虑实战模式属性维护
       if (data[0].type === DomainNodeType.NodeTypeDocument) {
         getApiV1CategoryPrompts({ id: kb_id! })
           .then(res => setCategoryItems(res?.items || []))
@@ -507,11 +507,11 @@ const DocPropertiesModal = ({
         )}
 
         {showWorkMode && (
-          <FormItem label='工作模式识别' sx={{ alignItems: 'flex-start' }}>
+          <FormItem label='实战模式识别' sx={{ alignItems: 'flex-start' }}>
             <Stack sx={{ flex: 1 }} gap={2}>
               <Box>
                 <Typography variant='caption' color='text.secondary'>
-                  本文档位于「工作模式」检索目录下。请选择品类并按属性逐项填值，前台问答将优先按结构化属性精确匹配；为空时回退按摘要做语义判别。
+                  本文档位于「实战模式」检索目录下。请选择品类并按属性逐项填值，前台问答将优先按结构化属性精确匹配；为空时回退按摘要做语义判别。
                 </Typography>
               </Box>
               <Controller

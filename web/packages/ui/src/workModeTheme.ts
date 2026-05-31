@@ -1,7 +1,7 @@
 import { createTheme, type Theme } from '@mui/material';
 
 /**
- * 工作模式调色板（淘宝风格：橙红主色 + 浅暖底）
+ * 实战模式调色板（淘宝风格：橙红主色 + 浅暖底）
  * 与培训模式的 KB 自定义主色形成强对比，但仍是浅色系，整体不刺眼。
  */
 export const WORK_MODE_PALETTE = {

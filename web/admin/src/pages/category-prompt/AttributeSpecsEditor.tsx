@@ -40,7 +40,7 @@ const AttributeSpecsEditor = ({
   return (
     <Stack gap={1}>
       <Typography variant='caption' color='text.secondary'>
-        属性维护：每个属性可枚举若干允许值（用于前台工作模式的 Select
+        属性维护：每个属性可枚举若干允许值（用于前台实战模式的 Select
         约束、规则匹配、属性面板）。留空表示该属性不限定枚举（仅按属性名兜底）。
       </Typography>
       {value.length === 0 && (
