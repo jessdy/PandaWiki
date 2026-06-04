@@ -13,6 +13,7 @@ import { Box, Fab, Skeleton, Zoom } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import DocAnchor from './DocAnchor';
 import DocContent from './DocContent';
+import DocPageFind from './DocPageFind';
 import { useBasePath } from '@/hooks/useBasePath';
 
 const Doc = ({
@@ -225,6 +226,7 @@ const Doc = ({
             />
           )}
           {!mobile && <DocAnchor headings={headings} />}
+          {node?.type === 2 && !loading && <DocPageFind mobile={mobile} />}
           <DocFab />
           {!mobile && (
             <Zoom in={showScrollTop}>
