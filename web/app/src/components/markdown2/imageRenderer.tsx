@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { styled, SvgIcon, SvgIconProps } from '@mui/material';
+import { ImageViewerItem } from '@ctzhian/tiptap/dist/component/ImageViewer';
 
 // ==================== 图片数据缓存工具函数 ====================
 // 下载图片并转换为 blob URL
@@ -227,17 +228,19 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
       {status === 'error' ? (
         <ImageErrorDisplay />
       ) : blobUrl ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={blobUrl}
-          alt={alt || 'markdown-img'}
-          referrerPolicy='no-referrer'
-          onLoad={handleLoad}
-          onError={handleError}
-          data-original-src={src}
-          className='markdown-image'
-          {...getOtherProps()}
-        />
+        <ImageViewerItem src={blobUrl || src}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={blobUrl}
+            alt={alt || 'markdown-img'}
+            referrerPolicy='no-referrer'
+            onLoad={handleLoad}
+            onError={handleError}
+            data-original-src={src}
+            className='markdown-image'
+            {...getOtherProps()}
+          />
+        </ImageViewerItem>
       ) : (
         // 加载中显示占位符
         <div

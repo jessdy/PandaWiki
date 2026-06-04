@@ -1,7 +1,8 @@
 'use client';
 
 import { copyText } from '@/utils';
-import { alpha, Box, Dialog, useTheme } from '@mui/material';
+import { ImageViewerProvider } from '@ctzhian/tiptap/dist/component/ImageViewer';
+import { alpha, Box, useTheme } from '@mui/material';
 import mk from '@vscode/markdown-it-katex';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/an-old-hope.css';
@@ -93,8 +94,6 @@ const MarkDown2: React.FC<MarkDown2Props> = ({
 
   // 状态管理
   const [showThink, setShowThink] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewImgBlobUrl, setPreviewImgBlobUrl] = useState('');
 
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -446,21 +445,6 @@ const MarkDown2: React.FC<MarkDown2Props> = ({
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
-      // 检查是否点击了图片
-      const imgElement = target.closest(
-        'img.markdown-image',
-      ) as HTMLImageElement;
-      if (imgElement) {
-        const originalSrc = imgElement.getAttribute('data-original-src');
-        if (originalSrc) {
-          // 尝试获取缓存的 blob URL，如果不存在则使用原始 src
-          const blobUrl = imageBlobCacheRef.current.get(originalSrc);
-          setPreviewImgBlobUrl(blobUrl || originalSrc);
-          setPreviewOpen(true);
-        }
-        return;
-      }
-
       // 检查是否点击了代码块
       const preElement = target.closest('pre.hljs');
       if (preElement) {
@@ -579,35 +563,14 @@ const MarkDown2: React.FC<MarkDown2Props> = ({
 
   // ==================== 渲染 ====================
   return (
-    <>
-      {/* 图片预览弹窗 */}
-      <Dialog
-        sx={{
-          '.MuiDialog-paper': {
-            maxWidth: '95vw',
-            maxHeight: '95vh',
-          },
-        }}
-        open={previewOpen}
-        onClose={() => {
-          setPreviewOpen(false);
-          setPreviewImgBlobUrl('');
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={previewImgBlobUrl}
-          alt='preview'
-          style={{ width: '100%', height: '100%' }}
-        />
-      </Dialog>
+    <ImageViewerProvider speed={500} maskOpacity={0.3}>
       <Box
         className={`markdown-body ${themeMode === 'dark' ? 'md-dark' : ''}`}
         sx={componentStyles}
       >
         <div ref={containerRef} />
       </Box>
-    </>
+    </ImageViewerProvider>
   );
 };
 
