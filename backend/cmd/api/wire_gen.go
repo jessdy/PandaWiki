@@ -76,8 +76,6 @@ func createApp() (*App, error) {
 	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
 	imageDescriptionTemplateRepo := pg2.NewImageDescriptionTemplateRepo(db, logger)
 	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
-	consultRepo := pg2.NewConsultRepo(db, logger)
-	consultUsecase := usecase.NewConsultUsecase(consultRepo, logger)
 	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepo, imageDescriptionTemplateRepo, methodRuleRepo)
 	if err != nil {
 		return nil, err
@@ -148,6 +146,8 @@ func createApp() (*App, error) {
 	documentFeedbackRepository := pg2.NewDocumentFeedbackRepository(db, logger)
 	documentFeedbackUsecase := usecase.NewDocumentFeedbackUsecase(documentFeedbackRepository, nodeRepository, appUsecase, logger)
 	documentFeedbackHandler := v1.NewDocumentFeedbackHandler(echo, baseHandler, logger, authMiddleware, documentFeedbackUsecase)
+	consultRepo := pg2.NewConsultRepo(db, logger)
+	consultUsecase := usecase.NewConsultUsecase(consultRepo, logger)
 	consultHandler := v1.NewConsultHandler(echo, baseHandler, logger, authMiddleware, consultUsecase, userUsecase)
 	apiHandlers := &v1.APIHandlers{
 		UserHandler:             userHandler,
