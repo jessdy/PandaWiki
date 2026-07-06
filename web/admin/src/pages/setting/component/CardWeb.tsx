@@ -12,6 +12,7 @@ import CardCustom from './CardCustom';
 import CardListen from './CardListen';
 import CardProxy from './CardProxy';
 import CardStyle from './CardStyle';
+import CardTopology from './CardTopology';
 import CardWebCustomCode from './CardWebCustomCode';
 import CardWebSEO from './CardWebSEO';
 import CardQaCopyright from './CardQaCopyright';
@@ -71,6 +72,19 @@ const CardWeb = ({ kb, refresh }: CardWebProps) => {
                 doc_width: value.doc_width,
                 bg_image: value.bg_image,
               },
+            },
+          });
+        }}
+      />
+      <CardTopology
+        id={info.id}
+        data={info}
+        refresh={value => {
+          setInfo({
+            ...info,
+            settings: {
+              ...info.settings,
+              topology_settings: value,
             },
           });
         }}

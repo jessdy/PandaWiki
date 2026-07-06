@@ -39,6 +39,7 @@ import {
   RadioGroup,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography,
   styled,
@@ -113,6 +114,7 @@ const DocPropertiesModal = ({
         [] as GithubComChaitinPandaWikiProApiAuthV1AuthGroupListItem[],
       work_mode_category: '' as string,
       work_mode_attributes: {} as Record<string, string>,
+      show_in_topology: false,
     },
   });
 
@@ -224,6 +226,7 @@ const DocPropertiesModal = ({
             name: values.name,
             summary: values.summary,
             kb_id: kb_id!,
+            show_in_topology: values.show_in_topology,
             ...workModePayload,
           })
         : undefined,
@@ -268,6 +271,7 @@ const DocPropertiesModal = ({
       setValue('summary', data[0].summary!);
       setValue('work_mode_category', '');
       setValue('work_mode_attributes', {});
+      setValue('show_in_topology', false);
       setInWorkModeDir(false);
 
       getApiV1NodePermission({
@@ -298,10 +302,12 @@ const DocPropertiesModal = ({
             const meta = res?.meta || {};
             setValue('work_mode_category', meta.work_mode_category || '');
             setValue('work_mode_attributes', { ...(meta.attributes || {}) });
+            setValue('show_in_topology', !!meta.show_in_topology);
           })
           .catch(() => {
             setValue('work_mode_category', '');
             setValue('work_mode_attributes', {});
+            setValue('show_in_topology', false);
           });
 
         getApiV1NodeList({ kb_id: kb_id! })
@@ -503,6 +509,33 @@ const DocPropertiesModal = ({
                 </Stack>
               )}
             />
+          </FormItem>
+        )}
+
+        {!isBatch && (
+          <FormItem label='首页拓扑图' sx={{ alignItems: 'flex-start' }}>
+            <Stack sx={{ flex: 1 }}>
+              <Controller
+                name='show_in_topology'
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size='small'
+                        checked={!!field.value}
+                        onChange={e => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label='在前台首页「知识拓扑图」中展示该文档'
+                  />
+                )}
+              />
+              <Typography variant='caption' color='text.secondary'>
+                开启后，该文档会作为节点出现在首页拓扑图中；需在「门户网站 →
+                知识拓扑图」中开启拓扑图区块后前台才会展示。
+              </Typography>
+            </Stack>
           </FormItem>
         )}
 

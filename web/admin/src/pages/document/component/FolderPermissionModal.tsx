@@ -32,6 +32,7 @@ type FormValues = {
   groups: GithubComChaitinPandaWikiProApiAuthV1AuthGroupListItem[];
   apply_children: string;
   work_mode_directory: boolean;
+  show_in_topology: boolean;
 };
 
 const FolderPermissionModal = ({
@@ -54,6 +55,7 @@ const FolderPermissionModal = ({
         groups: [],
         apply_children: 'true',
         work_mode_directory: false,
+        show_in_topology: false,
       },
     },
   );
@@ -73,12 +75,17 @@ const FolderPermissionModal = ({
     setValue('groups', []);
     setValue('apply_children', 'true');
     setValue('work_mode_directory', false);
+    setValue('show_in_topology', false);
 
     getApiV1NodeDetail({ kb_id: kbId, id: nodeId })
       .then(res => {
         setValue('work_mode_directory', !!res.meta?.work_mode_directory);
+        setValue('show_in_topology', !!res.meta?.show_in_topology);
       })
-      .catch(() => setValue('work_mode_directory', false));
+      .catch(() => {
+        setValue('work_mode_directory', false);
+        setValue('show_in_topology', false);
+      });
   }, [open, nodeId, kbId, setValue]);
 
   useEffect(() => {
@@ -111,6 +118,7 @@ const FolderPermissionModal = ({
         id: nodeId,
         kb_id: kbId,
         work_mode_directory: values.work_mode_directory,
+        show_in_topology: values.show_in_topology,
       }),
     ])
       .then(() => {
@@ -204,6 +212,30 @@ const FolderPermissionModal = ({
             />
             <Typography variant='caption' color='text.secondary'>
               未勾选任何目录时，实战模式仍检索全库；可多选文件夹分别圈定范围。
+            </Typography>
+          </Stack>
+        </FormItem>
+        <FormItem label='首页拓扑图'>
+          <Stack spacing={0.5}>
+            <Controller
+              control={control}
+              name='show_in_topology'
+              render={({ field }) => (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size='small'
+                      checked={field.value}
+                      onChange={(_, c) => field.onChange(c)}
+                    />
+                  }
+                  label='在前台首页「知识拓扑图」中展示该目录'
+                />
+              )}
+            />
+            <Typography variant='caption' color='text.secondary'>
+              开启后，该目录会作为节点出现在首页拓扑图中；需在「门户网站 →
+              知识拓扑图」中开启拓扑图区块后前台才会展示。
             </Typography>
           </Stack>
         </FormItem>

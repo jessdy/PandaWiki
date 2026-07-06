@@ -357,6 +357,8 @@ export interface DomainAppSettings {
   /** WebAppLandingConfigs */
   web_app_landing_configs?: DomainWebAppLandingConfig[];
   web_app_landing_theme?: DomainWebAppLandingTheme;
+  /** 首页知识拓扑图配置 */
+  topology_settings?: DomainTopologySettings;
   wechat_app_advanced_setting?: DomainWeChatAppAdvancedSetting;
   wechat_app_agent_id?: string;
   wechat_app_corpid?: string;
@@ -446,6 +448,8 @@ export interface DomainAppSettingsResp {
   /** WebApp Landing Settings */
   web_app_landing_configs?: DomainWebAppLandingConfigResp[];
   web_app_landing_theme?: DomainWebAppLandingTheme;
+  /** 首页知识拓扑图配置 */
+  topology_settings?: DomainTopologySettings;
   wechat_app_advanced_setting?: DomainWeChatAppAdvancedSetting;
   wechat_app_agent_id?: string;
   wechat_app_corpid?: string;
@@ -1032,6 +1036,8 @@ export interface DomainNodeMeta {
   work_mode_category?: string;
   /** 文件夹：标记为实战模式检索根目录（本目录及子目录文档） */
   work_mode_directory?: boolean;
+  /** 目录/文档：是否展示在前台首页知识拓扑图中 */
+  show_in_topology?: boolean;
 }
 
 export interface DomainNodePermissions {
@@ -1356,6 +1362,17 @@ export interface DomainUpdateNodeReq {
   work_mode_category?: string;
   /** 仅文件夹：是否将本目录及子目录纳入前台实战模式问答检索 */
   work_mode_directory?: boolean;
+  /** 目录/文档：是否展示在前台首页知识拓扑图中 */
+  show_in_topology?: boolean;
+}
+
+export interface DomainTopologySettings {
+  /** 是否在自定义首页展示知识拓扑图区块 */
+  enabled?: boolean;
+  /** 区块标题 */
+  title?: string;
+  /** 区块描述 */
+  description?: string;
 }
 
 export interface DomainUserInfo {

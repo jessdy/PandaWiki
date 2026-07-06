@@ -251,6 +251,7 @@ func (r *NodeRepository) UpdateNodeContent(ctx context.Context, req *domain.Upda
 		isFolder := currentNode.Type == domain.NodeTypeFolder
 		isDoc := currentNode.Type == domain.NodeTypeDocument
 		if req.Emoji != nil || req.Summary != nil || req.ContentType != nil ||
+			req.ShowInTopology != nil ||
 			(req.WorkModeDirectory != nil && isFolder) ||
 			(req.WorkModeCategory != nil && isDoc) ||
 			(req.Attributes != nil && isDoc) {
@@ -307,6 +308,12 @@ func (r *NodeRepository) UpdateNodeContent(ctx context.Context, req *domain.Upda
 				}
 				metaExpr = "jsonb_set(" + metaExpr + ", '{attributes}', ?::jsonb)"
 				args = append(args, string(attrJSON))
+				metaUpdated = true
+			}
+
+			if req.ShowInTopology != nil && *req.ShowInTopology != currentNode.Meta.ShowInTopology {
+				metaExpr = "jsonb_set(" + metaExpr + ", '{show_in_topology}', to_jsonb(?::boolean))"
+				args = append(args, *req.ShowInTopology)
 				metaUpdated = true
 			}
 

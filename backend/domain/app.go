@@ -162,6 +162,8 @@ type AppSettings struct {
 	// WebAppLandingConfigs
 	WebAppLandingConfigs []WebAppLandingConfig `json:"web_app_landing_configs,omitempty"`
 	WebAppLandingTheme   WebAppLandingTheme    `json:"web_app_landing_theme"`
+	// TopologySettings 首页知识拓扑图配置
+	TopologySettings TopologySettings `json:"topology_settings"`
 
 	WatermarkContent    string                  `json:"watermark_content"`
 	WatermarkSetting    consts.WatermarkSetting `json:"watermark_setting" validate:"omitempty,oneof='' hidden visible"`
@@ -416,6 +418,16 @@ type ThemeAndStyle struct {
 	DocWidth string `json:"doc_width,omitempty"`
 }
 
+// TopologySettings 前台首页「知识拓扑图」区块的全局配置。
+type TopologySettings struct {
+	// Enabled 为 true 时在自定义首页展示知识拓扑图区块。
+	Enabled bool `json:"enabled"`
+	// Title 区块标题，为空时前台使用默认标题。
+	Title string `json:"title,omitempty"`
+	// Description 区块副标题/描述。
+	Description string `json:"description,omitempty"`
+}
+
 type CatalogSettings struct {
 	CatalogFolder  int `json:"catalog_folder,omitempty"`  // 1: 展开, 2: 折叠, default: 1
 	CatalogWidth   int `json:"catalog_width,omitempty"`   // 200 - 300, default: 260
@@ -570,7 +582,9 @@ type AppSettingsResp struct {
 	// WebApp Landing Settings
 	WebAppLandingConfigs []WebAppLandingConfigResp `json:"web_app_landing_configs,omitempty"`
 	WebAppLandingTheme   WebAppLandingTheme        `json:"web_app_landing_theme"`
-	HomePageSetting      consts.HomePageSetting    `json:"home_page_setting"`
+	// TopologySettings 首页知识拓扑图配置
+	TopologySettings TopologySettings       `json:"topology_settings"`
+	HomePageSetting   consts.HomePageSetting `json:"home_page_setting"`
 	ConversationSetting  ConversationSetting       `json:"conversation_setting"`
 	// MCP Server Settings
 	MCPServerSettings MCPServerSettings `json:"mcp_server_settings,omitempty"`

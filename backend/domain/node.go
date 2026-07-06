@@ -128,6 +128,8 @@ type NodeMeta struct {
 	WorkModeCategory string `json:"work_mode_category,omitempty"`
 	// Attributes 实战模式识别用的结构化属性键值对，键必须是该品类「属性维护」中配置过的项。
 	Attributes map[string]string `json:"attributes,omitempty"`
+	// ShowInTopology 为 true 时，该目录/文档展示在前台首页「知识拓扑图」中（目录和文档均可独立勾选）。
+	ShowInTopology bool `json:"show_in_topology,omitempty"`
 }
 
 // NodeDocVisualKind 与后台文档图标（文本 / 图片 / 视频）对应，用于摘要生成策略。
@@ -284,6 +286,8 @@ type UpdateNodeReq struct {
 	WorkModeCategory *string `json:"work_mode_category"`
 	// Attributes 仅对文档（type=2）生效：实战模式识别用的属性键值对；nil 表示不修改，{} 表示清空。
 	Attributes *map[string]string `json:"attributes"`
+	// ShowInTopology 对目录（type=1）和文档（type=2）均生效：是否展示在前台首页「知识拓扑图」中；nil 表示不修改。
+	ShowInTopology *bool `json:"show_in_topology"`
 }
 
 type ShareNodeListItemResp struct {

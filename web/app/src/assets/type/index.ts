@@ -94,6 +94,11 @@ export interface KBDetail {
       is_enable: boolean;
     };
     web_app_landing_configs: DomainWebAppLandingConfig[];
+    topology_settings?: {
+      enabled?: boolean;
+      title?: string;
+      description?: string;
+    };
   };
 }
 export interface DomainSocialMediaAccount {
@@ -171,6 +176,12 @@ export interface NodeListItem {
   created_at: string;
   updated_at: string;
   status: 1 | 2; // 1 草稿 2 发布
+  meta?: {
+    summary?: string;
+    emoji?: string;
+    content_type?: string;
+    show_in_topology?: boolean;
+  };
 }
 
 export interface ChunkResultItem {

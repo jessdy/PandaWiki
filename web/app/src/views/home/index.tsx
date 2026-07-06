@@ -9,13 +9,14 @@ import {
 } from '@panda-wiki/ui';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
-import { ThemeProvider, useTheme } from '@mui/material';
+import { Box, Stack, ThemeProvider, Typography, useTheme } from '@mui/material';
 import { DomainRecommendNodeListResp } from '@/request/types';
 
 import { useStore } from '@/provider';
 import { useBasePath } from '@/hooks';
 import { getImagePath } from '@/utils/getImagePath';
 import { isAuthInfoEmpty } from '@/utils/authInfo';
+import TopologyGraph from './TopologyGraph';
 const handleFaqProps = (config: any = {}) => {
   return {
     title: config.title || '链接组',
@@ -219,12 +220,24 @@ const Welcome = () => {
   const {
     mobile = false,
     kbDetail,
+    nodeList,
     setQaModalOpen,
     setChatSearchImages,
     authInfo,
     setLoginModalOpen,
   } = useStore();
   const settings = kbDetail?.settings;
+
+  const topologySettings = settings?.topology_settings;
+  const topologyNodes = useMemo(
+    () => (nodeList || []).filter(n => n?.meta?.show_in_topology),
+    [nodeList],
+  );
+  const showTopology = !!topologySettings?.enabled && topologyNodes.length > 0;
+
+  const openNode = (nodeId: string) => {
+    window.open(`${basePath}/node/${nodeId}`, '_blank');
+  };
 
   const openNodeIfAuthed = (nodeId: string) => {
     if (isAuthInfoEmpty(authInfo)) {
@@ -373,6 +386,46 @@ const Welcome = () => {
           <Component key={index} mobile={mobile} {...props} />
         ) : null;
       })}
+      {showTopology && (
+        <Box
+          component='section'
+          sx={{
+            width: '100%',
+            maxWidth: 1200,
+            mx: 'auto',
+            px: mobile ? 2 : 3,
+            py: mobile ? 4 : 6,
+          }}
+        >
+          <Stack alignItems='center' spacing={1} sx={{ mb: 3 }}>
+            <Typography
+              sx={{
+                fontSize: mobile ? 24 : 32,
+                fontWeight: 700,
+                color: 'text.primary',
+                textAlign: 'center',
+              }}
+            >
+              {topologySettings?.title || '知识拓扑图'}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: 14,
+                color: 'text.secondary',
+                textAlign: 'center',
+              }}
+            >
+              {topologySettings?.description || '点击节点可逐层展开知识结构'}
+            </Typography>
+          </Stack>
+          <TopologyGraph
+            nodeList={nodeList || []}
+            rootName={settings?.title || kbDetail?.name || '知识库'}
+            onOpenNode={openNode}
+            mobile={mobile}
+          />
+        </Box>
+      )}
     </WelcomeThemeWrap>
   );
 };
