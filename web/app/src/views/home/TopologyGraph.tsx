@@ -129,8 +129,14 @@ const TopologyGraph = ({
   );
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 40, y: 40 });
+  // 平移/缩放是否使用过渡动画：仅在"点击定位"时开启，拖拽/滚轮时关闭以保持跟手
+  const [animate, setAnimate] = useState(false);
   const didInitRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // 点击定位请求：seq 每次点击自增，配合布局更新后的 effect 精确定位（处理展开/收起后位置变化）
+  const [centerSeq, setCenterSeq] = useState(0);
+  const centerIdRef = useRef<string | null>(null);
+  const handledCenterSeqRef = useRef(0);
   const dragRef = useRef<{
     dragging: boolean;
     startX: number;
@@ -234,6 +240,9 @@ const TopologyGraph = ({
   const handleNodeClick = useCallback(
     (entry: PlacedNode) => {
       if (dragRef.current.moved) return;
+      // 请求把该节点定位到画布正中（在布局更新后由 effect 执行，兼容展开/收起后的新位置）
+      centerIdRef.current = entry.node.id;
+      setCenterSeq(s => s + 1);
       if (entry.hasChildren) {
         toggle(entry.node.id);
         return;
@@ -245,10 +254,46 @@ const TopologyGraph = ({
     [toggle, onOpenNode],
   );
 
+  // 点击节点后，将其平滑移动到容器正中
+  useEffect(() => {
+    if (centerSeq === handledCenterSeqRef.current) return;
+    const id = centerIdRef.current;
+    const rect = containerRef.current?.getBoundingClientRect();
+    const entry = placed.find(p => p.node.id === id);
+    if (!id || !rect || !entry) return;
+    handledCenterSeqRef.current = centerSeq;
+    const nodeCx = entry.x + NODE_W / 2;
+    const nodeCy = entry.y + NODE_H / 2;
+    setAnimate(true);
+    setTranslate({
+      x: rect.width / 2 - scale * nodeCx,
+      y: rect.height / 2 - scale * nodeCy,
+    });
+  }, [centerSeq, placed, scale]);
+
   const clampScale = (s: number) => Math.min(2, Math.max(0.4, s));
 
-  const zoomBy = (factor: number) => {
-    setScale(prev => clampScale(prev * factor));
+  // 用 ref 镜像当前的缩放/位移，供原生 wheel 监听读取最新值，避免闭包过期
+  const viewRef = useRef({ scale, translate });
+  viewRef.current = { scale, translate };
+
+  // 以容器内某个点 (cx, cy) 为中心缩放，保持该点在缩放前后位置不变
+  const zoomAtPoint = useCallback((factor: number, cx: number, cy: number) => {
+    const { scale: s, translate: t } = viewRef.current;
+    const next = clampScale(s * factor);
+    if (next === s) return;
+    const realFactor = next / s;
+    setScale(next);
+    setTranslate({
+      x: cx - realFactor * (cx - t.x),
+      y: cy - realFactor * (cy - t.y),
+    });
+  }, []);
+
+  // 按钮缩放：以容器中心为锚点
+  const zoomByButton = (factor: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    zoomAtPoint(factor, rect ? rect.width / 2 : 0, rect ? rect.height / 2 : 0);
   };
 
   const resetView = () => {
@@ -262,13 +307,26 @@ const TopologyGraph = ({
     });
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (!e.ctrlKey && !e.metaKey) return; // 仅按住 Ctrl/⌘ 时缩放，避免影响页面滚动
-    e.preventDefault();
-    zoomBy(e.deltaY < 0 ? 1.1 : 0.9);
-  };
+  // 鼠标悬停在拓扑图上时，滚轮直接控制缩放（非被动监听以阻止页面滚动）
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      setAnimate(false);
+      const rect = el.getBoundingClientRect();
+      zoomAtPoint(
+        e.deltaY < 0 ? 1.1 : 0.9,
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+      );
+    };
+    el.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelNative);
+  }, [zoomAtPoint]);
 
   const onMouseDown = (e: React.MouseEvent) => {
+    setAnimate(false);
     dragRef.current = {
       dragging: true,
       startX: e.clientX,
@@ -308,7 +366,6 @@ const TopologyGraph = ({
     <Box
       ref={containerRef}
       onMouseDown={onMouseDown}
-      onWheel={onWheel}
       sx={theme => ({
         position: 'relative',
         height: containerHeight,
@@ -334,6 +391,7 @@ const TopologyGraph = ({
           left: 0,
           transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
           transformOrigin: '0 0',
+          transition: animate ? 'transform 0.3s ease' : 'none',
           width,
           height,
         }}
@@ -378,12 +436,12 @@ const TopologyGraph = ({
         }}
       >
         <Tooltip title='放大' placement='left' arrow>
-          <IconButton size='small' onClick={() => zoomBy(1.2)}>
+          <IconButton size='small' onClick={() => zoomByButton(1.2)}>
             <AddIcon fontSize='small' />
           </IconButton>
         </Tooltip>
         <Tooltip title='缩小' placement='left' arrow>
-          <IconButton size='small' onClick={() => zoomBy(0.8)}>
+          <IconButton size='small' onClick={() => zoomByButton(0.8)}>
             <RemoveIcon fontSize='small' />
           </IconButton>
         </Tooltip>
@@ -407,7 +465,7 @@ const TopologyGraph = ({
           pointerEvents: 'none',
         }}
       >
-        点击目录逐层展开 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放
+        点击目录逐层展开 · 拖拽平移 · 滚轮缩放
       </Typography>
     </Box>
   );
