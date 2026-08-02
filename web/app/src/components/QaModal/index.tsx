@@ -8,7 +8,6 @@ import {
   Typography,
   Modal,
   Stack,
-  Switch,
   lighten,
   alpha,
   useTheme,
@@ -19,7 +18,6 @@ import { useStore } from '@/provider';
 import {
   buildWorkModeTheme,
   getInitialQaAppMode,
-  persistQaAppMode,
   QA_APP_MODE_CHANGE_EVENT,
   WORK_MODE_PALETTE,
   type QaAppMode,
@@ -198,87 +196,23 @@ const QaModal: React.FC<QaModalProps> = () => {
                 >
                   智能问答
                 </Typography>
-                <Stack
-                  direction='row'
-                  alignItems='center'
-                  spacing={0.5}
+                {/* demo 分支：固定实战模式，隐藏培训/实战切换 */}
+                <Typography
+                  variant='body2'
                   sx={{
                     pl: 1,
                     ml: 0.5,
                     borderLeft: '1px solid',
-                    borderColor: qaWorkMode
-                      ? WORK_MODE_PALETTE.borderSoft
-                      : alpha(theme.palette.text.primary, 0.12),
+                    borderColor: WORK_MODE_PALETTE.borderSoft,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: WORK_MODE_PALETTE.accentPrimary,
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '0.04em',
                   }}
                 >
-                  <Typography
-                    variant='body2'
-                    sx={{
-                      fontSize: 12,
-                      fontWeight: !qaWorkMode ? 600 : 400,
-                      color: qaWorkMode
-                        ? WORK_MODE_PALETTE.textMuted
-                        : 'primary.main',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                    }}
-                    onClick={() => {
-                      setQaAppMode('training');
-                      persistQaAppMode('training');
-                    }}
-                  >
-                    培训模式
-                  </Typography>
-                  <Switch
-                    size='small'
-                    checked={qaWorkMode}
-                    onChange={(_, checked) => {
-                      const m: QaAppMode = checked ? 'work' : 'training';
-                      setQaAppMode(m);
-                      persistQaAppMode(m);
-                    }}
-                    inputProps={{ 'aria-label': '培训模式与实战模式切换' }}
-                    sx={
-                      qaWorkMode
-                        ? {
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: WORK_MODE_PALETTE.accentBright,
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track':
-                              {
-                                backgroundColor:
-                                  WORK_MODE_PALETTE.accentPrimary,
-                                opacity: 0.65,
-                              },
-                            '& .MuiSwitch-track': {
-                              backgroundColor: WORK_MODE_PALETTE.switchTrack,
-                            },
-                          }
-                        : undefined
-                    }
-                  />
-                  <Typography
-                    variant='body2'
-                    sx={{
-                      fontSize: 12,
-                      fontWeight: qaWorkMode ? 600 : 400,
-                      color: qaWorkMode
-                        ? WORK_MODE_PALETTE.accentPrimary
-                        : 'text.secondary',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                      letterSpacing: qaWorkMode ? '0.04em' : 'normal',
-                    }}
-                    onClick={() => {
-                      setQaAppMode('work');
-                      persistQaAppMode('work');
-                    }}
-                  >
-                    实战模式
-                  </Typography>
-                </Stack>
+                  实战模式
+                </Typography>
               </Stack>
 
               {/* Esc按钮 */}

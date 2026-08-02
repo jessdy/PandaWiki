@@ -1,3 +1,5 @@
+import { demoFetch } from '@/mocks/demoFetch';
+
 type SSECallback<T> = (data: T) => void;
 type SSEErrorCallback = (error: Error) => void;
 type SSECompleteCallback = () => void;
@@ -50,7 +52,7 @@ class SSEClient<T> {
       body !== undefined &&
       body !== null;
 
-    fetch(url, {
+    demoFetch(url, {
       method,
       headers: {
         Accept: 'text/event-stream',

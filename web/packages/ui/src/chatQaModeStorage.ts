@@ -5,7 +5,8 @@ export const QA_APP_MODE_CHANGE_EVENT = 'panda-wiki:qa-app-mode';
 
 export const CHAT_QA_MODE_STORAGE_KEY = 'panda_wiki_qa_app_mode';
 
-export const DEFAULT_QA_APP_MODE: QaAppMode = 'training';
+/** demo 分支：固定实战模式，不允许切到培训 */
+export const DEFAULT_QA_APP_MODE: QaAppMode = 'work';
 
 export function parseValidQaAppMode(value: unknown): QaAppMode | null {
   const s = typeof value === 'string' ? value.trim() : '';
@@ -14,18 +15,13 @@ export function parseValidQaAppMode(value: unknown): QaAppMode | null {
 }
 
 export function getInitialQaAppMode(): QaAppMode {
-  if (typeof window === 'undefined') return DEFAULT_QA_APP_MODE;
-  return (
-    parseValidQaAppMode(localStorage.getItem(CHAT_QA_MODE_STORAGE_KEY)) ??
-    DEFAULT_QA_APP_MODE
-  );
+  return 'work';
 }
 
-export function persistQaAppMode(mode: QaAppMode): void {
+export function persistQaAppMode(_mode: QaAppMode): void {
   if (typeof window === 'undefined') return;
-  if (parseValidQaAppMode(mode) == null) return;
-  localStorage.setItem(CHAT_QA_MODE_STORAGE_KEY, mode);
+  localStorage.setItem(CHAT_QA_MODE_STORAGE_KEY, 'work');
   window.dispatchEvent(
-    new CustomEvent<QaAppMode>(QA_APP_MODE_CHANGE_EVENT, { detail: mode }),
+    new CustomEvent<QaAppMode>(QA_APP_MODE_CHANGE_EVENT, { detail: 'work' }),
   );
 }

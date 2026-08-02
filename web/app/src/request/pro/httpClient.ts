@@ -16,6 +16,7 @@ import {
   getServerPathname,
   getServerSearch,
 } from "@/utils/getServerHeader";
+import { demoFetch } from "@/mocks/demoFetch";
 import { message as alert } from "@ctzhian/ui";
 import { redirect } from "next/navigation";
 export type QueryParamsType = Record<string | number, any>;
@@ -78,17 +79,6 @@ export enum ContentType {
   UrlEncoded = "application/x-www-form-urlencoded",
   Text = "text/plain",
 }
-
-const pathnameWhiteList = ["/auth/login"];
-
-const redirectToLogin = () => {
-  const redirectAfterLogin = encodeURIComponent(
-    location.href.replace(location.origin, ""),
-  );
-  const search = `redirect=${redirectAfterLogin}`;
-  const pathname = `${window._BASE_PATH_ || ""}/auth/login`;
-  window.location.href = [pathname, search]?.join("?");
-};
 
 export class HttpClient<SecurityDataType = unknown> {
   public baseUrl: string = "";
@@ -262,28 +252,7 @@ export class HttpClient<SecurityDataType = unknown> {
             : payloadFormatter(body),
       },
     ).then(async (response) => {
-      if (response.status === 401) {
-        if (typeof window === "undefined") {
-          const pathname = await getServerPathname();
-          if (!pathnameWhiteList.includes(pathname)) {
-            const search = await getServerSearch();
-            const basePath = await getServerBasePath();
-            redirect(
-              `${basePath}/auth/login?redirect=${encodeURIComponent(pathname + search)}`,
-            );
-          }
-          return;
-        }
-
-        if (typeof window !== "undefined") {
-          if (!pathnameWhiteList.includes(window.location.pathname)) {
-            if (response.status === 401) {
-              redirectToLogin();
-            }
-          }
-          return;
-        }
-      }
+      // demo 分支：401 不跳转登录
 
       //  if (response.status === 403) {
       //   console.log("response 403:", response);
@@ -345,4 +314,7 @@ export class HttpClient<SecurityDataType = unknown> {
   };
 }
 
-export default new HttpClient({ baseUrl: process.env.TARGET }).request;
+export default new HttpClient({
+  baseUrl: process.env.TARGET,
+  customFetch: demoFetch,
+}).request;

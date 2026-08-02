@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const basePath = getBasePath(kbDetail?.base_url || '');
   const icon = getImagePath(kbDetail?.settings?.icon || '', basePath);
   return {
-    metadataBase: new URL(process.env.TARGET || ''),
+    metadataBase: new URL(process.env.TARGET || 'http://localhost:3010'),
     title: kbDetail?.settings?.title || 'Panda-Wiki',
     description: kbDetail?.settings?.desc || '',
     keywords: kbDetail?.settings?.keyword || '',

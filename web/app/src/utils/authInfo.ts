@@ -1,9 +1,14 @@
 import type { GithubComChaitinPandaWikiProApiShareV1AuthInfoResp } from '@/request/pro/types';
 
+/** demo 分支：始终视为已登录 */
+export const DEMO_AUTH_INFO: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp =
+  {
+    id: 1,
+    username: 'demo',
+  };
+
 export function isAuthInfoEmpty(
-  authInfo?: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp | null,
+  _authInfo?: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp | null,
 ): boolean {
-  if (authInfo == null) return true;
-  if (typeof authInfo !== 'object') return true;
-  return Object.keys(authInfo).length === 0;
+  return false;
 }

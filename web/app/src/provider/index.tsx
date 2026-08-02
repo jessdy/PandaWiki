@@ -12,6 +12,7 @@ import {
   SetStateAction,
 } from 'react';
 import { GithubComChaitinPandaWikiProApiShareV1AuthInfoResp } from '@/request/pro/types';
+import { DEMO_AUTH_INFO } from '@/utils/authInfo';
 
 interface StoreContextType {
   authInfo?: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp;
@@ -73,16 +74,32 @@ export default function StoreProvider({
   const [localAuthInfo, setLocalAuthInfo] = useState<
     GithubComChaitinPandaWikiProApiShareV1AuthInfoResp | undefined
   >(() => {
-    if (typeof window === 'undefined') return undefined;
+    // demo 分支：无本地登录态时注入演示用户
+    if (typeof window === 'undefined') return DEMO_AUTH_INFO;
     try {
       const raw = window.localStorage.getItem('authInfo');
-      return raw ? JSON.parse(raw) : undefined;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          Object.keys(parsed).length
+        ) {
+          return parsed;
+        }
+      }
     } catch {
-      return undefined;
+      // ignore
     }
+    try {
+      window.localStorage.setItem('authInfo', JSON.stringify(DEMO_AUTH_INFO));
+    } catch {
+      // ignore
+    }
+    return DEMO_AUTH_INFO;
   });
 
-  const authInfo = authInfoProp ?? localAuthInfo;
+  const authInfo = authInfoProp ?? localAuthInfo ?? DEMO_AUTH_INFO;
 
   const catalogSettings = kbDetail?.settings?.catalog_settings;
 
@@ -95,7 +112,6 @@ export default function StoreProvider({
   const [tree, setTree] = useState<ITreeItem[] | undefined>(initialTree);
   const [qaModalOpen, setQaModalOpen] = useState(false);
   const [chatSearchImages, setChatSearchImages] = useState<File[]>([]);
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   const persistClientAuthInfo = (
     info: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp,
@@ -107,10 +123,11 @@ export default function StoreProvider({
   };
 
   const clearClientAuthInfo = () => {
+    // demo 分支：退出后仍保留演示用户，避免被踢回登录
     try {
-      window.localStorage.removeItem('authInfo');
+      window.localStorage.setItem('authInfo', JSON.stringify(DEMO_AUTH_INFO));
     } catch (_) {}
-    setLocalAuthInfo(undefined);
+    setLocalAuthInfo(DEMO_AUTH_INFO);
   };
 
   const [catalogShow, setCatalogShow] = useState(
@@ -162,8 +179,8 @@ export default function StoreProvider({
         setQaModalOpen,
         chatSearchImages,
         setChatSearchImages,
-        loginModalOpen,
-        setLoginModalOpen,
+        loginModalOpen: false,
+        setLoginModalOpen: () => {},
         persistClientAuthInfo,
         clearClientAuthInfo,
       }}

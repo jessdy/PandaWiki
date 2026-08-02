@@ -9,6 +9,7 @@ import { getShareV1NodeList } from '@/request/ShareNode';
 import { getShareV1AppWebInfo } from '@/request/ShareApp';
 import { filterEmptyFolders, convertToTree } from '@/utils/drag';
 import { deepSearchFirstNode } from '@/utils';
+import { resolveDemoResponse } from '@/mocks/demoFetch';
 
 const StatPage = {
   welcome: 1,
@@ -71,18 +72,14 @@ const homeProxy = async (
 
     return NextResponse.next();
   } catch (error) {
+    // demo 分支：SSR 鉴权失败时不跳登录，继续放行
     if (
       typeof error === 'object' &&
       error !== null &&
       'message' in error &&
       error.message === 'NEXT_REDIRECT'
     ) {
-      return NextResponse.redirect(
-        new URL(
-          `/auth/login?redirect=${encodeURIComponent(url.pathname + url.search)}`,
-          request.url,
-        ),
-      );
+      return NextResponse.next();
     }
   }
 
@@ -90,33 +87,35 @@ const homeProxy = async (
 };
 
 const proxyShare = async (request: NextRequest) => {
-  // 转发到 process.env.TARGET
-  const kb_id = request.headers.get('x-kb-id') || process.env.DEV_KB_ID || '';
-
-  const targetOrigin = process.env.TARGET!;
-  const targetUrl = new URL(
-    request.nextUrl.pathname + request.nextUrl.search,
-    targetOrigin,
-  );
-  // 构造 fetch 选项
-  const fetchHeaders = new Headers(request.headers);
-  fetchHeaders.set('x-kb-id', kb_id);
-
+  // demo 分支：/share/* 全部走本地 Mock，不转发后端
   const hasBody = !['GET', 'HEAD'].includes(request.method);
-  const fetchOptions: RequestInit = {
-    method: request.method,
-    headers: fetchHeaders,
-    body: hasBody ? request.body : undefined,
-    redirect: 'manual',
-    ...(hasBody && { duplex: 'half' as const }),
-  };
-  const proxyRes = await fetch(targetUrl.toString(), fetchOptions);
-  const nextRes = new NextResponse(proxyRes.body, {
-    status: proxyRes.status,
-    headers: proxyRes.headers,
-    statusText: proxyRes.statusText,
-  });
-  return nextRes;
+  let bodyText: string | undefined;
+  if (hasBody) {
+    try {
+      bodyText = await request.text();
+    } catch {
+      bodyText = undefined;
+    }
+  }
+
+  const mocked = await resolveDemoResponse(
+    request.nextUrl.pathname + request.nextUrl.search,
+    {
+      method: request.method,
+      headers: request.headers,
+      body: bodyText,
+    },
+  );
+
+  if (mocked) {
+    return new NextResponse(mocked.body, {
+      status: mocked.status,
+      headers: mocked.headers,
+      statusText: mocked.statusText,
+    });
+  }
+
+  return NextResponse.json({ success: true, data: {} }, { status: 200 });
 };
 
 export async function proxy(request: NextRequest) {

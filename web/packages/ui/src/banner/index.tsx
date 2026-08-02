@@ -7,7 +7,6 @@ import {
 } from '../chatTopNStorage';
 import {
   getInitialQaAppMode,
-  persistQaAppMode,
   QA_APP_MODE_CHANGE_EVENT,
   type QaAppMode,
 } from '../chatQaModeStorage';
@@ -28,7 +27,6 @@ import {
   MenuItem,
   Select,
   Tooltip,
-  Switch,
   Typography,
   ThemeProvider,
   useTheme,
@@ -650,51 +648,19 @@ const Banner = React.memo(
                   >
                     智能问答
                   </Button>
-                  <Stack
-                    direction='row'
-                    alignItems='center'
-                    spacing={0.75}
-                    sx={{ flexShrink: 0 }}
+                  {/* demo 分支：固定实战模式，隐藏培训/实战切换 */}
+                  <Typography
+                    variant='body2'
+                    sx={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: 'primary.main',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
                   >
-                    <Typography
-                      variant='body2'
-                      sx={{
-                        fontSize: 13,
-                        fontWeight: qaAppMode === 'training' ? 600 : 400,
-                        color:
-                          qaAppMode === 'training'
-                            ? 'primary.main'
-                            : 'text.secondary',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      培训模式
-                    </Typography>
-                    <Switch
-                      size='medium'
-                      checked={qaAppMode === 'work'}
-                      onChange={(_, checked) => {
-                        const m: QaAppMode = checked ? 'work' : 'training';
-                        setQaAppMode(m);
-                        persistQaAppMode(m);
-                      }}
-                      inputProps={{ 'aria-label': '培训模式与实战模式切换' }}
-                    />
-                    <Typography
-                      variant='body2'
-                      sx={{
-                        fontSize: 13,
-                        fontWeight: qaAppMode === 'work' ? 600 : 400,
-                        color:
-                          qaAppMode === 'work'
-                            ? 'primary.main'
-                            : 'text.secondary',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      实战模式
-                    </Typography>
-                  </Stack>
+                    实战模式
+                  </Typography>
                 </Stack>
               </Stack>
             </StyledSearchBox>

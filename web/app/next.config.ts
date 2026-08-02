@@ -69,31 +69,8 @@ const nextConfig: NextConfig = {
           });
         }
       }
-      if (process.env.TARGET) {
-        const target = process.env.TARGET.trim();
-        // 确保是完整的 URL（以 http:// 或 https:// 开头）
-        if (target.startsWith('http://') || target.startsWith('https://')) {
-          rewritesPath.push(
-            {
-              source: '/share/v1/:path*',
-              destination: `${target}/share/v1/:path*`,
-              basePath: false as const,
-            },
-            {
-              // /share/pro/v1/* — 含 document_feedback / consult 等 share 侧 pro 接口；
-              // 之前漏配会让 dev 环境下这些请求直接 404。
-              source: '/share/pro/v1/:path*',
-              destination: `${target}/share/pro/v1/:path*`,
-              basePath: false as const,
-            },
-            {
-              source: '/api/v1/:path*',
-              destination: `${target}/api/v1/:path*`,
-              basePath: false as const,
-            },
-          );
-        }
-      }
+      // demo 分支：禁用转发到 TARGET，全部由本地 Mock / proxy 处理
+      // （保留 STATIC_FILE_TARGET 可选代理）
     }
     return rewritesPath;
   },
