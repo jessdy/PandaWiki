@@ -1,0 +1,356 @@
+{
+  "kb_id": "demo-kb-001",
+  "timing": {
+    "first_byte_delay_ms": 3000,
+    "delays": {
+      "data": 90,
+      "chain_step": 700,
+      "chunk_result": 200,
+      "conversation_id": 40,
+      "message_id": 40,
+      "nonce": 40,
+      "done": 80
+    },
+    "data_chunk_size": 4
+  },
+  "nodes": [
+    {
+      "id": "folder-getting-started",
+      "name": "开封工作概述",
+      "type": 1,
+      "emoji": "📁",
+      "parent_id": "",
+      "position": 1,
+      "status": 2,
+      "summary": "入门指南与环境说明",
+      "permissions": {
+        "answerable": "open",
+        "visible": "open",
+        "visitable": "open"
+      },
+      "meta": {
+        "show_in_topology": true,
+        "summary": "入门指南与环境说明"
+      }
+    },
+    {
+      "id": "doc-welcome",
+      "name": "纸张",
+      "type": 1,
+      "emoji": "📁",
+      "parent_id": "",
+      "position": 1,
+      "status": 2,
+      "summary": "了解 Demo 知识库的基本能力与浏览方式",
+      "permissions": {
+        "answerable": "open",
+        "visible": "open",
+        "visitable": "open"
+      },
+      "meta": {
+        "show_in_topology": true,
+        "summary": "了解 Demo 知识库的基本能力与浏览方式"
+      }
+    },
+    {
+      "id": "doc-work-mode",
+      "name": "墨迹",
+      "type": 1,
+      "emoji": "📁",
+      "parent_id": "",
+      "position": 2,
+      "status": 2,
+      "summary": "本 Demo 固定运行在实战模式，用于产品演示",
+      "permissions": {
+        "answerable": "open",
+        "visible": "open",
+        "visitable": "open"
+      },
+      "meta": {
+        "show_in_topology": true,
+        "summary": "本 Demo 固定运行在实战模式，用于产品演示"
+      }
+    },
+    {
+      "id": "folder-product",
+      "name": "粘合剂",
+      "type": 1,
+      "emoji": "📦",
+      "parent_id": "",
+      "position": 2,
+      "status": 2,
+      "summary": "产品功能与使用指南",
+      "permissions": {
+        "answerable": "open",
+        "visible": "open",
+        "visitable": "open"
+      },
+      "meta": {
+        "show_in_topology": true,
+        "summary": "产品功能与使用指南"
+      }
+    },
+    {
+      "id": "doc-faq",
+      "name": "常见问题",
+      "type": 2,
+      "emoji": "❓",
+      "parent_id": "folder-product",
+      "position": 1,
+      "status": 2,
+      "summary": "高频问题与排查建议",
+      "permissions": {
+        "answerable": "open",
+        "visible": "open",
+        "visitable": "open"
+      },
+      "meta": {
+        "show_in_topology": true,
+        "summary": "高频问题与排查建议"
+      }
+    },
+    {
+      "id": "doc-api",
+      "name": "接口概览",
+      "type": 2,
+      "emoji": "🔌",
+      "parent_id": "folder-product",
+      "position": 2,
+      "status": 2,
+      "summary": "对外常用接口与调用约定",
+      "permissions": {
+        "answerable": "open",
+        "visible": "open",
+        "visitable": "open"
+      },
+      "meta": {
+        "show_in_topology": true,
+        "summary": "对外常用接口与调用约定"
+      }
+    }
+  ],
+  "doc_contents": {
+    "doc-welcome": {
+      "name": "欢迎使用 PandaWiki",
+      "summary": "了解 Demo 知识库的基本能力与浏览方式",
+      "content": "# 欢迎使用 PandaWiki\n\n这是一个 **纯前端 Demo**：所有数据均为本地 Mock，无需启动后端。\n\n## 你可以做什么\n\n- 浏览左侧目录与文档\n- 使用智能问答（流式回复为 Mock）\n- 体验固定的「实战模式」界面\n\n## 说明\n\n当前分支已关闭登录校验，并以演示用户身份访问。\n"
+    },
+    "doc-work-mode": {
+      "name": "实战模式说明",
+      "summary": "本 Demo 固定运行在实战模式，用于产品演示",
+      "content": "# 实战模式说明\n\n本 Demo 默认并锁定为 **实战模式**（`work`），界面无法切换到培训模式。\n\n实战模式面向真实业务问答场景，强调结构化属性识别与检索范围控制。\n"
+    },
+    "doc-faq": {
+      "name": "常见问题",
+      "summary": "高频问题与排查建议",
+      "content": "# 常见问题\n\n## 为什么看不到后端请求？\n\nDemo 分支在 HTTP 客户端层拦截了 `/share/*` 请求，并返回本地假数据。\n\n## 问答为什么是固定回复？\n\n`/share/v1/chat/message` 的 SSE 流由前端 Mock，便于离线演示。\n"
+    },
+    "doc-api": {
+      "name": "接口概览",
+      "summary": "对外常用接口与调用约定",
+      "content": "# 接口概览\n\n| 接口 | 说明 |\n| --- | --- |\n| `GET /share/v1/app/web/info` | 站点配置 |\n| `GET /share/v1/node/list` | 文档目录 |\n| `GET /share/v1/node/detail` | 文档详情 |\n| `POST /share/v1/chat/message` | 智能问答（SSE） |\n"
+    }
+  },
+  "web_info": {
+    "name": "智能开封手",
+    "base_url": "",
+    "settings": {
+      "title": "智能开封手",
+      "desc": "纯前端演示站点（Mock 数据）",
+      "keyword": "PandaWiki,Demo",
+      "theme_mode": "light",
+      "home_page_setting": "custom",
+      "icon": "",
+      "catalog_settings": {
+        "catalog_folder": 1,
+        "catalog_visible": 1,
+        "catalog_width": 280
+      },
+      "web_app_custom_style": {
+        "header_search_placeholder": "搜索文档或提问…"
+      },
+      "topology_settings": {
+        "enabled": true,
+        "title": "知识拓扑图",
+        "description": "点击节点可逐层展开知识结构"
+      },
+      "web_app_landing_configs": [
+        {
+          "type": "banner",
+          "banner_config": {
+            "title": "欢迎使用智能开封手",
+            "subtitle": "智能开封手，是一款AI驱动的知识库系统，支持构建封置库系统，支持构建封置库文档、问答和搜索功能。",
+            "title_font_size": 48,
+            "subtitle_font_size": 18,
+            "title_color": "#ffffff",
+            "subtitle_color": "rgba(0,0,0,0.85)",
+            "bg_url": "/images/bg.jpeg",
+            "placeholder": "试试问：实战模式是什么？",
+            "hot_search": [
+              "如何使用智能开封手？",
+              "智能开封手能做什么？",
+              "忘了密码如何重置？"
+            ],
+            "btns": []
+          }
+        },
+        {
+          "type": "faq",
+          "faq_config": {
+            "title": "标准术语",
+            "list": [
+              {
+                "question": "标准术语库",
+                "link": "/node/doc-welcome"
+              }
+            ]
+          }
+        }
+      ],
+      "recommend_questions": [
+        "如何使用智能开封手？",
+        "智能开封手能做什么？",
+        "忘了密码如何重置？"
+      ]
+    }
+  },
+  "widget_info": {
+    "name": "PandaWiki Demo Widget",
+    "settings": {
+      "widget_bot_settings": {
+        "is_open": false
+      }
+    }
+  },
+  "work_mode": {
+    "category": "信封",
+    "attr_specs": [
+      {
+        "name": "式样",
+        "values": [
+          "中式",
+          "西式",
+          "三面邮筒",
+          "“天窗”信封",
+          "自制"
+        ]
+      },
+      {
+        "name": "标准",
+        "values": [
+          "标准信封",
+          "非标准信封"
+        ]
+      },
+      {
+        "name": "国家或地区",
+        "values": []
+      },
+      {
+        "name": "封口粘封",
+        "values": [
+          "水溶性粘合剂",
+          "压敏粘合剂",
+          "双面胶",
+          "热熔胶"
+        ]
+      },
+      {
+        "name": "封口加粘",
+        "values": [
+          "胶带",
+          "邮票",
+          "地址条",
+          "标签"
+        ]
+      },
+      {
+        "name": "机封口",
+        "values": [
+          "热熔胶",
+          "水溶性胶"
+        ]
+      },
+      {
+        "name": "材质",
+        "values": [
+          "纸质",
+          "塑料",
+          "合成",
+          "特氟龙（防水）",
+          "其他材质"
+        ]
+      }
+    ],
+    "attr_collected_from_image": {
+      "式样": "西式",
+      "标准": "标准信封",
+      "材质": "纸质"
+    },
+    "unrecognized": {
+      "品牌字样": "DemoCola"
+    },
+    "method_rules": [
+      {
+        "id": "rule-alu-std",
+        "name": "湿润法",
+        "description": "",
+        "node_id": "doc-faq",
+        "node_name": "湿润法",
+        "when": {
+          "封口粘封": "水溶性粘合剂"
+        }
+      },
+      {
+        "id": "rule-alu-full",
+        "name": "溶剂涂抹法",
+        "description": "",
+        "node_id": "doc-work-mode",
+        "node_name": "快件侧封口开启（溶剂涂抹法）",
+        "when": {
+          "封口加粘": "胶带"
+        }
+      },
+      {
+        "id": "rule-generic",
+        "name": "加热法",
+        "description": "",
+        "node_id": "doc-welcome",
+        "node_name": "加热法（函件）",
+        "when": {
+          "封口加粘": "胶带"
+        }
+      }
+    ],
+    "image_chain": {
+      "scene_detail": "这是一封白色的信封，封口处有红蓝相同的条纹装饰，用于邮寄信件或文件。",
+      "attr_detail": "信封样式：西式\n信封标准：标准信封\n国家或地区：无法识别\n封口粘封类型推断：无法判断\n封口加粘物：无\n机封口特征推断：无法判断\n材质推断：纸质",
+      "rules_count": 9
+    }
+  },
+  "text_chat": {
+    "answer_template": "这是 Demo Mock 回复。\n\n你问的是：「{{message}}」\n\n当前环境未连接后端，回答由前端本地生成。\n\n上传图片后可体验：附图识别 → 提取要素 → 属性面板选择 → 方法卡片联动。",
+    "chunk_results": [
+      {
+        "node_id": "doc-welcome",
+        "name": "欢迎使用 PandaWiki",
+        "emoji": "👋",
+        "summary": "了解 Demo 知识库的基本能力与浏览方式",
+        "node_path_names": [
+          "快速开始",
+          "欢迎使用 PandaWiki"
+        ]
+      },
+      {
+        "node_id": "doc-work-mode",
+        "name": "实战模式说明",
+        "emoji": "⚡",
+        "summary": "本 Demo 固定运行在实战模式",
+        "node_path_names": [
+          "快速开始",
+          "实战模式说明"
+        ]
+      }
+    ]
+  }
+}

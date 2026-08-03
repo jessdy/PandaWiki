@@ -27,6 +27,7 @@ import {
   MenuItem,
   Select,
   Tooltip,
+  Switch,
   Typography,
   ThemeProvider,
   useTheme,
@@ -474,12 +475,59 @@ const Banner = React.memo(
               pt: { xs: 16 },
             }}
           >
-            <StyledTitle ref={titleRef}>{title.text}</StyledTitle>
+            <Stack
+              direction='row'
+              alignItems='baseline'
+              flexWrap='wrap'
+              useFlexGap
+              spacing={0.75}
+              sx={{ mb: 3 }}
+            >
+              {(() => {
+                const text = title.text || '';
+                const prefix = '欢迎使用';
+                const hasPrefix = text.startsWith(prefix);
+                return (
+                  <>
+                    {hasPrefix && (
+                      <Box
+                        component='span'
+                        sx={{
+                          color: title.color
+                            ? 'rgba(0,0,0,0.72)'
+                            : 'text.secondary',
+                          // 小五号 ≈ 12px；默认字体、常规字重
+                          fontSize: '30px',
+                          fontWeight: 400,
+                          fontFamily: 'system-ui, -apple-system, sans-serif',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {prefix}
+                      </Box>
+                    )}
+                    <StyledTitle
+                      ref={titleRef}
+                      sx={{
+                        mb: 0,
+                        ...(title.fontSize
+                          ? { fontSize: `${title.fontSize}px` }
+                          : null),
+                        ...(title.color ? { color: '#ff4400' } : null),
+                      }}
+                    >
+                      {hasPrefix ? text.slice(prefix.length) : text}
+                    </StyledTitle>
+                  </>
+                );
+              })()}
+            </Stack>
             {/* {subtitle.text && ( */}
             <StyledSubTitle
               ref={subtitleRef}
               sx={{
                 fontSize: `${subtitle.fontSize || 16}px`,
+                ...(subtitle.color ? { color: subtitle.color } : null),
               }}
             >
               {subtitle.text}
@@ -648,19 +696,44 @@ const Banner = React.memo(
                   >
                     智能问答
                   </Button>
-                  {/* demo 分支：固定实战模式，隐藏培训/实战切换 */}
-                  <Typography
-                    variant='body2'
-                    sx={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'primary.main',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                    }}
+                  {/* demo 分支：展示开关但禁用，锁定实战模式 */}
+                  <Stack
+                    direction='row'
+                    alignItems='center'
+                    spacing={0.75}
+                    sx={{ flexShrink: 0 }}
                   >
-                    实战模式
-                  </Typography>
+                    <Typography
+                      variant='body2'
+                      sx={{
+                        fontSize: 13,
+                        fontWeight: 400,
+                        color: 'text.secondary',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      培训模式
+                    </Typography>
+                    <Switch
+                      size='medium'
+                      checked
+                      disabled
+                      inputProps={{
+                        'aria-label': '培训模式与实战模式切换（Demo 锁定实战）',
+                      }}
+                    />
+                    <Typography
+                      variant='body2'
+                      sx={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: 'primary.main',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      实战模式
+                    </Typography>
+                  </Stack>
                 </Stack>
               </Stack>
             </StyledSearchBox>

@@ -118,7 +118,7 @@ const Layout = async ({
       <Script
         id='base-path'
         dangerouslySetInnerHTML={{
-          __html: `window._BASE_PATH_ = '${basePath}';window.__KB_ID__=${JSON.stringify(kbIdForClient)};`,
+          __html: `window._BASE_PATH_ = ${JSON.stringify(basePath || '')};window.__KB_ID__=${JSON.stringify(kbIdForClient)};`,
         }}
       />
       <body className={`${gilory.variable} light`}>

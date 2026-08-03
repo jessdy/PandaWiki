@@ -8,6 +8,7 @@ import {
   Typography,
   Modal,
   Stack,
+  Switch,
   lighten,
   alpha,
   useTheme,
@@ -196,23 +197,68 @@ const QaModal: React.FC<QaModalProps> = () => {
                 >
                   智能问答
                 </Typography>
-                {/* demo 分支：固定实战模式，隐藏培训/实战切换 */}
-                <Typography
-                  variant='body2'
+                {/* demo 分支：展示开关但禁用，锁定实战模式 */}
+                <Stack
+                  direction='row'
+                  alignItems='center'
+                  spacing={0.5}
                   sx={{
                     pl: 1,
                     ml: 0.5,
                     borderLeft: '1px solid',
                     borderColor: WORK_MODE_PALETTE.borderSoft,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: WORK_MODE_PALETTE.accentPrimary,
-                    whiteSpace: 'nowrap',
-                    letterSpacing: '0.04em',
                   }}
                 >
-                  实战模式
-                </Typography>
+                  <Typography
+                    variant='body2'
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 400,
+                      color: WORK_MODE_PALETTE.textMuted,
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none',
+                    }}
+                  >
+                    培训模式
+                  </Typography>
+                  <Switch
+                    size='small'
+                    checked
+                    disabled
+                    inputProps={{
+                      'aria-label': '培训模式与实战模式切换（Demo 锁定实战）',
+                    }}
+                    sx={{
+                      '& .MuiSwitch-switchBase.Mui-checked': {
+                        color: WORK_MODE_PALETTE.accentBright,
+                      },
+                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track':
+                        {
+                          backgroundColor: WORK_MODE_PALETTE.accentPrimary,
+                          opacity: 0.65,
+                        },
+                      '& .MuiSwitch-track': {
+                        backgroundColor: WORK_MODE_PALETTE.switchTrack,
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 0.85,
+                      },
+                    }}
+                  />
+                  <Typography
+                    variant='body2'
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: WORK_MODE_PALETTE.accentPrimary,
+                      whiteSpace: 'nowrap',
+                      userSelect: 'none',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    实战模式
+                  </Typography>
+                </Stack>
               </Stack>
 
               {/* Esc按钮 */}
@@ -299,7 +345,7 @@ const QaModal: React.FC<QaModalProps> = () => {
                   {!kbDetail?.settings?.conversation_setting
                     ?.copyright_hide_enabled &&
                     (kbDetail?.settings?.conversation_setting?.copyright_info ||
-                      '本网站由 PandaWiki 提供技术支持')}
+                      '本网站由 上海局 提供技术支持')}
                 </Box>
               </Typography>
             </Box>

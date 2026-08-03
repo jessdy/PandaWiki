@@ -102,9 +102,13 @@ const handleBannerProps = (config: any = {}, basePath: string) => {
   return {
     title: {
       text: config.title,
+      fontSize: config.title_font_size,
+      color: config.title_color,
     },
     subtitle: {
       text: config.subtitle,
+      fontSize: config.subtitle_font_size,
+      color: config.subtitle_color,
     },
     bg_url: getImagePath(config.bg_url, basePath),
     search: {

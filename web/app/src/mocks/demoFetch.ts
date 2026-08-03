@@ -1,15 +1,13 @@
 /**
  * demo 分支：统一拦截 /share/* 请求，返回本地 Mock，不访问后端。
+ * 业务假数据来自 public/demo-fixtures.json（打包后可直接修改该 JSON）。
  */
 import {
-  DEMO_ATTR_COLLECTED_FROM_IMAGE,
-  DEMO_ATTR_SPECS,
-  DEMO_NODES,
-  DEMO_WEB_INFO,
-  DEMO_WIDGET_INFO,
-  DEMO_WORK_CATEGORY,
+  buildDemoWebInfo,
   getDemoNodeDetail,
+  loadDemoFixtures,
   matchDemoMethods,
+  type DemoFixtures,
 } from './fixtures';
 
 /** demo 分支始终开启 Mock */
@@ -63,17 +61,26 @@ function chainStep(step: number, title: string, detail: string) {
   };
 }
 
-function streamSSE(events: Array<Record<string, unknown>>): Response {
+function streamSSE(
+  events: Array<Record<string, unknown>>,
+  fx: DemoFixtures,
+): Response {
   const encoder = new TextEncoder();
+  const timing = fx.timing || {
+    first_byte_delay_ms: 3000,
+    delays: {},
+  };
+  const delays = timing.delays || {};
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      await delay(timing.first_byte_delay_ms ?? 3000);
       for (const event of events) {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
         );
-        const wait =
-          event.type === 'data' ? 18 : event.type === 'chain_step' ? 280 : 40;
-        await delay(wait);
+        const type = String(event.type || '');
+        await delay(delays[type] ?? 120);
       }
       controller.close();
     },
@@ -87,20 +94,34 @@ function streamSSE(events: Array<Record<string, unknown>>): Response {
   });
 }
 
+function pushSlowDataChunks(
+  events: Array<Record<string, unknown>>,
+  text: string,
+  chunkSize = 4,
+) {
+  for (let i = 0; i < text.length; i += chunkSize) {
+    events.push({ type: 'data', content: text.slice(i, i + chunkSize) });
+  }
+}
+
 /** 附图问答：思维链提取要素 → ATTRIBUTE_PANEL 供用户选择 */
-function createImageWorkModeSSE(userMessage?: string): Response {
+function createImageWorkModeSSE(
+  fx: DemoFixtures,
+  userMessage?: string,
+): Response {
   const q = (userMessage || '').trim();
-  const collected = { ...DEMO_ATTR_COLLECTED_FROM_IMAGE };
-  const matched = matchDemoMethods(collected);
+  const wm = fx.work_mode;
+  const collected = { ...(wm.attr_collected_from_image || {}) };
+  const matched = matchDemoMethods(fx, collected);
   const panelMeta = {
-    category: DEMO_WORK_CATEGORY,
-    specs: DEMO_ATTR_SPECS,
+    category: wm.category,
+    specs: wm.attr_specs,
     collected,
-    unrecognized: { 品牌字样: 'DemoCola' } as Record<string, string>,
+    unrecognized: wm.unrecognized || {},
     methods: matched.methods,
   };
   const fallback =
-    `当前为「实战模式」。已识别品类「${DEMO_WORK_CATEGORY}」。` +
+    `当前为「实战模式」。已识别品类「${wm.category}」。` +
     `已采集属性：${Object.entries(collected)
       .map(([k, v]) => `${k}=${v}`)
       .join('、')}。` +
@@ -108,6 +129,17 @@ function createImageWorkModeSSE(userMessage?: string): Response {
       ? `可能的开封方法：${matched.methods.map(m => m.name).join('、')}。`
       : '请在面板内补全属性后查找匹配的开封方法。');
   const answer = `<!-- ATTRIBUTE_PANEL ${JSON.stringify(panelMeta)} -->\n${fallback}`;
+
+  const scene =
+    wm.image_chain?.scene_detail ||
+    '已识别画面主体，正在结合品类配置提取属性。';
+  const attrDetail =
+    wm.image_chain?.attr_detail ||
+    Object.entries(collected)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+  const rulesCount =
+    wm.image_chain?.rules_count ?? (wm.method_rules?.length || 0);
 
   const events: Array<Record<string, unknown>> = [
     { type: 'conversation_id', content: `demo-conv-${Date.now()}` },
@@ -119,92 +151,66 @@ function createImageWorkModeSSE(userMessage?: string): Response {
       '已收到附图，将依次完成：识别画面 → 品类判断 →（若命中）按品类提取检索要点 → 向量检索。',
     ),
     chainStep(1, '识别图中物体与场景', '正在调用视觉模型…'),
-    chainStep(
-      1,
-      '识别图中物体与场景',
-      '画面中央为一只银色圆柱形易拉罐，罐身有蓝红配色标签，顶部可见拉环结构；背景为浅色桌面。' +
-        (q ? `用户补充说明：${q}` : ''),
-    ),
+    chainStep(1, '识别图中物体与场景', scene + (q ? `用户补充说明：${q}` : '')),
     chainStep(2, '判断是否属于配置品类', '比对配置中的品类…'),
-    chainStep(2, '判断是否属于配置品类', `命中品类：「${DEMO_WORK_CATEGORY}」`),
+    chainStep(2, '判断是否属于配置品类', `命中品类：「${wm.category}」`),
     chainStep(
       3,
       '按品类提示词提取检索属性',
       '正在结合图片提取与检索相关的属性要点…',
     ),
-    chainStep(
-      3,
-      '按品类提示词提取检索属性',
-      '材质偏铝制银色、容量约 330ml、拉环形态尚不明确需人工确认、标签含 DemoCola 字样',
-    ),
+    chainStep(3, '按品类提示词提取检索属性', attrDetail),
     chainStep(
       5,
       '实战模式：结构化匹配',
-      `品类「${DEMO_WORK_CATEGORY}」已配置规则，本轮命中 ${matched.methods.length} 条。请在面板内调整属性以联动刷新方法卡片。`,
+      `品类「${wm.category}」已配置${rulesCount}条规则，本轮命中 ${matched.methods.length} 条。请在面板内调整属性以联动刷新方法卡片。`,
     ),
   ];
 
-  for (const part of answer.split(/(\n)/)) {
-    if (part) events.push({ type: 'data', content: part });
+  const chunkSize = fx.timing?.data_chunk_size ?? 4;
+  const markerEnd = answer.indexOf('-->');
+  if (markerEnd >= 0) {
+    events.push({ type: 'data', content: answer.slice(0, markerEnd + 3) });
+    pushSlowDataChunks(events, answer.slice(markerEnd + 3), chunkSize);
+  } else {
+    pushSlowDataChunks(events, answer, chunkSize);
   }
   events.push({ type: 'done' });
-  return streamSSE(events);
+  return streamSSE(events, fx);
 }
 
-function createChatSSE(body?: {
-  message?: string;
-  image_paths?: string[];
-  qa_mode?: string;
-}): Response {
+function createChatSSE(
+  fx: DemoFixtures,
+  body?: {
+    message?: string;
+    image_paths?: string[];
+    qa_mode?: string;
+  },
+): Response {
   const imagePaths = Array.isArray(body?.image_paths) ? body!.image_paths! : [];
-  const hasImages = imagePaths.length > 0;
-  // demo 固定实战模式；有附图时走「提取要素 → 属性选择」原流程
-  if (hasImages) {
-    return createImageWorkModeSSE(body?.message);
+  if (imagePaths.length > 0) {
+    return createImageWorkModeSSE(fx, body?.message);
   }
 
   const q = (body?.message || '').trim() || '你的问题';
-  const answer = [
-    `这是 Demo Mock 回复。`,
-    ``,
-    `你问的是：「${q}」`,
-    ``,
-    `当前环境未连接后端，回答由前端本地生成。`,
-    ``,
-    `上传图片后可体验：附图识别 → 提取要素 → 属性面板选择 → 方法卡片联动。`,
-  ].join('\n');
+  const template =
+    fx.text_chat?.answer_template ||
+    '这是 Demo Mock 回复。\n\n你问的是：「{{message}}」';
+  const answer = template.replace(/\{\{message\}\}/g, q);
 
   const events: Array<Record<string, unknown>> = [
     { type: 'conversation_id', content: `demo-conv-${Date.now()}` },
     { type: 'message_id', content: `demo-msg-${Date.now()}` },
     { type: 'nonce', content: 'demo-nonce' },
-    {
-      type: 'chunk_result',
-      chunk_result: {
-        node_id: 'doc-welcome',
-        name: '欢迎使用 PandaWiki',
-        emoji: '👋',
-        summary: '了解 Demo 知识库的基本能力与浏览方式',
-        node_path_names: ['快速开始', '欢迎使用 PandaWiki'],
-      },
-    },
-    {
-      type: 'chunk_result',
-      chunk_result: {
-        node_id: 'doc-work-mode',
-        name: '实战模式说明',
-        emoji: '⚡',
-        summary: '本 Demo 固定运行在实战模式',
-        node_path_names: ['快速开始', '实战模式说明'],
-      },
-    },
   ];
 
-  for (const part of answer.split(/(\n)/)) {
-    if (part) events.push({ type: 'data', content: part });
+  for (const chunk of fx.text_chat?.chunk_results || []) {
+    events.push({ type: 'chunk_result', chunk_result: chunk });
   }
+
+  pushSlowDataChunks(events, answer, fx.timing?.data_chunk_size ?? 3);
   events.push({ type: 'done' });
-  return streamSSE(events);
+  return streamSSE(events, fx);
 }
 
 export async function resolveDemoResponse(
@@ -217,21 +223,28 @@ export async function resolveDemoResponse(
   const pathname = url.pathname.replace(/\/+$/, '') || '/';
   const method = (init?.method || 'GET').toUpperCase();
 
+  // 静态 fixtures 本身不走 mock 拦截
+  if (pathname.endsWith('/demo-fixtures.json')) {
+    return null;
+  }
+
+  const fx = await loadDemoFixtures();
+
   // ---- App ----
   if (pathname.endsWith('/share/v1/app/web/info') && method === 'GET') {
-    return jsonOk(DEMO_WEB_INFO);
+    return jsonOk(buildDemoWebInfo(fx));
   }
   if (pathname.endsWith('/share/v1/app/widget/info') && method === 'GET') {
-    return jsonOk(DEMO_WIDGET_INFO);
+    return jsonOk(fx.widget_info);
   }
 
   // ---- Nodes ----
   if (pathname.endsWith('/share/v1/node/list') && method === 'GET') {
-    return jsonOk([...DEMO_NODES]);
+    return jsonOk([...(fx.nodes || [])]);
   }
   if (pathname.endsWith('/share/v1/node/detail') && method === 'GET') {
     const id = url.searchParams.get('id') || '';
-    const detail = getDemoNodeDetail(id);
+    const detail = getDemoNodeDetail(fx, id);
     if (!detail) {
       return new Response(
         JSON.stringify({ success: false, message: '文档不存在', data: null }),
@@ -244,35 +257,41 @@ export async function resolveDemoResponse(
   // ---- Chat SSE ----
   if (pathname.endsWith('/share/v1/chat/message') && method === 'POST') {
     const body = await readJsonBody(init);
-    return createChatSSE(body);
+    return createChatSSE(fx, body);
   }
 
   // ---- Search ----
   if (pathname.endsWith('/share/v1/chat/search') && method === 'POST') {
     const body = await readJsonBody(init);
     const q = String(body?.message || body?.query || '').toLowerCase();
-    const matched = DEMO_NODES.filter(
-      n =>
-        n.type === 2 &&
-        (!q ||
-          n.name.toLowerCase().includes(q) ||
-          n.summary.toLowerCase().includes(q)),
-    ).map(n => ({
-      node_id: n.id,
-      name: n.name,
-      emoji: n.emoji,
-      summary: n.summary,
-      node_path_names: [
-        DEMO_NODES.find(p => p.id === n.parent_id)?.name,
-        n.name,
-      ].filter(Boolean),
-    }));
+    const matched = (fx.nodes || [])
+      .filter(
+        n =>
+          n.type === 2 &&
+          (!q ||
+            String(n.name || '')
+              .toLowerCase()
+              .includes(q) ||
+            String(n.summary || '')
+              .toLowerCase()
+              .includes(q)),
+      )
+      .map(n => ({
+        node_id: n.id,
+        name: n.name,
+        emoji: n.emoji,
+        summary: n.summary,
+        node_path_names: [
+          (fx.nodes || []).find(p => p.id === n.parent_id)?.name,
+          n.name,
+        ].filter(Boolean),
+      }));
     return jsonOk({ node_result: matched });
   }
 
   if (pathname.endsWith('/share/v1/chat/widget') && method === 'POST') {
     const body = await readJsonBody(init);
-    return createChatSSE(body || { message: 'widget' });
+    return createChatSSE(fx, body || { message: 'widget' });
   }
   if (pathname.endsWith('/share/v1/chat/widget/search') && method === 'POST') {
     return jsonOk({ node_result: [] });
@@ -314,7 +333,6 @@ export async function resolveDemoResponse(
     return jsonOk({});
   }
   if (pathname.endsWith('/share/v1/common/file/upload') && method === 'POST') {
-    // 模拟上传耗时，保留原有「先上传再提问」节奏
     await delay(180);
     return jsonOk({ key: `demo-upload-${Date.now()}` });
   }
@@ -323,6 +341,7 @@ export async function resolveDemoResponse(
     await delay(120);
     return jsonOk(
       matchDemoMethods(
+        fx,
         (body?.collected && typeof body.collected === 'object'
           ? body.collected
           : {}) as Record<string, string>,
@@ -336,15 +355,10 @@ export async function resolveDemoResponse(
     pathname.includes('/share/pro/v1/auth/')
   ) {
     if (method === 'GET' && pathname.endsWith('/get')) {
-      return jsonOk({
-        auth_types: [],
-      });
+      return jsonOk({ auth_types: [] });
     }
     if (method === 'POST') {
-      return jsonOk({
-        token: 'demo-token',
-        username: 'demo',
-      });
+      return jsonOk({ token: 'demo-token', username: 'demo' });
     }
     return jsonOk({});
   }
@@ -389,12 +403,10 @@ export async function resolveDemoResponse(
     return jsonOk({});
   }
 
-  // ---- Captcha ----
   if (pathname.includes('/share/v1/captcha/')) {
     return jsonOk({});
   }
 
-  // 其它 /share 或 /api 请求统一空成功，避免打到后端
   if (
     pathname.includes('/share/') ||
     pathname.includes('/api/v1/') ||
@@ -412,6 +424,5 @@ export async function demoFetch(
 ): Promise<Response> {
   const mocked = await resolveDemoResponse(input, init);
   if (mocked) return mocked;
-  // 非 API：放行（例如静态资源）；demo 下一般不会走到这里
   return fetch(input, init);
 }

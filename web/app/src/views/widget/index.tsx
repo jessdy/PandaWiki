@@ -213,7 +213,7 @@ const Widget = () => {
           >
             <Box>
               {widget?.settings?.widget_bot_settings?.copyright_info ||
-                '本网站由 PandaWiki 提供技术支持'}
+                '本网站由 上海局 提供技术支持'}
             </Box>
           </Typography>
         </Box>

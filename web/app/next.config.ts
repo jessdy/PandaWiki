@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
     '@ctzhian/tiptap',
     '@ctzhian/ui',
   ],
-  webpack: config => {
+  webpack: (config, { isServer }) => {
     // 把 app 自己的 node_modules 放最前，避免 monorepo 父级 node_modules 截胡
     // 不再手动 alias 'entities/decode'：webpack 5 已原生支持 package.json 的 exports
     // 子路径解析，旧 alias 指向的 lib/decode.js 在 entities@6+ 已不存在。
@@ -36,6 +36,17 @@ const nextConfig: NextConfig = {
       path.join(appRoot, 'node_modules'),
       ...(config.resolve.modules ?? ['node_modules']),
     ];
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        fs: false,
+        path: false,
+        'fs/promises': false,
+        'node:fs': false,
+        'node:fs/promises': false,
+        'node:path': false,
+      };
+    }
     return config;
   },
   async headers() {

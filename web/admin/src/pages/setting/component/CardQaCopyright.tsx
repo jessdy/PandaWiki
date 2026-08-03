@@ -119,7 +119,7 @@ const CardQaCopyright = ({
                 <TextField
                   fullWidth
                   {...field}
-                  placeholder='本网站由 PandaWiki 提供技术支持'
+                  placeholder='本网站由上海局提供技术支持'
                   error={!!errors.copyright_info}
                   helperText={errors.copyright_info?.message}
                   onChange={event => {

@@ -352,13 +352,7 @@ const AttributePanel: React.FC<AttributePanelProps> = ({
               mt: 1,
               display: 'block',
             }}
-          >
-            ⚠ AI 在描述里看到了「
-            {Object.entries(meta.unrecognized)
-              .map(([k, v]) => `${k}=${v}`)
-              .join('、')}
-            」，但与配置的枚举不符；请手动选择。
-          </Typography>
+          ></Typography>
         )}
       </Box>
 

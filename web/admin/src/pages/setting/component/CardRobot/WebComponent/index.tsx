@@ -651,7 +651,7 @@ const CardRobotWebComponent = ({ kb }: CardRobotWebComponentProps) => {
                               <TextField
                                 fullWidth
                                 {...field}
-                                placeholder='本网站由 PandaWiki 提供技术支持'
+                                placeholder='本网站由 上海局 提供技术支持'
                                 error={!!errors.copyright_info}
                                 helperText={errors.copyright_info?.message}
                                 onChange={event => {

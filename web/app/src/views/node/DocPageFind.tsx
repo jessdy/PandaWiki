@@ -25,7 +25,7 @@ import {
   getDocFindRoot,
   highlightDocFindMatches,
   scrollToDocFindMatch,
-} from './docPageFind';
+} from './docFindUtils';
 
 interface DocPageFindProps {
   mobile?: boolean;

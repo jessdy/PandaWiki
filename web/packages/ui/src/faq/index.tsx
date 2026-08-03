@@ -82,7 +82,12 @@ const Faq: React.FC<FaqProps> = React.memo(({ title, items = [], mobile }) => {
   return (
     <StyledTopicBox>
       <StyledTopicTitle ref={titleRef}>{title}</StyledTopicTitle>
-      <Grid container spacing={3} sx={{ width: '100%' }}>
+      <Grid
+        container
+        spacing={3}
+        sx={{ width: '100%' }}
+        justifyContent='center'
+      >
         {items.map((item, index) => (
           <FaqItem key={index} item={item} index={index} size={size} />
         ))}

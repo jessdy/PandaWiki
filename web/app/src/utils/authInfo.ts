@@ -4,7 +4,7 @@ import type { GithubComChaitinPandaWikiProApiShareV1AuthInfoResp } from '@/reque
 export const DEMO_AUTH_INFO: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp =
   {
     id: 1,
-    username: 'demo',
+    username: '测试用户',
   };
 
 export function isAuthInfoEmpty(
