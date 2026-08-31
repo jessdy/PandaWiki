@@ -27,6 +27,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { platform } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
@@ -44,6 +45,23 @@ if (patchFiles.length === 0) {
 }
 
 let hadError = false;
+
+// 查找系统可用的 patch 命令（兼容 Windows 下 Git for Windows 附带的 patch.exe）
+function findPatch() {
+  if (platform() !== 'win32') return 'patch';
+  const candidates = ['patch', 'patch.exe'];
+  const gitUsrBin = 'd:\\Program Files\\Git\\usr\\bin';
+  if (existsSync(join(gitUsrBin, 'patch.exe'))) {
+    return join(gitUsrBin, 'patch.exe');
+  }
+  for (const dir of (process.env.PATH || '').split(';')) {
+    for (const name of candidates) {
+      const full = join(dir, name);
+      if (existsSync(full)) return full;
+    }
+  }
+  return null;
+}
 
 for (const patchFile of patchFiles) {
   // 文件名约定：`@scope+name+version.patch` 或 `name+version.patch`
@@ -86,9 +104,18 @@ for (const patchFile of patchFiles) {
   }
 
   // 用 patch --forward：补丁已应用则静默跳过；hunk 完全不匹配才报错。
+  // Windows 下 patch 通常随 Git for Windows 安装（Git/usr/bin/patch.exe）
+  const patchCommand = findPatch();
+  if (!patchCommand) {
+    console.error(
+      `[patches] FAILED: patch command not found. Install Git for Windows or patch utility.`,
+    );
+    hadError = true;
+    continue;
+  }
   const patchContent = readFileSync(join(PATCHES_DIR, patchFile), 'utf8');
   const result = spawnSync(
-    'patch',
+    patchCommand,
     ['--forward', '--silent', '-d', realPath, '-p1'],
     {
       input: patchContent,
@@ -115,14 +142,18 @@ for (const patchFile of patchFiles) {
 
 // 兜底自检：检查目标文件是否含我们期望的"指纹"字符串
 try {
-  const sentinel = execSync(
-    `grep -c pwKbDocLinkPicker "${WEB_ROOT}/node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js" || true`,
-    { encoding: 'utf8' },
-  ).trim();
-  if (sentinel !== '2') {
-    console.warn(
-      `[patches] WARN @ctzhian/tiptap patch sentinel count = ${sentinel} (expected 2)`,
-    );
+  const sentinelFile = join(
+    WEB_ROOT,
+    'node_modules/@ctzhian/tiptap/dist/extension/component/Link/index.js',
+  );
+  if (existsSync(sentinelFile)) {
+    const content = readFileSync(sentinelFile, 'utf8');
+    const count = (content.match(/pwKbDocLinkPicker/g) || []).length;
+    if (count !== 2) {
+      console.warn(
+        `[patches] WARN @ctzhian/tiptap patch sentinel count = ${count} (expected 2)`,
+      );
+    }
   }
 } catch {
   /* 包未装或不存在，忽略 */
