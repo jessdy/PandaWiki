@@ -95,6 +95,15 @@ const MENUS = [
     ],
   },
   {
+    label: '专家信息',
+    value: '/expert',
+    pathname: 'expert',
+    icon: IconGroup,
+    show: true,
+    role: ConstsUserRole.UserRoleAdmin,
+    perms: [],
+  },
+  {
     label: '发布',
     value: '/release',
     pathname: 'release',

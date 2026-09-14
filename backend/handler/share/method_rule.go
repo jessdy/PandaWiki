@@ -71,6 +71,7 @@ func NewShareMethodRuleHandler(
 				return next(c)
 			}
 		})
+	group.GET("/categories", h.ListCategories)
 	group.POST("/match", h.Match)
 	return h
 }
@@ -101,6 +102,54 @@ type MatchResp struct {
 	Category string            `json:"category"`
 	Specs    []MatchAttrSpec   `json:"specs"`
 	Methods  []MatchMethodView `json:"methods"`
+}
+
+type CategoryView struct {
+	Name  string          `json:"name"`
+	Specs []MatchAttrSpec `json:"specs"`
+}
+
+type CategoryListResp struct {
+	Items []CategoryView `json:"items"`
+}
+
+// ListCategories 仅向前台返回品类名称和属性定义，不暴露后台识别提示词。
+//
+//	@Summary		List work mode categories
+//	@Description	返回当前知识库实战模式可选品类及属性枚举。
+//	@Tags			share_method_rule
+//	@Produce		json
+//	@Param			X-KB-ID	header		string	true	"kb id"
+//	@Success		200		{object}	domain.Response{data=CategoryListResp}
+//	@Router			/share/v1/method_rules/categories [get]
+func (h *ShareMethodRuleHandler) ListCategories(c echo.Context) error {
+	kbID := strings.TrimSpace(c.Request().Header.Get("X-KB-ID"))
+	if kbID == "" {
+		return h.NewResponseWithError(c, "kb_id is required", nil)
+	}
+	categories, err := h.llmUC.GetWorkModeCategoryPrompts(c.Request().Context(), kbID)
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to load categories", err)
+	}
+	return h.NewResponseWithData(c, CategoryListResp{
+		Items: buildCategoryViews(categories),
+	})
+}
+
+func buildCategoryViews(categories []domain.CategoryPromptItem) []CategoryView {
+	items := make([]CategoryView, 0, len(categories))
+	for _, category := range categories {
+		name := strings.TrimSpace(category.Name)
+		if name == "" {
+			continue
+		}
+		specs := make([]MatchAttrSpec, 0)
+		for _, spec := range category.ResolveAttributeSpecs() {
+			specs = append(specs, MatchAttrSpec{Name: spec.Name, Values: spec.Values})
+		}
+		items = append(items, CategoryView{Name: name, Specs: specs})
+	}
+	return items
 }
 
 // Match 实时联动查表：给定 category + collected，返回命中方法列表 + 该品类的 specs。
@@ -136,11 +185,12 @@ func (h *ShareMethodRuleHandler) Match(c echo.Context) error {
 		return h.NewResponseWithError(c, "failed to load categories", cErr)
 	}
 	cat := h.categoryHelper.findCategoryByName(cats, category)
+	if cat == nil {
+		return h.NewResponseWithError(c, "category not found", nil)
+	}
 	specsOut := make([]MatchAttrSpec, 0)
-	if cat != nil {
-		for _, s := range cat.ResolveAttributeSpecs() {
-			specsOut = append(specsOut, MatchAttrSpec{Name: s.Name, Values: s.Values})
-		}
+	for _, s := range cat.ResolveAttributeSpecs() {
+		specsOut = append(specsOut, MatchAttrSpec{Name: s.Name, Values: s.Values})
 	}
 
 	matched, mErr := h.kbUC.MatchMethodRules(ctx, kbID, category, req.Collected)

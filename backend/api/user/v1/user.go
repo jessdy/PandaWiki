@@ -42,7 +42,7 @@ type UserListItemResp struct {
 	LastAccess *time.Time      `json:"last_access"`
 	CreatedAt  *time.Time      `json:"created_at"`
 	// 各 Wiki 站上的权限（超级管理员通常为空，前端按 role 展示全部权限）
-	KBPerms []UserKBPermItem `json:"kb_perms,omitempty"`
+	KBPerms []UserKBPermItem `json:"kb_perms,omitempty" gorm:"-"`
 }
 
 type UserKBPermItem struct {
@@ -85,6 +85,6 @@ type GetUserGroupsResp struct {
 
 // UpdateUserGroupsReq 更新用户所属的用户组请求
 type UpdateUserGroupsReq struct {
-	UserID  string  `json:"user_id" validate:"required"`
-	GroupIDs []uint  `json:"group_ids"` // 用户组 ID 列表
+	UserID   string `json:"user_id" validate:"required"`
+	GroupIDs []uint `json:"group_ids"` // 用户组 ID 列表
 }

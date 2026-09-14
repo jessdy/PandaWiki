@@ -125,7 +125,7 @@ func (r *UserRepository) listUserKBPermsMap(ctx context.Context) (map[string][]v
 		UserID string         `gorm:"column:user_id"`
 		KBId   string         `gorm:"column:kb_id"`
 		KBName string         `gorm:"column:kb_name"`
-		Perms  pq.StringArray `gorm:"column:perms"`
+		Perms  pq.StringArray `gorm:"column:perms;type:text[]"`
 	}
 	var rows []row
 	err := r.db.WithContext(ctx).

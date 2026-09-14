@@ -46,6 +46,14 @@ func (u *ConversationUsecase) CreateChatConversationMessage(ctx context.Context,
 	return u.repo.CreateConversationMessage(ctx, conversation, references)
 }
 
+func (u *ConversationUsecase) UpdateMessageRetrievalContent(
+	ctx context.Context,
+	messageID string,
+	retrievalContent string,
+) error {
+	return u.repo.UpdateConversationMessageRetrievalContent(ctx, messageID, retrievalContent)
+}
+
 func (u *ConversationUsecase) GetConversationList(ctx context.Context, request *domain.ConversationListReq) (*domain.PaginatedResult[[]*domain.ConversationListItem], error) {
 	conversations, total, err := u.repo.GetConversationList(ctx, request)
 	if err != nil {
@@ -264,8 +272,45 @@ func (u *ConversationUsecase) GetShareConversationDetail(ctx context.Context, kb
 	if err != nil {
 		return nil, err
 	}
+	return u.buildShareConversationDetail(ctx, conversation)
+}
+
+func (u *ConversationUsecase) GetShareConversationHistory(
+	ctx context.Context,
+	kbID string,
+	authUserID uint,
+	req *domain.ShareConversationHistoryReq,
+) (*domain.ShareConversationHistoryResp, error) {
+	items, total, err := u.repo.GetShareConversationHistory(ctx, kbID, authUserID, req)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.ShareConversationHistoryResp{
+		Available: true,
+		Total:     total,
+		Data:      items,
+	}, nil
+}
+
+func (u *ConversationUsecase) GetShareConversationHistoryDetail(
+	ctx context.Context,
+	kbID string,
+	conversationID string,
+	authUserID uint,
+) (*domain.ShareConversationDetailResp, error) {
+	conversation, err := u.repo.GetShareConversationHistoryDetail(ctx, kbID, conversationID, authUserID)
+	if err != nil {
+		return nil, err
+	}
+	return u.buildShareConversationDetail(ctx, conversation)
+}
+
+func (u *ConversationUsecase) buildShareConversationDetail(
+	ctx context.Context,
+	conversation *domain.ConversationDetailResp,
+) (*domain.ShareConversationDetailResp, error) {
 	// get messages
-	messages, err := u.repo.GetConversationMessagesByID(ctx, conversationID)
+	messages, err := u.repo.GetConversationMessagesByID(ctx, conversation.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +330,5 @@ func (u *ConversationUsecase) GetShareConversationDetail(ctx context.Context, kb
 
 		Messages: shareMessages,
 	}
-	conversation.Messages = messages
 	return &shareConversationDetail, nil
 }

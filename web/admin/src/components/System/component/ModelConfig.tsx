@@ -43,6 +43,7 @@ const ModelModal = lazy(() =>
 
 export interface ModelConfigRef {
   getAutoConfigFormData: () => { apiKey: string; selectedModel: string } | null;
+  hasUnsavedChanges: () => boolean;
   handleClose: () => void;
   onSubmit: () => Promise<void>;
 }
@@ -185,6 +186,7 @@ const ModelConfig = forwardRef<ModelConfigRef, ModelConfigProps>(
         }
         return null;
       },
+      hasUnsavedChanges: () => tempMode !== savedMode || hasConfigChanged,
       onSubmit: handleSave,
       handleClose: handleCloseModal,
     }));

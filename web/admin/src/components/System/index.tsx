@@ -4,10 +4,13 @@ import { useAppDispatch, useAppSelector } from '@/store';
 import { setModelList, setModelStatus } from '@/store/slices/config';
 import { Modal } from '@ctzhian/ui';
 import { IconAChilunshezhisheding } from '@panda-wiki/icons';
-import { Box, Button } from '@mui/material';
+import { Box, Button, Tab, Tabs } from '@mui/material';
 import { useEffect, useState, useRef } from 'react';
 
 import ModelConfig, { ModelConfigRef } from './component/ModelConfig';
+import StandardTermsConfig, {
+  StandardTermsConfigRef,
+} from './component/StandardTermsConfig';
 
 const System = () => {
   const { user, modelList, isCreateWikiModalOpen } = useAppSelector(
@@ -16,6 +19,10 @@ const System = () => {
   const [open, setOpen] = useState(false);
   const dispatch = useAppDispatch();
   const modelConfigRef = useRef<ModelConfigRef>(null);
+  const standardTermsConfigRef = useRef<StandardTermsConfigRef>(null);
+  const [activeTab, setActiveTab] = useState<'model' | 'standard-terms'>(
+    'model',
+  );
   const [chatModelData, setChatModelData] =
     useState<GithubComChaitinPandaWikiDomainModelListItem | null>(null);
   const [embeddingModelData, setEmbeddingModelData] =
@@ -66,6 +73,37 @@ const System = () => {
     }
   }, [isCreateWikiModalOpen]);
 
+  const currentConfigHasChanges = () =>
+    activeTab === 'model'
+      ? (modelConfigRef.current?.hasUnsavedChanges() ?? false)
+      : (standardTermsConfigRef.current?.hasUnsavedChanges() ?? false);
+
+  const closeCurrentConfig = () => {
+    if (activeTab === 'model') {
+      if (modelConfigRef.current) modelConfigRef.current.handleClose();
+      else setOpen(false);
+    } else {
+      if (standardTermsConfigRef.current)
+        standardTermsConfigRef.current.handleClose();
+      else setOpen(false);
+    }
+  };
+
+  const switchTab = (nextTab: 'model' | 'standard-terms') => {
+    if (nextTab === activeTab) return;
+    if (!currentConfigHasChanges()) {
+      setActiveTab(nextTab);
+      return;
+    }
+    Modal.confirm({
+      title: '有未保存的设置',
+      content: '切换后当前修改将丢失，是否继续？',
+      okText: '确认切换',
+      cancelText: '继续编辑',
+      onOk: () => setActiveTab(nextTab),
+    });
+  };
+
   return (
     <>
       <Box sx={{ position: 'relative' }}>
@@ -86,24 +124,33 @@ const System = () => {
         open={open}
         disableEnforceFocus={true}
         footer={null}
-        onCancel={() => {
-          if (modelConfigRef.current) {
-            modelConfigRef.current.handleClose();
-          } else {
-            setOpen(false);
-          }
-        }}
+        onCancel={closeCurrentConfig}
       >
-        <ModelConfig
-          ref={modelConfigRef}
-          onCloseModal={() => setOpen(false)}
-          chatModelData={chatModelData}
-          embeddingModelData={embeddingModelData}
-          rerankModelData={rerankModelData}
-          analysisModelData={analysisModelData}
-          analysisVLModelData={analysisVLModelData}
-          getModelList={getModelList}
-        />
+        <Tabs
+          value={activeTab}
+          onChange={(_, value: 'model' | 'standard-terms') => switchTab(value)}
+          sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}
+        >
+          <Tab value='model' label='模型配置' />
+          <Tab value='standard-terms' label='标准术语' />
+        </Tabs>
+        {activeTab === 'model' ? (
+          <ModelConfig
+            ref={modelConfigRef}
+            onCloseModal={() => setOpen(false)}
+            chatModelData={chatModelData}
+            embeddingModelData={embeddingModelData}
+            rerankModelData={rerankModelData}
+            analysisModelData={analysisModelData}
+            analysisVLModelData={analysisVLModelData}
+            getModelList={getModelList}
+          />
+        ) : (
+          <StandardTermsConfig
+            ref={standardTermsConfigRef}
+            onCloseModal={() => setOpen(false)}
+          />
+        )}
       </Modal>
     </>
   );

@@ -105,6 +105,12 @@ const router = [
           LazyLoadable(lazy(() => import('./pages/consult'))),
         ),
       },
+      {
+        path: '/expert',
+        element: createElement(
+          LazyLoadable(lazy(() => import('./pages/expert'))),
+        ),
+      },
     ],
   },
   {

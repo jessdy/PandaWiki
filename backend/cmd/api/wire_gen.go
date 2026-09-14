@@ -96,14 +96,15 @@ func createApp() (*App, error) {
 	conversationRepository := pg2.NewConversationRepository(db, logger)
 	modelRepository := pg2.NewModelRepository(db, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, logger)
+	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
+	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, logger)
 	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, authMiddleware, logger)
 	appRepository := pg2.NewAppRepository(db, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
 	if err != nil {
 		return nil, err
 	}
-	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
 	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
 	nodeHandler := v1.NewNodeHandler(baseHandler, echo, nodeUsecase, authMiddleware, logger)
@@ -149,6 +150,10 @@ func createApp() (*App, error) {
 	consultRepo := pg2.NewConsultRepo(db, logger)
 	consultUsecase := usecase.NewConsultUsecase(consultRepo, logger)
 	consultHandler := v1.NewConsultHandler(echo, baseHandler, logger, authMiddleware, consultUsecase, userUsecase)
+	standardTermHandler := v1.NewStandardTermHandler(echo, baseHandler, logger, authMiddleware, standardTermUsecase)
+	expertProfileRepo := pg2.NewExpertProfileRepo(db, logger)
+	expertProfileUsecase := usecase.NewExpertProfileUsecase(userRepository, expertProfileRepo)
+	expertProfileHandler := v1.NewExpertProfileHandler(echo, baseHandler, logger, authMiddleware, expertProfileUsecase)
 	apiHandlers := &v1.APIHandlers{
 		UserHandler:             userHandler,
 		KnowledgeBaseHandler:    knowledgeBaseHandler,
@@ -164,6 +169,8 @@ func createApp() (*App, error) {
 		AuthV1Handler:           authV1Handler,
 		DocumentFeedbackHandler: documentFeedbackHandler,
 		ConsultHandler:          consultHandler,
+		StandardTermHandler:     standardTermHandler,
+		ExpertProfileHandler:    expertProfileHandler,
 	}
 	shareNodeHandler := share.NewShareNodeHandler(baseHandler, echo, nodeUsecase, logger)
 	shareAppHandler := share.NewShareAppHandler(echo, baseHandler, logger, appUsecase)
@@ -184,7 +191,7 @@ func createApp() (*App, error) {
 	shareCommonHandler := share.NewShareCommonHandler(echo, baseHandler, logger, fileUsecase)
 	shareDocumentFeedbackHandler := share.NewShareDocumentFeedbackHandler(echo, baseHandler, logger, documentFeedbackUsecase)
 	shareMethodRuleHandler := share.NewShareMethodRuleHandler(echo, baseHandler, logger, knowledgeBaseUsecase, llmUsecase, nodeUsecase)
-	shareConsultHandler := share.NewShareConsultHandler(echo, baseHandler, logger, consultUsecase, authUsecase)
+	shareConsultHandler := share.NewShareConsultHandler(echo, baseHandler, logger, consultUsecase, authUsecase, expertProfileUsecase)
 	shareHandler := &share.ShareHandler{
 		ShareNodeHandler:             shareNodeHandler,
 		ShareAppHandler:              shareAppHandler,

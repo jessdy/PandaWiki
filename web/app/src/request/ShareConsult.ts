@@ -53,6 +53,11 @@ export interface ConsultInquiryDetail extends ConsultInquiry {
   messages: ConsultMessage[];
 }
 
+export interface PublicExpertProfile {
+  name: string;
+  introduction: string;
+}
+
 /* ---------------------------------------------------------------- */
 /* API                                                               */
 /* ---------------------------------------------------------------- */
@@ -86,6 +91,17 @@ export const getShareV1ConsultList = (
     path: '/share/pro/v1/consult/list',
     method: 'GET',
     query,
+    type: ContentType.Json,
+    format: 'json',
+    ...params,
+  });
+
+export const getShareV1ConsultExperts = (params: RequestParams = {}) =>
+  httpRequest<
+    DomainResponse & { data?: { items: PublicExpertProfile[] } }
+  >({
+    path: '/share/pro/v1/consult/experts',
+    method: 'GET',
     type: ContentType.Json,
     format: 'json',
     ...params,

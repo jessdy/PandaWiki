@@ -25,6 +25,26 @@ export interface MatchResp {
   methods: MethodMatchView[];
 }
 
+export interface WorkModeCategory {
+  name: string;
+  specs: MatchAttrSpec[];
+}
+
+export interface WorkModeCategoryListResp {
+  items: WorkModeCategory[];
+}
+
+export const getShareV1MethodRulesCategories = (
+  params: RequestParams = {},
+) =>
+  httpRequest<DomainResponse & { data?: WorkModeCategoryListResp }>({
+    path: '/share/v1/method_rules/categories',
+    method: 'GET',
+    type: ContentType.Json,
+    format: 'json',
+    ...params,
+  });
+
 /**
  * 前台属性面板的实时联动接口。
  * 不走 LLM、不写 conversation，由用户每次调整 Select 后调用。

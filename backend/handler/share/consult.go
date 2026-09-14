@@ -21,9 +21,10 @@ import (
 //   - 必须从 session 拿到 auths.id 作为 user_id，否则视为未登录
 type ShareConsultHandler struct {
 	*handler.BaseHandler
-	logger      *log.Logger
-	usecase     *usecase.ConsultUsecase
-	authUsecase *usecase.AuthUsecase
+	logger        *log.Logger
+	usecase       *usecase.ConsultUsecase
+	authUsecase   *usecase.AuthUsecase
+	expertUsecase *usecase.ExpertProfileUsecase
 }
 
 func NewShareConsultHandler(
@@ -32,12 +33,14 @@ func NewShareConsultHandler(
 	logger *log.Logger,
 	uc *usecase.ConsultUsecase,
 	authUsecase *usecase.AuthUsecase,
+	expertUsecase *usecase.ExpertProfileUsecase,
 ) *ShareConsultHandler {
 	h := &ShareConsultHandler{
-		BaseHandler: baseHandler,
-		logger:      logger.WithModule("handler.share.consult"),
-		usecase:     uc,
-		authUsecase: authUsecase,
+		BaseHandler:   baseHandler,
+		logger:        logger.WithModule("handler.share.consult"),
+		usecase:       uc,
+		authUsecase:   authUsecase,
+		expertUsecase: expertUsecase,
 	}
 	g := e.Group("share/pro/v1/consult",
 		func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -57,7 +60,17 @@ func NewShareConsultHandler(
 	g.GET("/detail", h.Detail)
 	g.POST("/reply", h.Reply)
 	g.POST("/close", h.Close)
+	g.GET("/experts", h.ListExperts)
 	return h
+}
+
+// ListExperts GET /share/pro/v1/consult/experts
+func (h *ShareConsultHandler) ListExperts(c echo.Context) error {
+	items, err := h.expertUsecase.ListPublic(c.Request().Context())
+	if err != nil {
+		return h.NewResponseWithError(c, "获取专家信息失败", err)
+	}
+	return h.NewResponseWithData(c, map[string]any{"items": items})
 }
 
 // resolveUserID 从 session 拿 auths.id（数字字符串）。无登录则返回空串，由调用方决定如何返回。

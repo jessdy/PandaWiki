@@ -7,18 +7,18 @@ import (
 )
 
 type ShareHandler struct {
-	ShareNodeHandler         *ShareNodeHandler
-	ShareAppHandler          *ShareAppHandler
-	ShareChatHandler         *ShareChatHandler
-	ShareSitemapHandler      *ShareSitemapHandler
-	ShareStatHandler         *ShareStatHandler
-	ShareCommentHandler      *ShareCommentHandler
-	ShareAuthHandler         *ShareAuthHandler
-	ShareConversationHandler *ShareConversationHandler
-	ShareWechatHandler       *ShareWechatHandler
-	ShareCaptchaHandler      *ShareCaptchaHandler
-	OpenapiV1Handler         *OpenapiV1Handler
-	ShareCommonHandler            *ShareCommonHandler
+	ShareNodeHandler             *ShareNodeHandler
+	ShareAppHandler              *ShareAppHandler
+	ShareChatHandler             *ShareChatHandler
+	ShareSitemapHandler          *ShareSitemapHandler
+	ShareStatHandler             *ShareStatHandler
+	ShareCommentHandler          *ShareCommentHandler
+	ShareAuthHandler             *ShareAuthHandler
+	ShareConversationHandler     *ShareConversationHandler
+	ShareWechatHandler           *ShareWechatHandler
+	ShareCaptchaHandler          *ShareCaptchaHandler
+	OpenapiV1Handler             *OpenapiV1Handler
+	ShareCommonHandler           *ShareCommonHandler
 	ShareDocumentFeedbackHandler *ShareDocumentFeedbackHandler
 	ShareMethodRuleHandler       *ShareMethodRuleHandler
 	ShareConsultHandler          *ShareConsultHandler

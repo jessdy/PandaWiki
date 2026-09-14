@@ -5,6 +5,8 @@ import {
   ConsultAttachment,
   ConsultInquiryListItem,
   ConsultStatus,
+  PublicExpertProfile,
+  getShareV1ConsultExperts,
   getShareV1ConsultList,
   postShareV1ConsultCreate,
 } from '@/request/ShareConsult';
@@ -12,6 +14,7 @@ import { isAuthInfoEmpty } from '@/utils/authInfo';
 import { isSessionAuthInvalidError } from '@/utils/sessionAuthInvalid';
 import { lacksAccountIdentityForSiteFeedback } from '@/utils/siteFeedbackAuth';
 import {
+  Avatar,
   Box,
   Button,
   Chip,
@@ -20,6 +23,7 @@ import {
   Stack,
   TextField,
   Typography,
+  alpha,
 } from '@mui/material';
 import { message } from '@ctzhian/ui';
 import dayjs from 'dayjs';
@@ -81,6 +85,7 @@ const ConsultPage = () => {
   // 列表状态
   const [list, setList] = useState<ConsultInquiryListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
+  const [experts, setExperts] = useState<PublicExpertProfile[]>([]);
 
   // SSR/hydration 守卫：避免首帧把"未登录"占位渲染出来引起闪烁。
   // useStore() 的 authInfo 是从 localStorage 同步初始化的（lazy init），但 SSR 阶段拿不到 window，
@@ -127,6 +132,20 @@ const ConsultPage = () => {
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  useEffect(() => {
+    const loadExperts = async () => {
+      try {
+        const result = await getShareV1ConsultExperts();
+        const data = result as unknown as { items?: PublicExpertProfile[] };
+        setExperts(data?.items || []);
+      } catch {
+        // 专家信息是辅助内容，加载失败不影响用户提交咨询。
+        setExperts([]);
+      }
+    };
+    void loadExperts();
+  }, []);
 
   const submit = async () => {
     if (needsLogin()) return;
@@ -176,6 +195,100 @@ const ConsultPage = () => {
           有问题随时提交，我们会在后台收到并尽快回复。下方可查看您过往的咨询和回复进度。
         </Typography>
       </Box>
+
+      {experts.length > 0 && (
+        <Box component='section' aria-labelledby='consult-experts-title'>
+          <Stack spacing={0.5} sx={{ mb: 1.5 }}>
+            <Typography
+              id='consult-experts-title'
+              variant='subtitle1'
+              sx={{ fontWeight: 700 }}
+            >
+              咨询专家
+            </Typography>
+            <Typography variant='body2' color='text.secondary'>
+              专业管理员将协助处理您提交的疑难问题
+            </Typography>
+          </Stack>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: 'minmax(0, 1fr)',
+                sm: 'repeat(2, minmax(0, 1fr))',
+                lg: 'repeat(3, minmax(0, 1fr))',
+              },
+              gap: 1.5,
+            }}
+          >
+            {experts.map((expert, index) => (
+              <Stack
+                key={`${expert.name}-${index}`}
+                direction='row'
+                alignItems='flex-start'
+                spacing={1.5}
+                sx={{
+                  minHeight: 112,
+                  p: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  bgcolor: 'background.paper',
+                  backgroundImage: theme =>
+                    `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 58%)`,
+                  transition:
+                    'transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    borderColor: 'primary.light',
+                    boxShadow: theme =>
+                      `0 8px 24px ${alpha(theme.palette.primary.main, 0.08)}`,
+                  },
+                }}
+              >
+                <Avatar
+                  aria-hidden='true'
+                  sx={{
+                    width: 42,
+                    height: 42,
+                    flexShrink: 0,
+                    bgcolor: 'primary.main',
+                    fontSize: 18,
+                    fontWeight: 700,
+                  }}
+                >
+                  {Array.from(expert.name)[0]}
+                </Avatar>
+                <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                  <Typography
+                    variant='subtitle2'
+                    sx={{ fontWeight: 700, wordBreak: 'break-word' }}
+                  >
+                    {expert.name}
+                  </Typography>
+                  {expert.introduction && (
+                    <Typography
+                      variant='body2'
+                      color='text.secondary'
+                      sx={{
+                        lineHeight: 1.65,
+                        display: '-webkit-box',
+                        overflow: 'hidden',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: 3,
+                        wordBreak: 'break-word',
+                      }}
+                      title={expert.introduction}
+                    >
+                      {expert.introduction}
+                    </Typography>
+                  )}
+                </Stack>
+              </Stack>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {/* 上半：提问表单 */}
       <Box

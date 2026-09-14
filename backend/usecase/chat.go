@@ -86,6 +86,29 @@ func (u *ChatUsecase) pickGateChatModel(ctx context.Context, chatFallback *domai
 	return chatFallback
 }
 
+func formatStandardTermNotices(notices []standardTermNormalizationNotice) string {
+	var builder strings.Builder
+	escape := strings.NewReplacer(
+		"\\", "\\\\",
+		"\r", " ",
+		"\n", " ",
+		"*", "\\*",
+		"_", "\\_",
+		"`", "\\`",
+		"[", "\\[",
+		"]", "\\]",
+	)
+	for _, notice := range notices {
+		builder.WriteString("> 术语提示：“")
+		builder.WriteString(escape.Replace(notice.Original))
+		builder.WriteString("”，标准术语为“")
+		builder.WriteString(escape.Replace(notice.Standard))
+		builder.WriteString("”。\n")
+	}
+	builder.WriteString("\n")
+	return builder.String()
+}
+
 // workModeClarifyMarker 是与前端约定的可解析标记。第一行是 HTML 注释包裹的 JSON：
 //
 //	<!-- WORK_MODE_CLARIFY {"category":"...","candidates":3,"missing":["..."],"collected":{...},"round":1,"max_rounds":3,"identified_doc_id":""} -->
@@ -745,6 +768,7 @@ func (u *ChatUsecase) Chat(ctx context.Context, req *domain.ChatRequest) (<-chan
 			return
 		}
 		req.ModelInfo = model
+		req.Info.QaMode = strings.TrimSpace(req.QaMode)
 		// 3. conversation management
 		if req.AppType == domain.AppTypeWechatServiceBot || req.AppType == domain.AppTypeWechatBot || req.AppType == domain.AppTypeWecomAIBot { // wechat service has its own id
 			nonce := uuid.New().String()
@@ -917,6 +941,28 @@ func (u *ChatUsecase) Chat(ctx context.Context, req *domain.ChatRequest) (<-chan
 		}
 
 		ragOpts := []BuildRAGOption{}
+		var termNormalizationNotices []standardTermNormalizationNotice
+		if strings.TrimSpace(req.QaMode) == domain.QaModeTraining && strings.TrimSpace(req.Message) != "" {
+			normalizeModel := u.pickGateChatModel(ctx, req.ModelInfo)
+			normalizedQuestion, notices, normalizeErr := u.llmUsecase.NormalizeQuestionTermsForRAG(
+				ctx,
+				normalizeModel,
+				req.Message,
+			)
+			if normalizeErr != nil {
+				u.logger.Warn("normalize training question terms failed, use original question", log.Error(normalizeErr))
+			} else if len(notices) > 0 {
+				termNormalizationNotices = notices
+				ragOpts = append(ragOpts, BuildRAGOption{RetrievalQuestion: normalizedQuestion})
+				if updateErr := u.conversationUsecase.UpdateMessageRetrievalContent(
+					ctx,
+					userMessageId,
+					normalizedQuestion,
+				); updateErr != nil {
+					u.logger.Warn("save normalized retrieval question failed", log.Error(updateErr))
+				}
+			}
+		}
 		if workModeRes.IdentifiedNodeID != "" {
 			ragOpts = append(ragOpts, BuildRAGOption{
 				PinnedNodeIDs:     []string{workModeRes.IdentifiedNodeID},
@@ -960,6 +1006,10 @@ func (u *ChatUsecase) Chat(ctx context.Context, req *domain.ChatRequest) (<-chan
 		}
 		// get words
 		onChunkAC, flushBuffer := u.CreateAcOnChunk(ctx, req.KBID, &answer, eventCh, blockWords)
+
+		if len(termNormalizationNotices) > 0 {
+			_ = onChunkAC(ctx, "data", formatStandardTermNotices(termNormalizationNotices))
+		}
 
 		// 实战模式识别成功时，先把识别 meta 注释推到流里，让前端在收到首段回答前就能展示已识别 chip
 		if workModeRes.HasIdentifiedMeta {

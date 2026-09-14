@@ -182,6 +182,8 @@ interface BannerProps {
   basePath?: string;
   /** 若提供则替代横幅按钮的默认新标签打开链接 */
   onActionButtonNavigate?: (href: string) => void;
+  /** 实战模式点击首页主输入框时，直接打开完整问答窗口。 */
+  onWorkModeInputClick?: () => void;
 }
 
 const Banner = React.memo(
@@ -195,6 +197,7 @@ const Banner = React.memo(
     onSearchSuggestions,
     basePath = '',
     onActionButtonNavigate,
+    onWorkModeInputClick,
   }: BannerProps) => {
     const [searchText, setSearchText] = useState('');
     const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -570,6 +573,21 @@ const Banner = React.memo(
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   onPaste={handlePaste}
+                  onPointerDown={event => {
+                    if (qaAppMode !== 'work' || !onWorkModeInputClick) return;
+                    event.preventDefault();
+                    onWorkModeInputClick();
+                  }}
+                  slotProps={{
+                    htmlInput: {
+                      readOnly: qaAppMode === 'work',
+                    },
+                  }}
+                  sx={
+                    qaAppMode === 'work'
+                      ? { '& textarea': { cursor: 'pointer' } }
+                      : undefined
+                  }
                   multiline
                   rows={3}
                 />

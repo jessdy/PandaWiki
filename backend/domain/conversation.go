@@ -30,9 +30,11 @@ type ConversationMessage struct {
 	AppID          string `json:"app_id" gorm:"index"`
 	KBID           string `json:"kb_id"`
 
-	Role       schema.RoleType `json:"role"`
-	Content    string          `json:"content"`
-	ImagePaths pq.StringArray  `json:"image_paths" gorm:"type:text[];not null;default:{}"`
+	Role    schema.RoleType `json:"role"`
+	Content string          `json:"content"`
+	// RetrievalContent 是术语归一化后的内部检索文本；对外仍展示 Content 原文。
+	RetrievalContent string         `json:"-" gorm:"column:retrieval_content"`
+	ImagePaths       pq.StringArray `json:"image_paths" gorm:"type:text[];not null;default:{}"`
 
 	// model
 	Provider         ModelProvider `json:"provider"`
@@ -150,6 +152,22 @@ type ShareConversationDetailResp struct {
 	Subject   string                      `json:"subject"`
 	Messages  []*ShareConversationMessage `json:"messages" gorm:"-"`
 	CreatedAt time.Time                   `json:"created_at"`
+}
+
+type ShareConversationHistoryReq struct {
+	Pager
+}
+
+type ShareConversationHistoryItem struct {
+	ID        string    `json:"id"`
+	Subject   string    `json:"subject"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ShareConversationHistoryResp struct {
+	Available bool                            `json:"available"`
+	Total     uint64                          `json:"total"`
+	Data      []*ShareConversationHistoryItem `json:"data"`
 }
 
 type ShareConversationMessage struct {

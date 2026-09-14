@@ -111,8 +111,8 @@ const QaModal: React.FC<QaModalProps> = () => {
       sx={{
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'flex-start',
-        p: 2,
+        alignItems: 'center',
+        p: { xs: 0, md: 2 },
       }}
     >
       {(() => {
@@ -122,9 +122,11 @@ const QaModal: React.FC<QaModalProps> = () => {
               display: 'flex',
               flexDirection: 'column',
               flex: 1,
-              maxWidth: 800,
-              maxHeight: '100%',
-              borderRadius: '10px',
+              width: '100%',
+              maxWidth: qaWorkMode ? 900 : 1240,
+              height: { xs: '100dvh', md: '88vh' },
+              maxHeight: { md: 900 },
+              borderRadius: { xs: 0, md: '10px' },
               overflow: 'hidden',
               outline: 'none',
               pb: 2,
@@ -323,6 +325,8 @@ const QaModal: React.FC<QaModalProps> = () => {
               sx={{
                 px: 3,
                 flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
               }}

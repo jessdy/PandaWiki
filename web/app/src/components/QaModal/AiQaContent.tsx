@@ -8,7 +8,12 @@ import dayjs from 'dayjs';
 import { ChunkResultItem } from '@/assets/type';
 import Logo from '@/assets/images/logo.png';
 import aiLoading from '@/assets/images/ai-loading.gif';
-import { getShareV1ConversationDetail } from '@/request/ShareConversation';
+import {
+  getShareV1ConversationDetail,
+  getShareV1ConversationHistory,
+  getShareV1ConversationHistoryDetail,
+  ShareConversationHistoryItem,
+} from '@/request/ShareConversation';
 import { message, Image as ImagePreview } from '@ctzhian/ui';
 import Feedback from '@/components/feedback';
 import { handleThinkingContent } from './utils';
@@ -28,9 +33,11 @@ import { postShareV1ChatFeedback } from '@/request/ShareChat';
 import { copyText } from '@/utils';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import HistoryIcon from '@mui/icons-material/History';
 import {
   Box,
   Button,
+  Drawer,
   FormControl,
   IconButton,
   MenuItem,
@@ -95,6 +102,8 @@ import {
 } from '@/utils/workModeClarifyParse';
 import { extractAttributePanel } from '@/utils/attributePanelParse';
 import AttributePanel from './AttributePanel';
+import HistoryConversationList from './HistoryConversationList';
+import ManualWorkModeSelector from './ManualWorkModeSelector';
 
 export type ChatChainStep = { step: number; title: string; detail: string };
 
@@ -115,10 +124,76 @@ export interface ConversationItem {
   id: string;
 }
 
+interface ShareHistoryMessage {
+  role?: string;
+  content?: string;
+  image_paths?: string[];
+  created_at?: string;
+}
+
+const mapShareHistoryMessages = (
+  messages: ShareHistoryMessage[] = [],
+): ConversationItem[] => {
+  const result: ConversationItem[] = [];
+  let current: Partial<ConversationItem> = {};
+  messages.forEach(historyMessage => {
+    if (historyMessage.role === 'user') {
+      current = {
+        image_paths: historyMessage.image_paths || [],
+        q: historyMessage.content || '',
+      };
+      return;
+    }
+    if (
+      historyMessage.role === 'assistant' &&
+      (current.q || (current.image_paths?.length ?? 0) > 0)
+    ) {
+      const { thinkingContent, answerContent } = handleThinkingContent(
+        historyMessage.content || '',
+      );
+      result.push({
+        image_paths: current.image_paths || [],
+        q: current.q || '',
+        a: answerContent,
+        score: 0,
+        update_time: historyMessage.created_at || '',
+        message_id: '',
+        source: 'history',
+        chunk_result: [],
+        chain_steps: [],
+        result_expend: true,
+        thinking_expend: false,
+        thinking_content: thinkingContent,
+        id: uuidv4(),
+      });
+      current = {};
+    }
+  });
+  if (current.q || (current.image_paths?.length ?? 0) > 0) {
+    result.push({
+      image_paths: current.image_paths || [],
+      q: current.q || '',
+      a: '',
+      score: 0,
+      update_time: '',
+      message_id: '',
+      source: 'history',
+      chunk_result: [],
+      chain_steps: [],
+      thinking_content: '',
+      id: uuidv4(),
+      result_expend: true,
+      thinking_expend: true,
+    });
+  }
+  return result;
+};
+
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
 const CHAT_TOP_N_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+type WorkInputMode = 'image' | 'manual';
 
 const AnswerStatus = {
   1: '正在搜索结果...',
@@ -234,6 +309,20 @@ const AiQaContent: React.FC<{
   const [conversationId, setConversationId] = useState('');
   const [input, setInput] = useState('');
   const [open, setOpen] = useState(false);
+  const [historyAvailable, setHistoryAvailable] = useState(false);
+  const [historyItems, setHistoryItems] = useState<
+    ShareConversationHistoryItem[]
+  >([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState('');
+  const [historyReadOnly, setHistoryReadOnly] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
+  const [historyRefreshVersion, setHistoryRefreshVersion] = useState(0);
+  const [workInputMode, setWorkInputMode] = useState<WorkInputMode>('image');
   const [conversationItem, setConversationItem] =
     useState<ConversationItem | null>(null);
   const [uploadedImages, setUploadedImages] = useState<
@@ -262,7 +351,6 @@ const AiQaContent: React.FC<{
     if (loading) {
       handleSearchAbort();
     }
-    handleSearch(true);
     setConversationId('');
     setConversation([]);
     setFullAnswer('');
@@ -578,6 +666,7 @@ const AiQaContent: React.FC<{
 
             setFullAnswer('');
             setLoading(false);
+            setHistoryRefreshVersion(version => version + 1);
 
             setThinking(4);
           } else if (type === 'data') {
@@ -734,6 +823,111 @@ const AiQaContent: React.FC<{
     setChatSearchImages,
   } = useStore();
 
+  const loadHistoryPage = async (page: number, append: boolean = false) => {
+    if (qaWorkMode) return;
+    setHistoryLoading(true);
+    setHistoryError(false);
+    try {
+      const result = await getShareV1ConversationHistory({
+        page,
+        per_page: 20,
+      });
+      if (!result?.available) {
+        setHistoryAvailable(false);
+        setHistoryItems([]);
+        setHistoryTotal(0);
+        setHistoryPage(0);
+        return;
+      }
+      const nextItems = result.data || [];
+      setHistoryAvailable(true);
+      setHistoryItems(current =>
+        append
+          ? [
+              ...current,
+              ...nextItems.filter(
+                item => !current.some(existing => existing.id === item.id),
+              ),
+            ]
+          : nextItems,
+      );
+      setHistoryTotal(result.total || 0);
+      setHistoryPage(page);
+    } catch {
+      setHistoryError(true);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const startNewConversation = () => {
+    if (loading) handleSearchAbort();
+    setConversation([]);
+    setConversationId('');
+    setNonce('');
+    setFullAnswer('');
+    setInput('');
+    setSelectedHistoryId('');
+    setHistoryReadOnly(false);
+    setHistoryDrawerOpen(false);
+    setHistoryDetailLoading(false);
+    uploadedImages.forEach(image => {
+      if (image.url.startsWith('blob:')) URL.revokeObjectURL(image.url);
+    });
+    setUploadedImages([]);
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete('cid');
+    window.history.replaceState(null, '', currentUrl.toString());
+    setTimeout(() => inputRef.current?.querySelector('textarea')?.focus(), 0);
+  };
+
+  const changeWorkInputMode = (mode: WorkInputMode) => {
+    if (mode === workInputMode) return;
+    startNewConversation();
+    setWorkInputMode(mode);
+  };
+
+  const openHistoryConversation = async (
+    historyItem: ShareConversationHistoryItem,
+  ) => {
+    if (loading) {
+      message.warning('当前回答完成后再查看历史提问');
+      return;
+    }
+    setSelectedHistoryId(historyItem.id);
+    setHistoryDetailLoading(true);
+    setHistoryReadOnly(true);
+    setHistoryDrawerOpen(false);
+    try {
+      const detail = await getShareV1ConversationHistoryDetail({
+        id: historyItem.id,
+      });
+      setConversation(mapShareHistoryMessages(detail?.messages || []));
+      setConversationId('');
+      setNonce('');
+      setFullAnswer('');
+      setShouldAutoScroll(false);
+    } catch {
+      setHistoryReadOnly(false);
+      setSelectedHistoryId('');
+      message.error('历史问答加载失败');
+    } finally {
+      setHistoryDetailLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (qaWorkMode || !qaModalOpen) {
+      setHistoryDrawerOpen(false);
+      return;
+    }
+    loadHistoryPage(1);
+  }, [historyRefreshVersion, qaModalOpen, qaWorkMode]);
+
+  useEffect(() => {
+    if (!qaWorkMode) setWorkInputMode('image');
+  }, [qaWorkMode]);
+
   const isFeedbackEnabled =
     // @ts-ignore
     kbDetail?.settings?.ai_feedback_settings?.is_enabled ?? true;
@@ -843,65 +1037,11 @@ const AiQaContent: React.FC<{
   useEffect(() => {
     const cid = searchParams.get('cid');
     if (cid) {
-      const conversation: ConversationItem[] = [];
       getShareV1ConversationDetail({
         id: cid,
       }).then(res => {
-        if (res.messages) {
-          let current: Partial<ConversationItem> = {
-            chunk_result: [],
-            chain_steps: [],
-          };
-          res.messages.forEach(message => {
-            if (message.role === 'user') {
-              current = {
-                image_paths: message.image_paths || [],
-                q: message.content,
-                chunk_result: [],
-                chain_steps: [],
-              };
-            } else if (message.role === 'assistant') {
-              if (
-                current.q ||
-                (current.image_paths && current.image_paths.length > 0)
-              ) {
-                const { thinkingContent, answerContent } =
-                  handleThinkingContent(message.content || '');
-                current.a = answerContent;
-                current.update_time = message.created_at;
-                current.score = 0;
-                current.message_id = '';
-                current.thinking_content = thinkingContent;
-                current.chain_steps = current.chain_steps || [];
-                current.source = 'history';
-                current.id = uuidv4();
-                conversation.push(current as ConversationItem);
-                current = {};
-              }
-            }
-          });
-          if (
-            current.q ||
-            (current.image_paths && current.image_paths.length > 0)
-          ) {
-            conversation.push({
-              image_paths: current.image_paths || [],
-              q: current.q || '',
-              a: '',
-              score: 0,
-              update_time: '',
-              message_id: '',
-              source: 'history',
-              chunk_result: [],
-              chain_steps: [],
-              thinking_content: '',
-              id: uuidv4(),
-              result_expend: true,
-              thinking_expend: true,
-            });
-          }
-        }
-        setConversation(conversation);
+        setConversation(mapShareHistoryMessages(res.messages || []));
+        setHistoryReadOnly(true);
         setShouldAutoScroll(false);
       });
     }
@@ -919,341 +1059,308 @@ const AiQaContent: React.FC<{
     }
   }, [qaModalOpen, conversation]);
 
+  const historyList = (
+    <HistoryConversationList
+      items={historyItems}
+      selectedId={selectedHistoryId}
+      loading={historyLoading}
+      error={historyError}
+      hasMore={historyItems.length < historyTotal}
+      onSelect={openHistoryConversation}
+      onLoadMore={() =>
+        loadHistoryPage(historyError ? 1 : historyPage + 1, !historyError)
+      }
+      onNewConversation={startNewConversation}
+    />
+  );
+  const manualWorkMode = qaWorkMode && workInputMode === 'manual';
+
   return (
-    <StyledMainContainer className={palette.mode === 'dark' ? 'md-dark' : ''}>
-      {/* 无对话时显示欢迎界面 */}
-      {conversation.length === 0 && (
+    <Box
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
+        display: 'flex',
+        overflow: 'hidden',
+      }}
+    >
+      {!qaWorkMode && historyAvailable && !mobile && (
         <Box
+          component='aside'
           sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 4,
-            pb: 5,
+            width: 248,
+            flexShrink: 0,
+            mr: 3,
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            bgcolor: theme => alpha(theme.palette.background.paper, 0.45),
           }}
         >
-          {/* Logo区域 */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 8 }}>
-            <Image
-              src={getImagePath(kbDetail?.settings?.icon || Logo.src, basePath)}
-              alt='logo'
-              width={46}
-              height={46}
-              unoptimized
-              style={{
-                objectFit: 'contain',
-              }}
-            />
-            <Typography
-              variant='h6'
-              sx={{
-                fontSize: 32,
-                color: workChrome ? workChrome.title : 'text.primary',
-                fontWeight: 700,
-              }}
-            >
-              {kbDetail?.settings?.title}
-            </Typography>
-          </Box>
-
-          {/* 热门搜索区域 */}
-          {hotSearch.length > 0 && (
-            <Box sx={{ width: '100%' }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  mb: 2,
-                }}
-              >
-                <Typography
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: workChrome ? workChrome.hotTitle : 'primary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                  }}
-                >
-                  <IconXingxing sx={{ fontSize: 14 }} />
-                  大家都在搜什么?
-                </Typography>
-              </Box>
-
-              {/* 热门搜索列表 - 两列布局 */}
-              <StyledHotSearchContainer>
-                {/* 左列 */}
-                <StyledHotSearchColumn
-                  sx={
-                    workChrome
-                      ? { borderLeftColor: workChrome.hotColBorder }
-                      : undefined
-                  }
-                >
-                  {hotSearch
-                    .filter((_, index) => index % 2 === 0)
-                    .map((suggestion, index) => (
-                      <StyledHotSearchColumnItem
-                        key={index * 2}
-                        onClick={() => onSuggestionClick(suggestion)}
-                        sx={
-                          workChrome
-                            ? {
-                                color: workChrome.textSecondary,
-                                '&:hover': { color: workChrome.hotItemHover },
-                              }
-                            : undefined
-                        }
-                      >
-                        • {suggestion}
-                      </StyledHotSearchColumnItem>
-                    ))}
-                </StyledHotSearchColumn>
-
-                {/* 右列 */}
-                <StyledHotSearchColumn
-                  sx={
-                    workChrome
-                      ? { borderLeftColor: workChrome.hotColBorder }
-                      : undefined
-                  }
-                >
-                  {hotSearch
-                    .filter((_, index) => index % 2 === 1)
-                    .map((suggestion, index) => (
-                      <StyledHotSearchColumnItem
-                        key={index * 2 + 1}
-                        onClick={() => onSuggestionClick(suggestion)}
-                        sx={
-                          workChrome
-                            ? {
-                                color: workChrome.textSecondary,
-                                '&:hover': { color: workChrome.hotItemHover },
-                              }
-                            : undefined
-                        }
-                      >
-                        • {suggestion}
-                      </StyledHotSearchColumnItem>
-                    ))}
-                </StyledHotSearchColumn>
-              </StyledHotSearchContainer>
-            </Box>
-          )}
+          {historyList}
         </Box>
       )}
 
-      {/* 有对话时显示对话历史 */}
-      <StyledConversationContainer
-        direction='column'
-        className='conversation-container'
-        sx={{
-          mb: conversation?.length > 0 ? 2 : 0,
-          display: conversation.length > 0 ? 'flex' : 'none',
-        }}
+      <StyledMainContainer
+        className={palette.mode === 'dark' ? 'md-dark' : ''}
+        sx={{ position: 'relative' }}
       >
-        <Stack gap={2}>
-          {conversation.map((item, index) => (
-            <StyledConversationItem key={item.id}>
-              {item.image_paths.length > 0 && (
-                <ImagePreview.PreviewGroup>
-                  <Stack direction='row' gap={1} sx={{ alignSelf: 'flex-end' }}>
-                    {item.image_paths.map((url: string) => (
-                      <ImagePreview
-                        alt={url}
-                        key={url}
-                        src={getImagePath(url, basePath)}
-                        width={100}
-                        height={100}
-                        style={{
-                          borderRadius: '10px',
-                          objectFit: 'cover',
-                          cursor: 'pointer',
-                        }}
-                        referrerPolicy='no-referrer'
-                      />
-                    ))}
-                  </Stack>
-                </ImagePreview.PreviewGroup>
-              )}
-
-              {/* 用户问题气泡 - 右对齐 */}
-              {item.q && (
-                <StyledUserBubble sx={workChrome?.userBubble}>
-                  {item.q}
-                </StyledUserBubble>
-              )}
-              {/* AI回答气泡 - 左对齐 */}
-              <StyledAiBubble>
-                {(item.chain_steps?.length ?? 0) > 0 && (
-                  <StyledThinkingAccordion defaultExpanded>
-                    <StyledThinkingAccordionSummary
-                      expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
-                    >
-                      <Typography
-                        variant='body2'
-                        sx={(theme: import('@mui/material/styles').Theme) => ({
-                          fontSize: 12,
-                          color: alpha(theme.palette.text.primary, 0.5),
-                        })}
-                      >
-                        思维链（附图检索准备）
-                      </Typography>
-                    </StyledThinkingAccordionSummary>
-                    <StyledThinkingAccordionDetails>
-                      <Stack gap={1.5} alignItems='stretch'>
-                        {(item.chain_steps || []).map((s, si) => (
-                          <Box key={`${s.step}-${si}`}>
-                            <Typography
-                              variant='body2'
-                              sx={{ fontSize: 12, fontWeight: 600, mb: 0.5 }}
-                            >
-                              {s.step}. {s.title}
-                            </Typography>
-                            <Typography
-                              variant='body2'
-                              sx={(
-                                theme: import('@mui/material/styles').Theme,
-                              ) => ({
-                                fontSize: 12,
-                                color: alpha(theme.palette.text.primary, 0.65),
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                              })}
-                            >
-                              {s.detail}
-                            </Typography>
-                          </Box>
-                        ))}
-                      </Stack>
-                    </StyledThinkingAccordionDetails>
-                  </StyledThinkingAccordion>
+        {!qaWorkMode && historyAvailable && mobile && (
+          <Button
+            size='small'
+            variant='text'
+            startIcon={<HistoryIcon />}
+            onClick={() => setHistoryDrawerOpen(true)}
+            sx={{ alignSelf: 'flex-start', mb: 1 }}
+          >
+            历史提问
+          </Button>
+        )}
+        {historyDetailLoading && (
+          <Stack
+            alignItems='center'
+            justifyContent='center'
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 2,
+              bgcolor: theme => alpha(theme.palette.background.default, 0.78),
+            }}
+          >
+            <Typography color='text.secondary' sx={{ fontSize: 13 }}>
+              正在加载历史问答…
+            </Typography>
+          </Stack>
+        )}
+        {qaWorkMode && (
+          <Stack
+            direction='row'
+            alignSelf='center'
+            sx={{
+              mb: 2,
+              p: 0.5,
+              borderRadius: '10px',
+              border: `1px solid ${workChrome?.border}`,
+              backgroundColor: workChrome?.bgRaised,
+            }}
+          >
+            {(
+              [
+                ['image', '图片识别'],
+                ['manual', '手动选择'],
+              ] as const
+            ).map(([mode, label]) => {
+              const active = workInputMode === mode;
+              return (
+                <Button
+                  key={mode}
+                  size='small'
+                  aria-pressed={active}
+                  onClick={() => changeWorkInputMode(mode)}
+                  sx={{
+                    minWidth: 96,
+                    color: active
+                      ? workChrome?.goldDeep
+                      : workChrome?.textSecondary,
+                    backgroundColor: active
+                      ? 'rgba(255, 68, 0, 0.12)'
+                      : 'transparent',
+                    fontWeight: active ? 600 : 400,
+                    '&:hover': {
+                      backgroundColor: active
+                        ? 'rgba(255, 68, 0, 0.16)'
+                        : 'rgba(255, 68, 0, 0.06)',
+                    },
+                  }}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </Stack>
+        )}
+        {manualWorkMode && <ManualWorkModeSelector workChrome={workChrome} />}
+        {/* 无对话时显示欢迎界面 */}
+        {!manualWorkMode && conversation.length === 0 && (
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              pb: 5,
+            }}
+          >
+            {/* Logo区域 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 8 }}>
+              <Image
+                src={getImagePath(
+                  kbDetail?.settings?.icon || Logo.src,
+                  basePath,
                 )}
-                {/* 搜索结果 */}
-                {item.chunk_result.length > 0 && (
-                  <StyledChunkAccordion
-                    expanded={item.result_expend}
-                    onChange={(event, expanded) => {
-                      setConversation(prev => {
-                        const newConversation = [...prev];
-                        if (index === conversation.length - 1) {
-                          lastResultExpendRef.current = expanded;
-                        }
-                        newConversation[index].result_expend = expanded;
-                        return newConversation;
-                      });
+                alt='logo'
+                width={46}
+                height={46}
+                unoptimized
+                style={{
+                  objectFit: 'contain',
+                }}
+              />
+              <Typography
+                variant='h6'
+                sx={{
+                  fontSize: 32,
+                  color: workChrome ? workChrome.title : 'text.primary',
+                  fontWeight: 700,
+                }}
+              >
+                {kbDetail?.settings?.title}
+              </Typography>
+            </Box>
+
+            {/* 热门搜索区域 */}
+            {hotSearch.length > 0 && (
+              <Box sx={{ width: '100%' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: workChrome ? workChrome.hotTitle : 'primary.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
                     }}
                   >
-                    <StyledChunkAccordionSummary
-                      expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
-                    >
-                      <Typography
-                        variant='body2'
-                        sx={(theme: import('@mui/material/styles').Theme) => ({
-                          fontSize: 12,
-                          color: alpha(theme.palette.text.primary, 0.5),
-                        })}
-                      >
-                        共找到 {item.chunk_result.length} 个结果
-                      </Typography>
-                    </StyledChunkAccordionSummary>
+                    <IconXingxing sx={{ fontSize: 14 }} />
+                    大家都在搜什么?
+                  </Typography>
+                </Box>
 
-                    <StyledChunkAccordionDetails>
-                      <Stack gap={1} alignItems='flex-start'>
-                        {item.chunk_result.map((chunk, chunkIndex) => (
-                          <StyledChunkItem key={chunkIndex}>
-                            <Typography
-                              variant='body2'
-                              className='hover-primary'
-                              sx={(
-                                theme: import('@mui/material/styles').Theme,
-                              ) => ({
-                                fontSize: 12,
-                                color: alpha(theme.palette.text.primary, 0.5),
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                minWidth: 0,
-                                cursor: 'pointer',
-                              })}
-                              onClick={() => {
-                                window.open(
-                                  `${basePath}/node/${chunk.node_id}`,
-                                  '_blank',
-                                );
-                              }}
-                            >
-                              <Box
-                                component='span'
-                                sx={{
-                                  flexShrink: 0,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  lineHeight: 1,
-                                }}
-                              >
-                                {chunk.emoji ? (
-                                  <Twemoji text={chunk.emoji} size={14} />
-                                ) : (
-                                  <IconWenjian
-                                    sx={{ fontSize: 14, color: 'inherit' }}
-                                  />
-                                )}
-                              </Box>
-                              <Box
-                                component='span'
-                                sx={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  minWidth: 0,
-                                }}
-                              >
-                                {chunk.name}
-                              </Box>
-                            </Typography>
-                          </StyledChunkItem>
-                        ))}
-                      </Stack>
-                    </StyledChunkAccordionDetails>
-                  </StyledChunkAccordion>
-                )}
-
-                {/* 加载状态 */}
-                {index === conversation.length - 1 && loading && (
-                  <LoadingContent thinking={thinking} />
-                )}
-
-                {/* 思考过程 */}
-                {!!item.thinking_content && (
-                  <StyledThinkingAccordion
-                    expanded={item.thinking_expend}
-                    onChange={(event, expanded) => {
-                      setConversation(prev => {
-                        const newConversation = [...prev];
-                        newConversation[index].thinking_expend = expanded;
-                        return newConversation;
-                      });
-                    }}
+                {/* 热门搜索列表 - 两列布局 */}
+                <StyledHotSearchContainer>
+                  {/* 左列 */}
+                  <StyledHotSearchColumn
+                    sx={
+                      workChrome
+                        ? { borderLeftColor: workChrome.hotColBorder }
+                        : undefined
+                    }
                   >
-                    <StyledThinkingAccordionSummary
-                      expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
-                    >
-                      <Stack direction='row' alignItems='center' gap={1}>
-                        {thinking === 2 &&
-                          index === conversation.length - 1 && (
-                            <Image
-                              src={aiLoading}
-                              alt='ai-loading'
-                              width={20}
-                              height={20}
-                            />
-                          )}
+                    {hotSearch
+                      .filter((_, index) => index % 2 === 0)
+                      .map((suggestion, index) => (
+                        <StyledHotSearchColumnItem
+                          key={index * 2}
+                          onClick={() => onSuggestionClick(suggestion)}
+                          sx={
+                            workChrome
+                              ? {
+                                  color: workChrome.textSecondary,
+                                  '&:hover': { color: workChrome.hotItemHover },
+                                }
+                              : undefined
+                          }
+                        >
+                          • {suggestion}
+                        </StyledHotSearchColumnItem>
+                      ))}
+                  </StyledHotSearchColumn>
 
+                  {/* 右列 */}
+                  <StyledHotSearchColumn
+                    sx={
+                      workChrome
+                        ? { borderLeftColor: workChrome.hotColBorder }
+                        : undefined
+                    }
+                  >
+                    {hotSearch
+                      .filter((_, index) => index % 2 === 1)
+                      .map((suggestion, index) => (
+                        <StyledHotSearchColumnItem
+                          key={index * 2 + 1}
+                          onClick={() => onSuggestionClick(suggestion)}
+                          sx={
+                            workChrome
+                              ? {
+                                  color: workChrome.textSecondary,
+                                  '&:hover': { color: workChrome.hotItemHover },
+                                }
+                              : undefined
+                          }
+                        >
+                          • {suggestion}
+                        </StyledHotSearchColumnItem>
+                      ))}
+                  </StyledHotSearchColumn>
+                </StyledHotSearchContainer>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* 有对话时显示对话历史 */}
+        <StyledConversationContainer
+          direction='column'
+          className='conversation-container'
+          sx={{
+            mb: conversation?.length > 0 ? 2 : 0,
+            display:
+              !manualWorkMode && conversation.length > 0 ? 'flex' : 'none',
+          }}
+        >
+          <Stack gap={2}>
+            {conversation.map((item, index) => (
+              <StyledConversationItem key={item.id}>
+                {item.image_paths.length > 0 && (
+                  <ImagePreview.PreviewGroup>
+                    <Stack
+                      direction='row'
+                      gap={1}
+                      sx={{ alignSelf: 'flex-end' }}
+                    >
+                      {item.image_paths.map((url: string) => (
+                        <ImagePreview
+                          alt={url}
+                          key={url}
+                          src={getImagePath(url, basePath)}
+                          width={100}
+                          height={100}
+                          style={{
+                            borderRadius: '10px',
+                            objectFit: 'cover',
+                            cursor: 'pointer',
+                          }}
+                          referrerPolicy='no-referrer'
+                        />
+                      ))}
+                    </Stack>
+                  </ImagePreview.PreviewGroup>
+                )}
+
+                {/* 用户问题气泡 - 右对齐 */}
+                {item.q && (
+                  <StyledUserBubble sx={workChrome?.userBubble}>
+                    {item.q}
+                  </StyledUserBubble>
+                )}
+                {/* AI回答气泡 - 左对齐 */}
+                <StyledAiBubble>
+                  {(item.chain_steps?.length ?? 0) > 0 && (
+                    <StyledThinkingAccordion defaultExpanded>
+                      <StyledThinkingAccordionSummary
+                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                      >
                         <Typography
                           variant='body2'
                           sx={(
@@ -1263,189 +1370,421 @@ const AiQaContent: React.FC<{
                             color: alpha(theme.palette.text.primary, 0.5),
                           })}
                         >
-                          {thinking === 2 && index === conversation.length - 1
-                            ? '思考中...'
-                            : '已思考'}
+                          思维链（附图检索准备）
                         </Typography>
-                      </Stack>
-                    </StyledThinkingAccordionSummary>
+                      </StyledThinkingAccordionSummary>
+                      <StyledThinkingAccordionDetails>
+                        <Stack gap={1.5} alignItems='stretch'>
+                          {(item.chain_steps || []).map((s, si) => (
+                            <Box key={`${s.step}-${si}`}>
+                              <Typography
+                                variant='body2'
+                                sx={{ fontSize: 12, fontWeight: 600, mb: 0.5 }}
+                              >
+                                {s.step}. {s.title}
+                              </Typography>
+                              <Typography
+                                variant='body2'
+                                sx={(
+                                  theme: import('@mui/material/styles').Theme,
+                                ) => ({
+                                  fontSize: 12,
+                                  color: alpha(
+                                    theme.palette.text.primary,
+                                    0.65,
+                                  ),
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                })}
+                              >
+                                {s.detail}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </StyledThinkingAccordionDetails>
+                    </StyledThinkingAccordion>
+                  )}
+                  {/* 搜索结果 */}
+                  {item.chunk_result.length > 0 && (
+                    <StyledChunkAccordion
+                      expanded={item.result_expend}
+                      onChange={(event, expanded) => {
+                        setConversation(prev => {
+                          const newConversation = [...prev];
+                          if (index === conversation.length - 1) {
+                            lastResultExpendRef.current = expanded;
+                          }
+                          newConversation[index].result_expend = expanded;
+                          return newConversation;
+                        });
+                      }}
+                    >
+                      <StyledChunkAccordionSummary
+                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                      >
+                        <Typography
+                          variant='body2'
+                          sx={(
+                            theme: import('@mui/material/styles').Theme,
+                          ) => ({
+                            fontSize: 12,
+                            color: alpha(theme.palette.text.primary, 0.5),
+                          })}
+                        >
+                          共找到 {item.chunk_result.length} 个结果
+                        </Typography>
+                      </StyledChunkAccordionSummary>
 
-                    <StyledThinkingAccordionDetails>
-                      <MarkDown2
-                        content={item.thinking_content || ''}
-                        autoScroll={false}
-                      />
-                    </StyledThinkingAccordionDetails>
-                  </StyledThinkingAccordion>
-                )}
+                      <StyledChunkAccordionDetails>
+                        <Stack gap={1} alignItems='flex-start'>
+                          {item.chunk_result.map((chunk, chunkIndex) => (
+                            <StyledChunkItem key={chunkIndex}>
+                              <Typography
+                                variant='body2'
+                                className='hover-primary'
+                                sx={(
+                                  theme: import('@mui/material/styles').Theme,
+                                ) => ({
+                                  fontSize: 12,
+                                  color: alpha(theme.palette.text.primary, 0.5),
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                  minWidth: 0,
+                                  cursor: 'pointer',
+                                })}
+                                onClick={() => {
+                                  window.open(
+                                    `${basePath}/node/${chunk.node_id}`,
+                                    '_blank',
+                                  );
+                                }}
+                              >
+                                <Box
+                                  component='span'
+                                  sx={{
+                                    flexShrink: 0,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  {chunk.emoji ? (
+                                    <Twemoji text={chunk.emoji} size={14} />
+                                  ) : (
+                                    <IconWenjian
+                                      sx={{ fontSize: 14, color: 'inherit' }}
+                                    />
+                                  )}
+                                </Box>
+                                <Box
+                                  component='span'
+                                  sx={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  {chunk.name}
+                                </Box>
+                              </Typography>
+                            </StyledChunkItem>
+                          ))}
+                        </Stack>
+                      </StyledChunkAccordionDetails>
+                    </StyledChunkAccordion>
+                  )}
 
-                {/* AI回答内容 */}
-                <StyledAiBubbleContent>
-                  {(() => {
-                    // 优先匹配 Phase 2 新协议：ATTRIBUTE_PANEL（结构化方法匹配终态）
-                    const panel = extractAttributePanel(item.a);
-                    if (panel.meta) {
-                      return (
-                        <AttributePanel
-                          meta={panel.meta}
-                          workChrome={workChrome}
-                        />
-                      );
-                    }
-                    const { meta, text } = extractWorkModeClarify(item.a);
-                    const identified = !!meta && !!meta.identified_doc_id;
-                    const isAsking =
-                      !!meta && !identified && (meta.missing?.length ?? 0) > 0;
-                    const isTerminal =
-                      !!meta &&
-                      !identified &&
-                      (meta.missing?.length ?? 0) === 0;
-                    const headerLabel = identified
-                      ? '实战模式 · 已识别文档'
-                      : isTerminal
-                        ? '实战模式 · 终态'
-                        : meta && meta.candidates >= 2
-                          ? '实战模式 · 候选差异核对'
-                          : '实战模式 · 信息完备性核对';
-                    return (
-                      <>
-                        {meta && (
-                          <Box
+                  {/* 加载状态 */}
+                  {index === conversation.length - 1 && loading && (
+                    <LoadingContent thinking={thinking} />
+                  )}
+
+                  {/* 思考过程 */}
+                  {!!item.thinking_content && (
+                    <StyledThinkingAccordion
+                      expanded={item.thinking_expend}
+                      onChange={(event, expanded) => {
+                        setConversation(prev => {
+                          const newConversation = [...prev];
+                          newConversation[index].thinking_expend = expanded;
+                          return newConversation;
+                        });
+                      }}
+                    >
+                      <StyledThinkingAccordionSummary
+                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                      >
+                        <Stack direction='row' alignItems='center' gap={1}>
+                          {thinking === 2 &&
+                            index === conversation.length - 1 && (
+                              <Image
+                                src={aiLoading}
+                                alt='ai-loading'
+                                width={20}
+                                height={20}
+                              />
+                            )}
+
+                          <Typography
+                            variant='body2'
                             sx={(
                               theme: import('@mui/material/styles').Theme,
                             ) => ({
-                              mb: 1.5,
-                              p: 1.25,
-                              borderRadius: '10px',
-                              border: '1px solid',
-                              borderColor: workChrome
-                                ? workChrome.borderStrong
-                                : alpha(theme.palette.primary.main, 0.25),
-                              backgroundColor: workChrome
-                                ? workChrome.bgRaised
-                                : alpha(theme.palette.primary.main, 0.06),
+                              fontSize: 12,
+                              color: alpha(theme.palette.text.primary, 0.5),
                             })}
                           >
-                            <Stack
-                              direction='row'
-                              alignItems='flex-start'
-                              justifyContent='space-between'
-                              gap={0.5}
-                              sx={{ mb: 0.5 }}
+                            {thinking === 2 && index === conversation.length - 1
+                              ? '思考中...'
+                              : '已思考'}
+                          </Typography>
+                        </Stack>
+                      </StyledThinkingAccordionSummary>
+
+                      <StyledThinkingAccordionDetails>
+                        <MarkDown2
+                          content={item.thinking_content || ''}
+                          autoScroll={false}
+                        />
+                      </StyledThinkingAccordionDetails>
+                    </StyledThinkingAccordion>
+                  )}
+
+                  {/* AI回答内容 */}
+                  <StyledAiBubbleContent>
+                    {(() => {
+                      // 优先匹配 Phase 2 新协议：ATTRIBUTE_PANEL（结构化方法匹配终态）
+                      const panel = extractAttributePanel(item.a);
+                      if (panel.meta) {
+                        return (
+                          <AttributePanel
+                            meta={panel.meta}
+                            workChrome={workChrome}
+                          />
+                        );
+                      }
+                      const { meta, text } = extractWorkModeClarify(item.a);
+                      const identified = !!meta && !!meta.identified_doc_id;
+                      const isAsking =
+                        !!meta &&
+                        !identified &&
+                        (meta.missing?.length ?? 0) > 0;
+                      const isTerminal =
+                        !!meta &&
+                        !identified &&
+                        (meta.missing?.length ?? 0) === 0;
+                      const headerLabel = identified
+                        ? '实战模式 · 已识别文档'
+                        : isTerminal
+                          ? '实战模式 · 终态'
+                          : meta && meta.candidates >= 2
+                            ? '实战模式 · 候选差异核对'
+                            : '实战模式 · 信息完备性核对';
+                      return (
+                        <>
+                          {meta && (
+                            <Box
+                              sx={(
+                                theme: import('@mui/material/styles').Theme,
+                              ) => ({
+                                mb: 1.5,
+                                p: 1.25,
+                                borderRadius: '10px',
+                                border: '1px solid',
+                                borderColor: workChrome
+                                  ? workChrome.borderStrong
+                                  : alpha(theme.palette.primary.main, 0.25),
+                                backgroundColor: workChrome
+                                  ? workChrome.bgRaised
+                                  : alpha(theme.palette.primary.main, 0.06),
+                              })}
                             >
-                              <Typography
-                                variant='body2'
-                                sx={{
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  color: workChrome
-                                    ? workChrome.goldBright
-                                    : 'primary.main',
-                                  letterSpacing: workChrome
-                                    ? '0.04em'
-                                    : 'normal',
-                                  flex: 1,
-                                  minWidth: 0,
-                                }}
+                              <Stack
+                                direction='row'
+                                alignItems='flex-start'
+                                justifyContent='space-between'
+                                gap={0.5}
+                                sx={{ mb: 0.5 }}
                               >
-                                {headerLabel}
-                                {meta.round && meta.max_rounds
-                                  ? `（第 ${meta.round}/${meta.max_rounds} 轮）`
-                                  : ''}
-                              </Typography>
-                              {isAsking && (
-                                <Tooltip title='删除追问内容'>
-                                  <IconButton
-                                    size='small'
-                                    aria-label='删除追问内容'
-                                    sx={{
-                                      mt: -0.5,
-                                      mr: -0.5,
-                                      flexShrink: 0,
-                                      color: workChrome
-                                        ? workChrome.textSecondary
-                                        : undefined,
-                                      '&:hover': workChrome
-                                        ? {
-                                            color: workChrome.goldBright,
-                                            backgroundColor:
-                                              'rgba(255, 68, 0, 0.1)',
-                                          }
-                                        : undefined,
-                                    }}
-                                    onClick={() => {
-                                      const next =
-                                        removeWorkModeClarifyFromAnswer(item.a);
-                                      if (next === null) return;
-                                      setConversation(prev =>
-                                        prev.map(c =>
-                                          c.id === item.id
-                                            ? { ...c, a: next }
-                                            : c,
-                                        ),
-                                      );
-                                    }}
-                                  >
-                                    <DeleteOutlineIcon sx={{ fontSize: 18 }} />
-                                  </IconButton>
-                                </Tooltip>
+                                <Typography
+                                  variant='body2'
+                                  sx={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: workChrome
+                                      ? workChrome.goldBright
+                                      : 'primary.main',
+                                    letterSpacing: workChrome
+                                      ? '0.04em'
+                                      : 'normal',
+                                    flex: 1,
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  {headerLabel}
+                                  {meta.round && meta.max_rounds
+                                    ? `（第 ${meta.round}/${meta.max_rounds} 轮）`
+                                    : ''}
+                                </Typography>
+                                {isAsking && (
+                                  <Tooltip title='删除追问内容'>
+                                    <IconButton
+                                      size='small'
+                                      aria-label='删除追问内容'
+                                      sx={{
+                                        mt: -0.5,
+                                        mr: -0.5,
+                                        flexShrink: 0,
+                                        color: workChrome
+                                          ? workChrome.textSecondary
+                                          : undefined,
+                                        '&:hover': workChrome
+                                          ? {
+                                              color: workChrome.goldBright,
+                                              backgroundColor:
+                                                'rgba(255, 68, 0, 0.1)',
+                                            }
+                                          : undefined,
+                                      }}
+                                      onClick={() => {
+                                        const next =
+                                          removeWorkModeClarifyFromAnswer(
+                                            item.a,
+                                          );
+                                        if (next === null) return;
+                                        setConversation(prev =>
+                                          prev.map(c =>
+                                            c.id === item.id
+                                              ? { ...c, a: next }
+                                              : c,
+                                          ),
+                                        );
+                                      }}
+                                    >
+                                      <DeleteOutlineIcon
+                                        sx={{ fontSize: 18 }}
+                                      />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Stack>
+                              {identified && (
+                                <Typography
+                                  variant='body2'
+                                  sx={(
+                                    theme: import('@mui/material/styles').Theme,
+                                  ) => ({
+                                    fontSize: 12,
+                                    color: workChrome
+                                      ? workChrome.textSecondary
+                                      : alpha(theme.palette.text.primary, 0.7),
+                                    mb: 0.75,
+                                  })}
+                                >
+                                  品类「{meta.category}
+                                  」已收敛到唯一文档，回答仅基于该文档。
+                                </Typography>
                               )}
-                            </Stack>
-                            {identified && (
-                              <Typography
-                                variant='body2'
-                                sx={(
-                                  theme: import('@mui/material/styles').Theme,
-                                ) => ({
-                                  fontSize: 12,
-                                  color: workChrome
-                                    ? workChrome.textSecondary
-                                    : alpha(theme.palette.text.primary, 0.7),
-                                  mb: 0.75,
-                                })}
-                              >
-                                品类「{meta.category}
-                                」已收敛到唯一文档，回答仅基于该文档。
-                              </Typography>
-                            )}
-                            {isAsking && (
-                              <Typography
-                                variant='body2'
-                                sx={(
-                                  theme: import('@mui/material/styles').Theme,
-                                ) => ({
-                                  fontSize: 12,
-                                  color: workChrome
-                                    ? workChrome.textSecondary
-                                    : alpha(theme.palette.text.primary, 0.7),
-                                  mb: 0.75,
-                                })}
-                              >
-                                {meta.candidates >= 2
-                                  ? `品类「${meta.category}」匹配到 ${meta.candidates} 个候选，请补充以下区分项：`
-                                  : `品类「${meta.category}」需要补充以下信息以定位文档：`}
-                              </Typography>
-                            )}
-                            {isTerminal && (
-                              <Typography
-                                variant='body2'
-                                sx={(
-                                  theme: import('@mui/material/styles').Theme,
-                                ) => ({
-                                  fontSize: 12,
-                                  color: workChrome
-                                    ? workChrome.textSecondary
-                                    : alpha(theme.palette.text.primary, 0.7),
-                                  mb: 0.75,
-                                })}
-                              >
-                                品类「{meta.category}
-                                」未能继续收敛，请参考下方说明换种描述或在剩余候选中选择。
-                              </Typography>
-                            )}
-                            {meta.collected &&
-                              Object.keys(meta.collected).length > 0 && (
-                                <Stack gap={0.5} sx={{ mb: 0.75 }}>
+                              {isAsking && (
+                                <Typography
+                                  variant='body2'
+                                  sx={(
+                                    theme: import('@mui/material/styles').Theme,
+                                  ) => ({
+                                    fontSize: 12,
+                                    color: workChrome
+                                      ? workChrome.textSecondary
+                                      : alpha(theme.palette.text.primary, 0.7),
+                                    mb: 0.75,
+                                  })}
+                                >
+                                  {meta.candidates >= 2
+                                    ? `品类「${meta.category}」匹配到 ${meta.candidates} 个候选，请补充以下区分项：`
+                                    : `品类「${meta.category}」需要补充以下信息以定位文档：`}
+                                </Typography>
+                              )}
+                              {isTerminal && (
+                                <Typography
+                                  variant='body2'
+                                  sx={(
+                                    theme: import('@mui/material/styles').Theme,
+                                  ) => ({
+                                    fontSize: 12,
+                                    color: workChrome
+                                      ? workChrome.textSecondary
+                                      : alpha(theme.palette.text.primary, 0.7),
+                                    mb: 0.75,
+                                  })}
+                                >
+                                  品类「{meta.category}
+                                  」未能继续收敛，请参考下方说明换种描述或在剩余候选中选择。
+                                </Typography>
+                              )}
+                              {meta.collected &&
+                                Object.keys(meta.collected).length > 0 && (
+                                  <Stack gap={0.5} sx={{ mb: 0.75 }}>
+                                    <Typography
+                                      variant='caption'
+                                      sx={(
+                                        theme: import('@mui/material/styles').Theme,
+                                      ) => ({
+                                        fontSize: 11,
+                                        color: workChrome
+                                          ? workChrome.textMuted
+                                          : alpha(
+                                              theme.palette.text.primary,
+                                              0.6,
+                                            ),
+                                      })}
+                                    >
+                                      已收集
+                                    </Typography>
+                                    <Stack
+                                      direction='row'
+                                      gap={0.5}
+                                      flexWrap='wrap'
+                                    >
+                                      {Object.entries(meta.collected).map(
+                                        ([k, v]) => (
+                                          <Box
+                                            key={k}
+                                            sx={(
+                                              theme: import('@mui/material/styles').Theme,
+                                            ) => ({
+                                              px: 1,
+                                              py: 0.25,
+                                              borderRadius: '6px',
+                                              fontSize: 12,
+                                              color: workChrome
+                                                ? workChrome.goldBright
+                                                : theme.palette.success.main,
+                                              backgroundColor: workChrome
+                                                ? 'rgba(255, 68, 0, 0.1)'
+                                                : alpha(
+                                                    theme.palette.success.main,
+                                                    0.08,
+                                                  ),
+                                              border: '1px solid',
+                                              borderColor: workChrome
+                                                ? workChrome.borderStrong
+                                                : alpha(
+                                                    theme.palette.success.main,
+                                                    0.4,
+                                                  ),
+                                            })}
+                                          >
+                                            {k}: {v}
+                                          </Box>
+                                        ),
+                                      )}
+                                    </Stack>
+                                  </Stack>
+                                )}
+                              {isAsking && meta.missing.length > 0 && (
+                                <Stack gap={0.5}>
                                   <Typography
                                     variant='caption'
                                     sx={(
@@ -1460,443 +1799,414 @@ const AiQaContent: React.FC<{
                                           ),
                                     })}
                                   >
-                                    已收集
+                                    待补充
                                   </Typography>
                                   <Stack
                                     direction='row'
-                                    gap={0.5}
+                                    gap={0.75}
                                     flexWrap='wrap'
                                   >
-                                    {Object.entries(meta.collected).map(
-                                      ([k, v]) => (
-                                        <Box
-                                          key={k}
-                                          sx={(
-                                            theme: import('@mui/material/styles').Theme,
-                                          ) => ({
-                                            px: 1,
-                                            py: 0.25,
-                                            borderRadius: '6px',
-                                            fontSize: 12,
-                                            color: workChrome
-                                              ? workChrome.goldBright
-                                              : theme.palette.success.main,
-                                            backgroundColor: workChrome
-                                              ? 'rgba(255, 68, 0, 0.1)'
-                                              : alpha(
-                                                  theme.palette.success.main,
-                                                  0.08,
-                                                ),
-                                            border: '1px solid',
-                                            borderColor: workChrome
-                                              ? workChrome.borderStrong
-                                              : alpha(
-                                                  theme.palette.success.main,
-                                                  0.4,
-                                                ),
-                                          })}
-                                        >
-                                          {k}: {v}
-                                        </Box>
-                                      ),
-                                    )}
+                                    {meta.missing.map(name => (
+                                      <Box
+                                        key={name}
+                                        sx={(
+                                          theme: import('@mui/material/styles').Theme,
+                                        ) => ({
+                                          px: 1,
+                                          py: 0.25,
+                                          borderRadius: '6px',
+                                          fontSize: 12,
+                                          fontWeight: 500,
+                                          color: workChrome
+                                            ? workChrome.goldBright
+                                            : 'primary.main',
+                                          backgroundColor: workChrome
+                                            ? '#ffffff'
+                                            : theme.palette.background.default,
+                                          border: '1px solid',
+                                          borderColor: workChrome
+                                            ? workChrome.borderStrong
+                                            : alpha(
+                                                theme.palette.primary.main,
+                                                0.4,
+                                              ),
+                                        })}
+                                      >
+                                        {name}
+                                      </Box>
+                                    ))}
                                   </Stack>
                                 </Stack>
                               )}
-                            {isAsking && meta.missing.length > 0 && (
-                              <Stack gap={0.5}>
-                                <Typography
-                                  variant='caption'
-                                  sx={(
-                                    theme: import('@mui/material/styles').Theme,
-                                  ) => ({
-                                    fontSize: 11,
-                                    color: workChrome
-                                      ? workChrome.textMuted
-                                      : alpha(theme.palette.text.primary, 0.6),
-                                  })}
-                                >
-                                  待补充
-                                </Typography>
-                                <Stack
-                                  direction='row'
-                                  gap={0.75}
-                                  flexWrap='wrap'
-                                >
-                                  {meta.missing.map(name => (
-                                    <Box
-                                      key={name}
-                                      sx={(
-                                        theme: import('@mui/material/styles').Theme,
-                                      ) => ({
-                                        px: 1,
-                                        py: 0.25,
-                                        borderRadius: '6px',
-                                        fontSize: 12,
-                                        fontWeight: 500,
-                                        color: workChrome
-                                          ? workChrome.goldBright
-                                          : 'primary.main',
-                                        backgroundColor: workChrome
-                                          ? '#ffffff'
-                                          : theme.palette.background.default,
-                                        border: '1px solid',
-                                        borderColor: workChrome
-                                          ? workChrome.borderStrong
-                                          : alpha(
-                                              theme.palette.primary.main,
-                                              0.4,
-                                            ),
-                                      })}
-                                    >
-                                      {name}
-                                    </Box>
-                                  ))}
-                                </Stack>
-                              </Stack>
+                            </Box>
+                          )}
+                          <MarkDown2 content={text} autoScroll={false} />
+                        </>
+                      );
+                    })()}
+                  </StyledAiBubbleContent>
+
+                  {/* 操作按钮 */}
+                  {(index !== conversation.length - 1 || !loading) && (
+                    <StyledActionStack
+                      direction={mobile ? 'column' : 'row'}
+                      alignItems={mobile ? 'flex-start' : 'center'}
+                      justifyContent='space-between'
+                      gap={mobile ? 1 : 3}
+                    >
+                      <Stack direction='row' gap={3} alignItems='center'>
+                        <span>生成于 {dayjs(item.update_time).fromNow()}</span>
+
+                        <IconCopy
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            copyText(item.a);
+                          }}
+                        />
+
+                        {isFeedbackEnabled && item.source === 'chat' && (
+                          <>
+                            {item.score === 1 && (
+                              <IconDianzanXuanzhong1
+                                sx={{ cursor: 'pointer' }}
+                              />
                             )}
-                          </Box>
+                            {item.score !== 1 && (
+                              <IconDianzanWeixuanzhong
+                                sx={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  if (item.score === 0)
+                                    handleScore(item.message_id, 1);
+                                }}
+                              />
+                            )}
+                            {item.score !== -1 && (
+                              <IconDiancaiWeixuanzhong
+                                sx={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  if (item.score === 0) {
+                                    setConversationItem(item);
+                                    setOpen(true);
+                                  }
+                                }}
+                              />
+                            )}
+                            {item.score === -1 && (
+                              <IconADiancaiWeixuanzhong2
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            )}
+                          </>
                         )}
-                        <MarkDown2 content={text} autoScroll={false} />
-                      </>
-                    );
-                  })()}
-                </StyledAiBubbleContent>
+                      </Stack>
+                      <Box>
+                        {kbDetail?.settings?.disclaimer_settings?.content}
+                      </Box>
+                    </StyledActionStack>
+                  )}
+                </StyledAiBubble>
+              </StyledConversationItem>
+            ))}
+          </Stack>
+        </StyledConversationContainer>
+        {!manualWorkMode && conversation.length > 0 && (
+          <Button
+            variant='contained'
+            sx={(theme: import('@mui/material/styles').Theme) => ({
+              textTransform: 'none',
+              minWidth: 'auto',
+              px: 3.5,
+              py: '2px',
+              gap: 0.5,
+              fontSize: 12,
+              backgroundColor: workChrome
+                ? workChrome.bgRaised
+                : 'background.default',
+              color: workChrome ? workChrome.textPrimary : 'text.primary',
+              boxShadow: workChrome
+                ? '0 2px 12px rgba(0, 0, 0, 0.4)'
+                : `0px 1px 2px 0px ${alpha(theme.palette.text.primary, 0.06)}`,
+              border: '1px solid',
+              borderColor: workChrome
+                ? workChrome.border
+                : alpha(theme.palette.text.primary, 0.1),
+              cursor: 'pointer',
+              '&:hover': workChrome
+                ? {
+                    boxShadow: '0 2px 12px rgba(255, 68, 0, 0.18)',
+                    backgroundColor: 'rgba(255, 68, 0, 0.08)',
+                    ...workChrome.newConvHover,
+                  }
+                : {
+                    boxShadow: `0px 1px 2px 0px ${alpha(theme.palette.text.primary, 0.06)}`,
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
+                  },
+              mb: 2,
+            })}
+            onClick={startNewConversation}
+          >
+            <IconXinduihua sx={{ fontSize: 14 }} />
+            新会话
+          </Button>
+        )}
 
-                {/* 操作按钮 */}
-                {(index !== conversation.length - 1 || !loading) && (
-                  <StyledActionStack
-                    direction={mobile ? 'column' : 'row'}
-                    alignItems={mobile ? 'flex-start' : 'center'}
-                    justifyContent='space-between'
-                    gap={mobile ? 1 : 3}
-                  >
-                    <Stack direction='row' gap={3} alignItems='center'>
-                      <span>生成于 {dayjs(item.update_time).fromNow()}</span>
-
-                      <IconCopy
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          copyText(item.a);
+        {!manualWorkMode && !historyReadOnly && (
+          <StyledInputContainer>
+            <StyledInputWrapper sx={workChrome?.inputWrapper}>
+              {/* 多张图片预览 */}
+              {uploadedImages.length > 0 && (
+                <StyledImagePreviewStack
+                  direction='row'
+                  flexWrap='wrap'
+                  gap={1}
+                >
+                  {uploadedImages.map(image => (
+                    <StyledImagePreviewItem key={image.id}>
+                      <Image
+                        src={image.url}
+                        alt='uploaded'
+                        width={40}
+                        height={40}
+                        style={{
+                          objectFit: 'cover',
                         }}
                       />
-
-                      {isFeedbackEnabled && item.source === 'chat' && (
-                        <>
-                          {item.score === 1 && (
-                            <IconDianzanXuanzhong1 sx={{ cursor: 'pointer' }} />
-                          )}
-                          {item.score !== 1 && (
-                            <IconDianzanWeixuanzhong
-                              sx={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                if (item.score === 0)
-                                  handleScore(item.message_id, 1);
-                              }}
-                            />
-                          )}
-                          {item.score !== -1 && (
-                            <IconDiancaiWeixuanzhong
-                              sx={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                if (item.score === 0) {
-                                  setConversationItem(item);
-                                  setOpen(true);
-                                }
-                              }}
-                            />
-                          )}
-                          {item.score === -1 && (
-                            <IconADiancaiWeixuanzhong2
-                              sx={{ cursor: 'pointer' }}
-                            />
-                          )}
-                        </>
-                      )}
-                    </Stack>
-                    <Box>
-                      {kbDetail?.settings?.disclaimer_settings?.content}
-                    </Box>
-                  </StyledActionStack>
-                )}
-              </StyledAiBubble>
-            </StyledConversationItem>
-          ))}
-        </Stack>
-      </StyledConversationContainer>
-      {conversation.length > 0 && (
-        <Button
-          variant='contained'
-          sx={(theme: import('@mui/material/styles').Theme) => ({
-            textTransform: 'none',
-            minWidth: 'auto',
-            px: 3.5,
-            py: '2px',
-            gap: 0.5,
-            fontSize: 12,
-            backgroundColor: workChrome
-              ? workChrome.bgRaised
-              : 'background.default',
-            color: workChrome ? workChrome.textPrimary : 'text.primary',
-            boxShadow: workChrome
-              ? '0 2px 12px rgba(0, 0, 0, 0.4)'
-              : `0px 1px 2px 0px ${alpha(theme.palette.text.primary, 0.06)}`,
-            border: '1px solid',
-            borderColor: workChrome
-              ? workChrome.border
-              : alpha(theme.palette.text.primary, 0.1),
-            cursor: 'pointer',
-            '&:hover': workChrome
-              ? {
-                  boxShadow: '0 2px 12px rgba(255, 68, 0, 0.18)',
-                  backgroundColor: 'rgba(255, 68, 0, 0.08)',
-                  ...workChrome.newConvHover,
-                }
-              : {
-                  boxShadow: `0px 1px 2px 0px ${alpha(theme.palette.text.primary, 0.06)}`,
-                  borderColor: 'primary.main',
-                  color: 'primary.main',
-                },
-            mb: 2,
-          })}
-          onClick={onReset}
-        >
-          <IconXinduihua sx={{ fontSize: 14 }} />
-          新会话
-        </Button>
-      )}
-
-      <StyledInputContainer>
-        <StyledInputWrapper sx={workChrome?.inputWrapper}>
-          {/* 多张图片预览 */}
-          {uploadedImages.length > 0 && (
-            <StyledImagePreviewStack direction='row' flexWrap='wrap' gap={1}>
-              {uploadedImages.map(image => (
-                <StyledImagePreviewItem key={image.id}>
-                  <Image
-                    src={image.url}
-                    alt='uploaded'
-                    width={40}
-                    height={40}
-                    style={{
-                      objectFit: 'cover',
-                    }}
-                  />
-                  <StyledImageRemoveButton
-                    size='small'
-                    onClick={() => handleRemoveImage(image.id)}
-                  >
-                    <CloseIcon sx={{ fontSize: 10 }} />
-                  </StyledImageRemoveButton>
-                </StyledImagePreviewItem>
-              ))}
-            </StyledImagePreviewStack>
-          )}
-          <StyledTextField
-            fullWidth
-            multiline
-            rows={2}
-            disabled={loading}
-            ref={inputRef}
-            size='small'
-            value={input}
-            onChange={handleInputChange}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            onPaste={handlePaste}
-            sx={
-              workChrome
-                ? {
-                    backgroundColor: workChrome.textFieldBg,
-                    '.MuiInputBase-root': {
-                      backgroundColor: workChrome.textFieldBg,
-                      color: workChrome.textPrimary,
-                    },
-                    '& textarea, & input': {
-                      color: workChrome.textPrimary,
-                      caretColor: workChrome.gold,
-                      '&::placeholder': {
-                        color: workChrome.textMuted,
-                        opacity: 1,
-                      },
-                    },
-                  }
-                : undefined
-            }
-            onKeyDown={e => {
-              const isComposing =
-                e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229;
-              if (
-                e.key === 'Enter' &&
-                !e.shiftKey &&
-                (input.length > 0 || uploadedImages.length > 0) &&
-                !isComposing
-              ) {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-            placeholder={placeholder}
-            autoComplete='off'
-          />
-          <StyledActionButtonStack
-            direction='row'
-            alignItems='center'
-            justifyContent='space-between'
-          >
-            <input
-              ref={fileInputRef}
-              type='file'
-              accept='image/*'
-              multiple
-              style={{ display: 'none' }}
-              onChange={handleImageUpload}
-            />
-            <Stack direction='row' alignItems='center' gap={0.5}>
-              <IconButton
-                size='small'
-                onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
-                sx={{
-                  flexShrink: 0,
-                  '&:hover': workChrome
-                    ? { backgroundColor: 'rgba(255, 68, 0, 0.08)' }
-                    : undefined,
-                }}
-              >
-                <IconTupian
-                  sx={{
-                    fontSize: 20,
-                    color: workChrome
-                      ? workChrome.textSecondary
-                      : 'text.secondary',
-                  }}
-                />
-              </IconButton>
-
-              <Tooltip
-                title='知识库检索返回的数量上限（1～10）'
-                placement='top'
-              >
-                <FormControl size='small' sx={{ minWidth: 76, flexShrink: 0 }}>
-                  <Select
-                    value={topN}
-                    onChange={e => setTopN(Number(e.target.value))}
-                    disabled={loading}
-                    sx={
-                      workChrome
-                        ? {
-                            fontSize: 12,
-                            height: 32,
-                            color: workChrome.textPrimary,
-                            backgroundColor: workChrome.bgInput,
-                            '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: workChrome.border,
-                            },
-                            '&:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: workChrome.borderStrong,
-                            },
-                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                              borderColor: workChrome.gold,
-                            },
-                            '& .MuiSvgIcon-root': {
-                              color: workChrome.textSecondary,
-                            },
-                          }
-                        : { fontSize: 12, height: 32 }
-                    }
-                  >
-                    {CHAT_TOP_N_OPTIONS.map(n => (
-                      <MenuItem key={n} value={n} sx={{ fontSize: 12 }}>
-                        Top {n}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Tooltip>
-            </Stack>
-
-            <Box
-              sx={{
-                fontSize: 12,
-                flexShrink: 0,
-                cursor: 'pointer',
-              }}
-            >
-              {loading ? (
-                <ChatLoading
-                  thinking={thinking}
-                  onClick={() => {
-                    setThinking(4);
-                    handleSearchAbort();
-                  }}
-                />
-              ) : (
-                <IconButton
-                  size='small'
-                  disabled={input.length === 0 && uploadedImages.length === 0}
-                  onClick={() => {
-                    if (input.length > 0 || uploadedImages.length > 0) {
-                      handleSearchAbort();
-                      setThinking(1);
-                      handleSearch();
-                    }
-                  }}
-                >
-                  <IconFasong
-                    sx={{
-                      fontSize: 16,
-                      color:
-                        input.length > 0 || uploadedImages.length > 0
-                          ? workChrome
-                            ? workChrome.accent
-                            : 'primary.main'
-                          : 'text.disabled',
-                    }}
-                  />
-                </IconButton>
+                      <StyledImageRemoveButton
+                        size='small'
+                        onClick={() => handleRemoveImage(image.id)}
+                      >
+                        <CloseIcon sx={{ fontSize: 10 }} />
+                      </StyledImageRemoveButton>
+                    </StyledImagePreviewItem>
+                  ))}
+                </StyledImagePreviewStack>
               )}
-            </Box>
-          </StyledActionButtonStack>
-        </StyledInputWrapper>
-      </StyledInputContainer>
-      {/* 模糊搜索建议列表 */}
-      {showFuzzySuggestions &&
-        fuzzySuggestions.length > 0 &&
-        conversation.length === 0 && (
-          <StyledFuzzySuggestionsStack gap={0.5}>
-            {fuzzySuggestions.map((suggestion, index) => (
-              <StyledFuzzySuggestionItem
-                key={index}
-                onClick={() => handleFuzzySuggestionClick(suggestion)}
+              <StyledTextField
+                fullWidth
+                multiline
+                rows={2}
+                disabled={loading}
+                ref={inputRef}
+                size='small'
+                value={input}
+                onChange={handleInputChange}
+                onFocus={handleInputFocus}
+                onBlur={handleInputBlur}
+                onPaste={handlePaste}
                 sx={
                   workChrome
                     ? {
-                        color: workChrome.textPrimary,
-                        backgroundColor: workChrome.bgRaised,
-                        border: `1px solid ${workChrome.border}`,
-                        '&:hover': {
-                          backgroundColor: workChrome.fuzzySuggestHoverBg,
-                          color: workChrome.hotItemHover,
-                          borderColor: workChrome.borderStrong,
+                        backgroundColor: workChrome.textFieldBg,
+                        '.MuiInputBase-root': {
+                          backgroundColor: workChrome.textFieldBg,
+                          color: workChrome.textPrimary,
+                        },
+                        '& textarea, & input': {
+                          color: workChrome.textPrimary,
+                          caretColor: workChrome.gold,
+                          '&::placeholder': {
+                            color: workChrome.textMuted,
+                            opacity: 1,
+                          },
                         },
                       }
                     : undefined
                 }
+                onKeyDown={e => {
+                  const isComposing =
+                    e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229;
+                  if (
+                    e.key === 'Enter' &&
+                    !e.shiftKey &&
+                    (input.length > 0 || uploadedImages.length > 0) &&
+                    !isComposing
+                  ) {
+                    e.preventDefault();
+                    handleSearch();
+                  }
+                }}
+                placeholder={placeholder}
+                autoComplete='off'
+              />
+              <StyledActionButtonStack
+                direction='row'
+                alignItems='center'
+                justifyContent='space-between'
               >
-                {highlightMatch(suggestion, input)}
-              </StyledFuzzySuggestionItem>
-            ))}
-          </StyledFuzzySuggestionsStack>
-        )}
+                <input
+                  ref={fileInputRef}
+                  type='file'
+                  accept='image/*'
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={handleImageUpload}
+                />
+                <Stack direction='row' alignItems='center' gap={0.5}>
+                  <IconButton
+                    size='small'
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading}
+                    sx={{
+                      flexShrink: 0,
+                      '&:hover': workChrome
+                        ? { backgroundColor: 'rgba(255, 68, 0, 0.08)' }
+                        : undefined,
+                    }}
+                  >
+                    <IconTupian
+                      sx={{
+                        fontSize: 20,
+                        color: workChrome
+                          ? workChrome.textSecondary
+                          : 'text.secondary',
+                      }}
+                    />
+                  </IconButton>
 
-      <Feedback
-        open={open}
-        onClose={() => setOpen(false)}
-        onSubmit={handleScore}
-        data={conversationItem}
-      />
-    </StyledMainContainer>
+                  <Tooltip
+                    title='知识库检索返回的数量上限（1～10）'
+                    placement='top'
+                  >
+                    <FormControl
+                      size='small'
+                      sx={{ minWidth: 76, flexShrink: 0 }}
+                    >
+                      <Select
+                        value={topN}
+                        onChange={e => setTopN(Number(e.target.value))}
+                        disabled={loading}
+                        sx={
+                          workChrome
+                            ? {
+                                fontSize: 12,
+                                height: 32,
+                                color: workChrome.textPrimary,
+                                backgroundColor: workChrome.bgInput,
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: workChrome.border,
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: workChrome.borderStrong,
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline':
+                                  {
+                                    borderColor: workChrome.gold,
+                                  },
+                                '& .MuiSvgIcon-root': {
+                                  color: workChrome.textSecondary,
+                                },
+                              }
+                            : { fontSize: 12, height: 32 }
+                        }
+                      >
+                        {CHAT_TOP_N_OPTIONS.map(n => (
+                          <MenuItem key={n} value={n} sx={{ fontSize: 12 }}>
+                            Top {n}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Tooltip>
+                </Stack>
+
+                <Box
+                  sx={{
+                    fontSize: 12,
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {loading ? (
+                    <ChatLoading
+                      thinking={thinking}
+                      onClick={() => {
+                        setThinking(4);
+                        handleSearchAbort();
+                      }}
+                    />
+                  ) : (
+                    <IconButton
+                      size='small'
+                      disabled={
+                        input.length === 0 && uploadedImages.length === 0
+                      }
+                      onClick={() => {
+                        if (input.length > 0 || uploadedImages.length > 0) {
+                          handleSearchAbort();
+                          setThinking(1);
+                          handleSearch();
+                        }
+                      }}
+                    >
+                      <IconFasong
+                        sx={{
+                          fontSize: 16,
+                          color:
+                            input.length > 0 || uploadedImages.length > 0
+                              ? workChrome
+                                ? workChrome.accent
+                                : 'primary.main'
+                              : 'text.disabled',
+                        }}
+                      />
+                    </IconButton>
+                  )}
+                </Box>
+              </StyledActionButtonStack>
+            </StyledInputWrapper>
+          </StyledInputContainer>
+        )}
+        {/* 模糊搜索建议列表 */}
+        {!manualWorkMode &&
+          showFuzzySuggestions &&
+          fuzzySuggestions.length > 0 &&
+          conversation.length === 0 && (
+            <StyledFuzzySuggestionsStack gap={0.5}>
+              {fuzzySuggestions.map((suggestion, index) => (
+                <StyledFuzzySuggestionItem
+                  key={index}
+                  onClick={() => handleFuzzySuggestionClick(suggestion)}
+                  sx={
+                    workChrome
+                      ? {
+                          color: workChrome.textPrimary,
+                          backgroundColor: workChrome.bgRaised,
+                          border: `1px solid ${workChrome.border}`,
+                          '&:hover': {
+                            backgroundColor: workChrome.fuzzySuggestHoverBg,
+                            color: workChrome.hotItemHover,
+                            borderColor: workChrome.borderStrong,
+                          },
+                        }
+                      : undefined
+                  }
+                >
+                  {highlightMatch(suggestion, input)}
+                </StyledFuzzySuggestionItem>
+              ))}
+            </StyledFuzzySuggestionsStack>
+          )}
+
+        <Feedback
+          open={open}
+          onClose={() => setOpen(false)}
+          onSubmit={handleScore}
+          data={conversationItem}
+        />
+      </StyledMainContainer>
+      {!qaWorkMode && historyAvailable && mobile && (
+        <Drawer
+          anchor='left'
+          open={historyDrawerOpen}
+          onClose={() => setHistoryDrawerOpen(false)}
+          sx={theme => ({ zIndex: theme.zIndex.modal + 1 })}
+          slotProps={{ paper: { sx: { width: 'min(84vw, 300px)' } } }}
+        >
+          {historyList}
+        </Drawer>
+      )}
+    </Box>
   );
 };
 

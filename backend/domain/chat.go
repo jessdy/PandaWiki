@@ -40,6 +40,7 @@ type ChatRagOnlyRequest struct {
 
 type ConversationInfo struct {
 	UserInfo UserInfo `json:"user_info"`
+	QaMode   string   `json:"qa_mode,omitempty"`
 }
 
 type UserInfo struct {

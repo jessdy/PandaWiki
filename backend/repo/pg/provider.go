@@ -30,4 +30,5 @@ var ProviderSet = wire.NewSet(
 	NewSystemSettingRepo,
 	NewMCPRepository,
 	NewDocumentFeedbackRepository,
+	NewExpertProfileRepo,
 )

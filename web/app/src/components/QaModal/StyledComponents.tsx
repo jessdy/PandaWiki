@@ -15,10 +15,15 @@ import {
 // 布局容器组件
 export const StyledMainContainer = styled(Box)(() => ({
   flex: 1,
+  minWidth: 0,
+  minHeight: 0,
+  display: 'flex',
+  flexDirection: 'column',
 }));
 
 export const StyledConversationContainer = styled(Stack)(() => ({
-  maxHeight: 'calc(100vh - 332px)',
+  flex: 1,
+  minHeight: 0,
   overflow: 'auto',
   scrollbarWidth: 'none',
   msOverflowStyle: 'none',

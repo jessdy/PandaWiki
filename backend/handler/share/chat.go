@@ -115,12 +115,9 @@ func (h *ShareChatHandler) ChatMessage(c echo.Context) error {
 	c.Response().Header().Set("Connection", "keep-alive")
 	c.Response().Header().Set("Transfer-Encoding", "chunked")
 
-	// get user info --> no enterprise is nil
-	userID := c.Get("user_id")
-	h.logger.Debug("userid:", userID)
-	if userID != nil { // find userinfo from auth
-		userIDValue := userID.(uint)
-		req.Info.UserInfo.AuthUserID = userIDValue
+	// 普通用户名密码登录未开启企业认证时，用户 ID 仅存在于 Share Session。
+	if userID, ok := shareAuthUserID(c, req.KBID); ok {
+		req.Info.UserInfo.AuthUserID = userID
 	}
 
 	eventCh, err := h.chatUsecase.Chat(ctx, &req)

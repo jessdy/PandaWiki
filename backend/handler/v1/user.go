@@ -389,7 +389,7 @@ func (h *UserHandler) CreateGuestUser(c echo.Context) error {
 //	@Tags			user
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path		string				true	"User ID"
+//	@Param			id		path		string					true	"User ID"
 //	@Param			body	body		v1.UpdateGuestUserReq	true	"UpdateGuestUser Request"
 //	@Success		200		{object}	domain.Response
 //	@Router			/api/v1/user/guest/:id [put]
@@ -501,7 +501,7 @@ func (h *UserHandler) ListAuthGroups(c echo.Context) error {
 		var pathParts []string
 		currentGroup := group
 		visited := make(map[uint]bool) // 防止循环引用
-		maxDepth := 10                  // 限制最大深度
+		maxDepth := 10                 // 限制最大深度
 
 		for depth := 0; depth < maxDepth && currentGroup != nil; depth++ {
 			if visited[currentGroup.ID] {

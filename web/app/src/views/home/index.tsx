@@ -255,6 +255,14 @@ const Welcome = () => {
     window.open(href, '_blank');
   };
 
+  const onWorkModeInputClick = () => {
+    if (isAuthInfoEmpty(authInfo)) {
+      setLoginModalOpen?.(true);
+      return;
+    }
+    setQaModalOpen?.(true);
+  };
+
   const onBannerSearch = (
     searchText: string,
     type: 'chat' | 'search' = 'chat',
@@ -345,6 +353,7 @@ const Welcome = () => {
         return {
           ...handleBannerProps(config, basePath),
           onSearch: onBannerSearch,
+          onWorkModeInputClick,
           onActionButtonNavigate: onBannerActionButtonNavigate,
           btns: (config?.btns || []).map((item: any) => ({
             ...item,

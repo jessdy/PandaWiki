@@ -34,6 +34,18 @@ func (r *ConversationRepository) CreateConversationMessage(ctx context.Context, 
 	})
 }
 
+func (r *ConversationRepository) UpdateConversationMessageRetrievalContent(
+	ctx context.Context,
+	messageID string,
+	retrievalContent string,
+) error {
+	return r.db.WithContext(ctx).
+		Model(&domain.ConversationMessage{}).
+		Where("id = ?", messageID).
+		Update("retrieval_content", retrievalContent).
+		Error
+}
+
 func (r *ConversationRepository) CreateConversation(ctx context.Context, conversation *domain.Conversation) error {
 	return r.db.WithContext(ctx).Create(conversation).Error
 }
@@ -67,6 +79,58 @@ func (r *ConversationRepository) GetConversationList(ctx context.Context, reques
 		return nil, 0, err
 	}
 	return conversations, uint64(count), nil
+}
+
+func (r *ConversationRepository) GetShareConversationHistory(
+	ctx context.Context,
+	kbID string,
+	authUserID uint,
+	request *domain.ShareConversationHistoryReq,
+) ([]*domain.ShareConversationHistoryItem, uint64, error) {
+	items := make([]*domain.ShareConversationHistoryItem, 0)
+	query := r.db.WithContext(ctx).
+		Table("conversations").
+		Joins("JOIN apps ON apps.id = conversations.app_id").
+		Where("conversations.kb_id = ?", kbID).
+		Where("apps.type = ?", domain.AppTypeWeb).
+		Where("(conversations.info->'user_info'->>'auth_user_id')::bigint = ?", authUserID).
+		Where("COALESCE(conversations.info->>'qa_mode', ?) = ?", domain.QaModeTraining, domain.QaModeTraining)
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := query.
+		Select("conversations.id, conversations.subject, conversations.created_at").
+		Order("conversations.created_at DESC").
+		Offset(request.Offset()).
+		Limit(request.Limit()).
+		Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, uint64(count), nil
+}
+
+func (r *ConversationRepository) GetShareConversationHistoryDetail(
+	ctx context.Context,
+	kbID string,
+	conversationID string,
+	authUserID uint,
+) (*domain.ConversationDetailResp, error) {
+	conversation := &domain.ConversationDetailResp{}
+	if err := r.db.WithContext(ctx).
+		Table("conversations").
+		Joins("JOIN apps ON apps.id = conversations.app_id").
+		Where("conversations.id = ?", conversationID).
+		Where("conversations.kb_id = ?", kbID).
+		Where("apps.type = ?", domain.AppTypeWeb).
+		Where("(conversations.info->'user_info'->>'auth_user_id')::bigint = ?", authUserID).
+		Where("COALESCE(conversations.info->>'qa_mode', ?) = ?", domain.QaModeTraining, domain.QaModeTraining).
+		Select("conversations.*").
+		First(conversation).Error; err != nil {
+		return nil, err
+	}
+	return conversation, nil
 }
 
 func (r *ConversationRepository) GetConversationDetail(ctx context.Context, kbID, conversationID string) (*domain.ConversationDetailResp, error) {

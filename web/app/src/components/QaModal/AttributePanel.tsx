@@ -37,6 +37,8 @@ export interface AttributePanelProps {
     textMuted: string;
     bgRaised: string;
   } | null;
+  /** AI 图片识别结果或用户手动选择。 */
+  source?: 'ai' | 'manual';
 }
 
 /** 把当前属性收集状态拼成形如 "材质=马口铁 · 尺寸=500ml" 的预览串。 */
@@ -50,6 +52,7 @@ function previewCollected(collected: Record<string, string>): string {
 const AttributePanel: React.FC<AttributePanelProps> = ({
   meta,
   workChrome,
+  source = 'ai',
 }) => {
   const basePath = useBasePath();
 
@@ -155,7 +158,9 @@ const AttributePanel: React.FC<AttributePanelProps> = ({
               letterSpacing: '0.04em',
             }}
           >
-            实战模式 · 已识别品类「{meta.category}」
+            {`实战模式 · ${
+              source === 'ai' ? '已识别' : '已选择'
+            }品类「${meta.category}」`}
           </Typography>
           {matching && (
             <Stack direction='row' alignItems='center' gap={0.5}>
@@ -201,6 +206,7 @@ const AttributePanel: React.FC<AttributePanelProps> = ({
               const value = collected[spec.name] || '';
               const touched = userTouchedRef.current.has(spec.name);
               const aiPicked =
+                source === 'ai' &&
                 !touched &&
                 value !== '' &&
                 (meta.collected || {})[spec.name] === value;
@@ -447,6 +453,30 @@ const MethodCards: React.FC<MethodCardsProps> = ({
         {methods.map(m => (
           <Box
             key={m.id}
+            role={m.node_name ? 'link' : undefined}
+            tabIndex={m.node_name ? 0 : undefined}
+            onClick={() => {
+              if (!m.node_name || !m.node_id) return;
+              window.open(
+                `${basePath}/node/${m.node_id}`,
+                '_blank',
+                'noopener,noreferrer',
+              );
+            }}
+            onKeyDown={event => {
+              if (
+                !m.node_name ||
+                !m.node_id ||
+                (event.key !== 'Enter' && event.key !== ' ')
+              )
+                return;
+              event.preventDefault();
+              window.open(
+                `${basePath}/node/${m.node_id}`,
+                '_blank',
+                'noopener,noreferrer',
+              );
+            }}
             sx={{
               flex: '1 1 240px',
               minWidth: 200,
@@ -458,6 +488,19 @@ const MethodCards: React.FC<MethodCardsProps> = ({
               display: 'flex',
               flexDirection: 'column',
               gap: 0.75,
+              cursor: m.node_name ? 'pointer' : 'default',
+              transition:
+                'border-color 150ms ease, background-color 150ms ease',
+              ...(m.node_name && {
+                '&:hover': {
+                  borderColor: accent,
+                  backgroundColor: alpha(accent, 0.04),
+                },
+                '&:focus-visible': {
+                  outline: `2px solid ${accent}`,
+                  outlineOffset: 2,
+                },
+              }),
             }}
           >
             <Typography
@@ -490,9 +533,14 @@ const MethodCards: React.FC<MethodCardsProps> = ({
               variant='outlined'
               size='small'
               disabled={!m.node_name}
-              onClick={() => {
+              onClick={event => {
+                event.stopPropagation();
                 if (!m.node_id) return;
-                window.open(`${basePath}/node/${m.node_id}`, '_blank');
+                window.open(
+                  `${basePath}/node/${m.node_id}`,
+                  '_blank',
+                  'noopener,noreferrer',
+                );
               }}
               sx={{
                 fontSize: 12,

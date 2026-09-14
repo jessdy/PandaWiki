@@ -223,6 +223,7 @@ definitions:
     - github
     - cas
     - ldap
+    - user_password
     - widget
     - dingtalk_bot
     - feishu_bot
@@ -243,6 +244,7 @@ definitions:
     - SourceTypeGitHub
     - SourceTypeCAS
     - SourceTypeLDAP
+    - SourceTypeUserPassword
     - SourceTypeWidget
     - SourceTypeDingtalkBot
     - SourceTypeFeishuBot
@@ -272,36 +274,52 @@ definitions:
     - full_control
     - doc_manage
     - data_operate
+    - audit_manage
+    - user_manage
+    - consult_manage
     type: string
     x-enum-comments:
+      UserKBPermissionAuditManage: 审核管理（发布文档）
+      UserKBPermissionConsultManage: 咨询管理（疑难咨询与用户反馈）
       UserKBPermissionDataOperate: 数据运营
       UserKBPermissionDocManage: 文档管理
       UserKBPermissionFullControl: 完全控制
       UserKBPermissionNull: 无权限
+      UserKBPermissionUserManage: 用户管理
     x-enum-descriptions:
     - 无权限
     - 完全控制
     - 文档管理
     - 数据运营
+    - 审核管理（发布文档）
+    - 用户管理
+    - 咨询管理（疑难咨询与用户反馈）
     x-enum-varnames:
     - UserKBPermissionNull
     - UserKBPermissionFullControl
     - UserKBPermissionDocManage
     - UserKBPermissionDataOperate
+    - UserKBPermissionAuditManage
+    - UserKBPermissionUserManage
+    - UserKBPermissionConsultManage
   consts.UserRole:
     enum:
     - admin
     - user
+    - guest
     type: string
     x-enum-comments:
       UserRoleAdmin: 管理员
+      UserRoleGuest: 访客用户
       UserRoleUser: 普通用户
     x-enum-descriptions:
     - 管理员
     - 普通用户
+    - 访客用户
     x-enum-varnames:
     - UserRoleAdmin
     - UserRoleUser
+    - UserRoleGuest
   consts.WatermarkSetting:
     enum:
     - ""
@@ -394,6 +412,9 @@ definitions:
   domain.AppInfoResp:
     properties:
       base_url:
+        type: string
+      kb_id:
+        description: KBID 当前应用所属知识库 ID（与请求头 X-KB-ID 一致，供前端登录等场景使用）
         type: string
       name:
         type: string
@@ -506,6 +527,10 @@ definitions:
       title:
         description: nav
         type: string
+      topology_settings:
+        allOf:
+        - $ref: '#/definitions/domain.TopologySettings'
+        description: TopologySettings 首页知识拓扑图配置
       watermark_content:
         type: string
       watermark_setting:
@@ -684,6 +709,10 @@ definitions:
       title:
         description: nav
         type: string
+      topology_settings:
+        allOf:
+        - $ref: '#/definitions/domain.TopologySettings'
+        description: TopologySettings 首页知识拓扑图配置
       watermark_content:
         type: string
       watermark_setting:
@@ -960,6 +989,17 @@ definitions:
         type: string
       nonce:
         type: string
+      qa_mode:
+        description: QaMode 前台智能问答：training=培训模式，work=实战模式；空表示不追加模式说明
+        enum:
+        - training
+        - work
+        type: string
+      top_n:
+        description: TopN 为向量检索返回片段数量上限；0 或未传表示使用默认 10；合法范围为 1～10
+        maximum: 10
+        minimum: 1
+        type: integer
     required:
     - app_type
     type: object
@@ -1115,6 +1155,8 @@ definitions:
     type: object
   domain.ConversationInfo:
     properties:
+      qa_mode:
+        type: string
       user_info:
         $ref: '#/definitions/domain.UserInfo'
     type: object
@@ -1588,10 +1630,10 @@ definitions:
         type: string
       name:
         type: string
-      perm:
-        allOf:
-        - $ref: '#/definitions/consts.UserKBPermission'
-        description: 用户对知识库的权限
+      perms:
+        items:
+          $ref: '#/definitions/consts.UserKBPermission'
+        type: array
       updated_at:
         type: string
     type: object
@@ -1808,7 +1850,6 @@ definitions:
       updated_at:
         type: string
       work_mode_directory:
-        description: 文件夹：是否为实战模式检索根目录
         type: boolean
     type: object
   domain.NodeMeta:
@@ -1816,19 +1857,22 @@ definitions:
       attributes:
         additionalProperties:
           type: string
-        description: 实战模式识别用的结构化属性键值对
+        description: Attributes 实战模式识别用的结构化属性键值对，键必须是该品类「属性维护」中配置过的项。
         type: object
       content_type:
         type: string
       emoji:
         type: string
+      show_in_topology:
+        description: ShowInTopology 为 true 时，该目录/文档展示在前台首页「知识拓扑图」中（目录和文档均可独立勾选）。
+        type: boolean
       summary:
         type: string
       work_mode_category:
-        description: 文档：所属实战模式品类名
+        description: WorkModeCategory 该文档所属「实战模式」品类名（与后台「提示词管理」中的品类对齐）。
         type: string
       work_mode_directory:
-        description: 文件夹：实战模式检索根目录标记
+        description: WorkModeDirectory 为 true 时，该文件夹及其子目录下的已发布文档纳入「实战模式」问答检索范围（可多选根目录）。
         type: boolean
     type: object
   domain.NodePermissions:
@@ -1855,13 +1899,27 @@ definitions:
     x-enum-varnames:
     - NodeStatusDraft
     - NodeStatusReleased
+  domain.NodeSummaryMode:
+    enum:
+    - chat
+    - analysis
+    type: string
+    x-enum-varnames:
+    - NodeSummaryModeChat
+    - NodeSummaryModeAnalysis
   domain.NodeSummaryReq:
     properties:
+      content:
+        type: string
       ids:
         items:
           type: string
         type: array
       kb_id:
+        type: string
+      mode:
+        $ref: '#/definitions/domain.NodeSummaryMode'
+      name:
         type: string
     required:
     - ids
@@ -2142,6 +2200,13 @@ definitions:
       type:
         $ref: '#/definitions/domain.NodeType'
     type: object
+  domain.ReplaceStandardTermsReq:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.StandardTermItem'
+        type: array
+    type: object
   domain.Response:
     properties:
       data: {}
@@ -2197,6 +2262,26 @@ definitions:
         type: array
       subject:
         type: string
+    type: object
+  domain.ShareConversationHistoryItem:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      subject:
+        type: string
+    type: object
+  domain.ShareConversationHistoryResp:
+    properties:
+      available:
+        type: boolean
+      data:
+        items:
+          $ref: '#/definitions/domain.ShareConversationHistoryItem'
+        type: array
+      total:
+        type: integer
     type: object
   domain.ShareConversationMessage:
     properties:
@@ -2264,6 +2349,24 @@ definitions:
         type: string
       text:
         type: string
+    type: object
+  domain.StandardTermItem:
+    properties:
+      aliases:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      term:
+        type: string
+    type: object
+  domain.StandardTermsSetting:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.StandardTermItem'
+        type: array
     type: object
   domain.StatPageReq:
     properties:
@@ -2358,6 +2461,18 @@ definitions:
       doc_width:
         type: string
     type: object
+  domain.TopologySettings:
+    properties:
+      description:
+        description: Description 区块副标题/描述。
+        type: string
+      enabled:
+        description: Enabled 为 true 时在自定义首页展示知识拓扑图区块。
+        type: boolean
+      title:
+        description: Title 区块标题，为空时前台使用默认标题。
+        type: string
+    type: object
   domain.UpdateAppReq:
     properties:
       kb_id:
@@ -2420,7 +2535,7 @@ definitions:
       attributes:
         additionalProperties:
           type: string
-        description: 仅文档：实战模式识别用属性键值对；nil 表示不修改，{} 表示清空
+        description: Attributes 仅对文档（type=2）生效：实战模式识别用的属性键值对；nil 表示不修改，{} 表示清空。
         type: object
       content:
         type: string
@@ -2436,13 +2551,17 @@ definitions:
         type: string
       position:
         type: number
+      show_in_topology:
+        description: ShowInTopology 对目录（type=1）和文档（type=2）均生效：是否展示在前台首页「知识拓扑图」中；nil
+          表示不修改。
+        type: boolean
       summary:
         type: string
       work_mode_category:
-        description: 仅文档：所属实战模式品类名；空字符串表示清空
+        description: WorkModeCategory 仅对文档（type=2）生效：所属实战模式品类名；空字符串表示清空。
         type: string
       work_mode_directory:
-        description: 仅文件夹：为 true 时本目录及子目录纳入实战模式问答检索
+        description: WorkModeDirectory 仅对文件夹（type=1）生效：为 true 时本目录及子目录纳入实战模式问答检索范围。
         type: boolean
     required:
     - id
@@ -2810,6 +2929,66 @@ definitions:
     - User
     - System
     - Tool
+  share.CategoryListResp:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/share.CategoryView'
+        type: array
+    type: object
+  share.CategoryView:
+    properties:
+      name:
+        type: string
+      specs:
+        items:
+          $ref: '#/definitions/share.MatchAttrSpec'
+        type: array
+    type: object
+  share.MatchAttrSpec:
+    properties:
+      name:
+        type: string
+      values:
+        items:
+          type: string
+        type: array
+    type: object
+  share.MatchMethodView:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      node_id:
+        type: string
+      node_name:
+        type: string
+    type: object
+  share.MatchReq:
+    properties:
+      category:
+        type: string
+      collected:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  share.MatchResp:
+    properties:
+      category:
+        type: string
+      methods:
+        items:
+          $ref: '#/definitions/share.MatchMethodView'
+        type: array
+      specs:
+        items:
+          $ref: '#/definitions/share.MatchAttrSpec'
+        type: array
+    type: object
   share.ShareCommentLists:
     properties:
       data:
@@ -2830,6 +3009,47 @@ definitions:
     properties:
       url:
         type: string
+    type: object
+  v1.AuthGroupListItemResp:
+    properties:
+      auth_ids:
+        items:
+          type: integer
+        type: array
+      created_at:
+        type: string
+      id:
+        type: integer
+      kb_id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: integer
+      path:
+        description: 用户组路径，用于显示层级结构
+        type: string
+      position:
+        type: number
+      updated_at:
+        type: string
+      user_ids:
+        description: 关联 users 表的用户 ID
+        items:
+          type: string
+        type: array
+    type: object
+  v1.AuthGroupListResp:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/v1.AuthGroupListItemResp'
+        type: array
+      list:
+        description: 兼容前端类型定义
+        items:
+          $ref: '#/definitions/v1.AuthGroupListItemResp'
+        type: array
     type: object
   v1.AuthItem:
     properties:
@@ -2854,6 +3074,16 @@ definitions:
         type: string
     required:
     - password
+    type: object
+  v1.AuthLoginUserPasswordReq:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
     type: object
   v1.AuthSetReq:
     properties:
@@ -2979,6 +3209,34 @@ definitions:
       status:
         $ref: '#/definitions/consts.CrawlerStatus'
     type: object
+  v1.CreateAuthGroupReq:
+    properties:
+      auth_ids:
+        items:
+          type: integer
+        type: array
+      kb_id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: integer
+      position:
+        type: number
+      user_ids:
+        description: 关联 users 表的用户 ID
+        items:
+          type: string
+        type: array
+    required:
+    - kb_id
+    - name
+    type: object
+  v1.CreateAuthGroupResp:
+    properties:
+      id:
+        type: integer
+    type: object
   v1.CreateUserReq:
     properties:
       account:
@@ -2986,12 +3244,15 @@ definitions:
       password:
         minLength: 8
         type: string
+      region:
+        type: string
       role:
         allOf:
         - $ref: '#/definitions/consts.UserRole'
         enum:
         - admin
         - user
+        - guest
     required:
     - account
     - password
@@ -3013,22 +3274,27 @@ definitions:
       user_access_token:
         type: string
     type: object
+  v1.GetUserGroupsResp:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/v1.AuthGroupListItemResp'
+        type: array
+    type: object
   v1.KBUserInviteReq:
     properties:
       kb_id:
         type: string
-      perm:
-        allOf:
-        - $ref: '#/definitions/consts.UserKBPermission'
-        enum:
-        - full_control
-        - doc_manage
-        - data_operate
+      perms:
+        items:
+          type: string
+        minItems: 1
+        type: array
       user_id:
         type: string
     required:
     - kb_id
-    - perm
+    - perms
     - user_id
     type: object
   v1.KBUserListItemResp:
@@ -3038,7 +3304,9 @@ definitions:
       id:
         type: string
       perms:
-        $ref: '#/definitions/consts.UserKBPermission'
+        items:
+          type: string
+        type: array
       role:
         $ref: '#/definitions/consts.UserRole'
     type: object
@@ -3046,18 +3314,16 @@ definitions:
     properties:
       kb_id:
         type: string
-      perm:
-        allOf:
-        - $ref: '#/definitions/consts.UserKBPermission'
-        enum:
-        - full_control
-        - doc_manage
-        - data_operate
+      perms:
+        items:
+          type: string
+        minItems: 1
+        type: array
       user_id:
         type: string
     required:
     - kb_id
-    - perm
+    - perms
     - user_id
     type: object
   v1.LoginReq:
@@ -3085,6 +3351,8 @@ definitions:
         type: string
       creator_id:
         type: string
+      editing_locked:
+        type: boolean
       editor_account:
         type: string
       editor_id:
@@ -3121,6 +3389,9 @@ definitions:
         items:
           type: integer
         type: array
+      apply_children:
+        description: 是否递归应用到子目录和文件
+        type: boolean
       ids:
         items:
           type: string
@@ -3199,8 +3470,6 @@ definitions:
         type: string
       file:
         type: string
-    required:
-    - captcha_token
     type: object
   v1.ShareNodeDetailResp:
     properties:
@@ -3263,6 +3532,46 @@ definitions:
       session_count:
         type: integer
     type: object
+  v1.UpdateAuthGroupReq:
+    properties:
+      auth_ids:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      parent_id:
+        type: integer
+      position:
+        type: number
+      user_ids:
+        description: 关联 users 表的用户 ID
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    type: object
+  v1.UpdateGuestUserReq:
+    properties:
+      password:
+        minLength: 8
+        type: string
+      region:
+        type: string
+    type: object
+  v1.UpdateUserGroupsReq:
+    properties:
+      group_ids:
+        description: 用户组 ID 列表
+        items:
+          type: integer
+        type: array
+      user_id:
+        type: string
+    required:
+    - user_id
+    type: object
   v1.UserInfoResp:
     properties:
       account:
@@ -3278,6 +3587,17 @@ definitions:
       role:
         $ref: '#/definitions/consts.UserRole'
     type: object
+  v1.UserKBPermItem:
+    properties:
+      kb_id:
+        type: string
+      kb_name:
+        type: string
+      perms:
+        items:
+          type: string
+        type: array
+    type: object
   v1.UserListItemResp:
     properties:
       account:
@@ -3286,7 +3606,14 @@ definitions:
         type: string
       id:
         type: string
+      kb_perms:
+        description: 各 Wiki 站上的权限（超级管理员通常为空，前端按 role 展示全部权限）
+        items:
+          $ref: '#/definitions/v1.UserKBPermItem'
+        type: array
       last_access:
+        type: string
+      region:
         type: string
       role:
         $ref: '#/definitions/consts.UserRole'
@@ -3317,6 +3644,31 @@ info:
   title: panda-wiki API
   version: "1.0"
 paths:
+  /api/pro/v1/auth/group/list:
+    get:
+      consumes:
+      - application/json
+      description: ListAuthGroups
+      parameters:
+      - description: Knowledge Base ID
+        in: query
+        name: kb_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.PWResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/v1.AuthGroupListResp'
+              type: object
+      summary: ListAuthGroups
+      tags:
+      - user
   /api/v1/app:
     delete:
       consumes:
@@ -3447,6 +3799,7 @@ paths:
         - github
         - cas
         - ldap
+        - user_password
         - widget
         - dingtalk_bot
         - feishu_bot
@@ -3470,6 +3823,7 @@ paths:
         - SourceTypeGitHub
         - SourceTypeCAS
         - SourceTypeLDAP
+        - SourceTypeUserPassword
         - SourceTypeWidget
         - SourceTypeDingtalkBot
         - SourceTypeFeishuBot
@@ -4501,6 +4855,30 @@ paths:
       summary: Update Node Detail
       tags:
       - node
+  /api/v1/node/image_summary:
+    post:
+      consumes:
+      - application/json
+      description: Summary all images in one node
+      parameters:
+      - description: Summary Node Images
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.NodeSummaryReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      security:
+      - bearerAuth: []
+      summary: Summary Node Images
+      tags:
+      - node
   /api/v1/node/list:
     get:
       consumes:
@@ -5008,6 +5386,50 @@ paths:
       summary: 来源域名
       tags:
       - stat
+  /api/v1/system/standard-terms:
+    get:
+      description: get globally shared standard terms and aliases
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.StandardTermsSetting'
+              type: object
+      summary: get global standard terms
+      tags:
+      - system
+    put:
+      consumes:
+      - application/json
+      description: replace globally shared standard terms and aliases
+      parameters:
+      - description: standard terms
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReplaceStandardTermsReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.StandardTermsSetting'
+              type: object
+      summary: replace global standard terms
+      tags:
+      - system
   /api/v1/user:
     get:
       consumes:
@@ -5019,6 +5441,105 @@ paths:
           schema:
             $ref: '#/definitions/v1.UserInfoResp'
       summary: GetUser
+      tags:
+      - user
+  /api/v1/user/auth_group/:id:
+    delete:
+      consumes:
+      - application/json
+      description: DeleteAuthGroup
+      parameters:
+      - description: Auth Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: DeleteAuthGroup
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: UpdateAuthGroup
+      parameters:
+      - description: Auth Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: UpdateAuthGroup Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateAuthGroupReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: UpdateAuthGroup
+      tags:
+      - user
+  /api/v1/user/auth_group/create:
+    post:
+      consumes:
+      - application/json
+      description: CreateAuthGroup
+      parameters:
+      - description: CreateAuthGroup Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateAuthGroupReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/v1.CreateAuthGroupResp'
+              type: object
+      summary: CreateAuthGroup
+      tags:
+      - user
+  /api/v1/user/auth_group/list:
+    get:
+      consumes:
+      - application/json
+      description: ListAuthGroups
+      parameters:
+      - description: Knowledge Base ID
+        in: query
+        name: kb_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.PWResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/v1.AuthGroupListResp'
+              type: object
+      summary: ListAuthGroups
       tags:
       - user
   /api/v1/user/create:
@@ -5066,6 +5587,147 @@ paths:
           schema:
             $ref: '#/definitions/domain.Response'
       summary: DeleteUser
+      tags:
+      - user
+  /api/v1/user/groups:
+    get:
+      consumes:
+      - application/json
+      description: GetUserGroups - 获取用户所属的用户组
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.PWResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/v1.GetUserGroupsResp'
+              type: object
+      summary: GetUserGroups
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: UpdateUserGroups - 更新用户所属的用户组
+      parameters:
+      - description: UpdateUserGroups Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateUserGroupsReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: UpdateUserGroups
+      tags:
+      - user
+  /api/v1/user/guest/:id:
+    delete:
+      consumes:
+      - application/json
+      description: DeleteGuestUser
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: DeleteGuestUser
+      tags:
+      - user
+    put:
+      consumes:
+      - application/json
+      description: UpdateGuestUser
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: UpdateGuestUser Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateGuestUserReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: UpdateGuestUser
+      tags:
+      - user
+  /api/v1/user/guest/create:
+    post:
+      consumes:
+      - application/json
+      description: CreateGuestUser
+      parameters:
+      - description: CreateGuestUser Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateUserReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/v1.CreateUserResp'
+              type: object
+      summary: CreateGuestUser
+      tags:
+      - user
+  /api/v1/user/guest/list:
+    get:
+      consumes:
+      - application/json
+      description: ListGuestUsers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.PWResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/v1.UserListResp'
+              type: object
+      summary: ListGuestUsers
       tags:
       - user
   /api/v1/user/list:
@@ -5132,6 +5794,22 @@ paths:
       summary: ResetPassword
       tags:
       - user
+  /share/pro/v1/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: 清除 share 会话 cookie，前端通常调用 /share/pro/v1/auth/logout
+      operationId: v1-AuthLogout
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: 用户登出
+      tags:
+      - share_auth
   /share/v1/app/web/info:
     get:
       consumes:
@@ -5312,6 +5990,34 @@ paths:
           schema:
             $ref: '#/definitions/domain.Response'
       summary: AuthLoginSimple
+      tags:
+      - share_auth
+  /share/v1/auth/login/user_password:
+    post:
+      consumes:
+      - application/json
+      description: 通过用户名和密码验证 users 表中的用户，并创建 session
+      operationId: v1-AuthLoginUserPassword
+      parameters:
+      - description: kb_id
+        in: header
+        name: X-KB-ID
+        required: true
+        type: string
+      - description: para
+        in: body
+        name: param
+        required: true
+        schema:
+          $ref: '#/definitions/v1.AuthLoginUserPasswordReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Response'
+      summary: 用户名密码登录
       tags:
       - share_auth
   /share/v1/captcha/challenge:
@@ -5596,7 +6302,6 @@ paths:
       - description: captcha_token
         in: formData
         name: captcha_token
-        required: true
         type: string
       produces:
       - application/json
@@ -5644,6 +6349,123 @@ paths:
       summary: GetConversationDetail
       tags:
       - share_conversation
+  /share/v1/conversation/history:
+    get:
+      parameters:
+      - description: kb id
+        in: header
+        name: X-KB-ID
+        required: true
+        type: string
+      - description: page
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: page size
+        in: query
+        name: per_page
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.PWResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ShareConversationHistoryResp'
+              type: object
+      summary: Get current user's training conversation history
+      tags:
+      - share_conversation
+  /share/v1/conversation/history/detail:
+    get:
+      parameters:
+      - description: kb id
+        in: header
+        name: X-KB-ID
+        required: true
+        type: string
+      - description: conversation id
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.PWResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ShareConversationDetailResp'
+              type: object
+      summary: Get an owned training conversation
+      tags:
+      - share_conversation
+  /share/v1/method_rules/categories:
+    get:
+      description: 返回当前知识库实战模式可选品类及属性枚举。
+      parameters:
+      - description: kb id
+        in: header
+        name: X-KB-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/share.CategoryListResp'
+              type: object
+      summary: List work mode categories
+      tags:
+      - share_method_rule
+  /share/v1/method_rules/match:
+    post:
+      consumes:
+      - application/json
+      description: 根据品类 + 已收集属性查表，返回命中的开封方法（含文档名）。无 LLM 调用。
+      parameters:
+      - description: kb id
+        in: header
+        name: X-KB-ID
+        required: true
+        type: string
+      - description: request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/share.MatchReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/share.MatchResp'
+              type: object
+      summary: MatchMethodRules
+      tags:
+      - share_method_rule
   /share/v1/node/detail:
     get:
       consumes:

@@ -8,6 +8,49 @@
     },
     "basePath": "/",
     "paths": {
+        "/api/pro/v1/auth/group/list": {
+            "get": {
+                "description": "ListAuthGroups",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "ListAuthGroups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge Base ID",
+                        "name": "kb_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.PWResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/v1.AuthGroupListResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/app": {
             "put": {
                 "security": [
@@ -224,6 +267,7 @@
                             "github",
                             "cas",
                             "ldap",
+                            "user_password",
                             "widget",
                             "dingtalk_bot",
                             "feishu_bot",
@@ -245,6 +289,7 @@
                             "SourceTypeGitHub",
                             "SourceTypeCAS",
                             "SourceTypeLDAP",
+                            "SourceTypeUserPassword",
                             "SourceTypeWidget",
                             "SourceTypeDingtalkBot",
                             "SourceTypeFeishuBot",
@@ -1930,6 +1975,45 @@
                 }
             }
         },
+        "/api/v1/node/image_summary": {
+            "post": {
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Summary all images in one node",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "node"
+                ],
+                "summary": "Summary Node Images",
+                "parameters": [
+                    {
+                        "description": "Summary Node Images",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.NodeSummaryReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/node/list": {
             "get": {
                 "security": [
@@ -2773,6 +2857,82 @@
                 }
             }
         },
+        "/api/v1/system/standard-terms": {
+            "get": {
+                "description": "get globally shared standard terms and aliases",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "get global standard terms",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.StandardTermsSetting"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "replace globally shared standard terms and aliases",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "replace global standard terms",
+                "parameters": [
+                    {
+                        "description": "standard terms",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ReplaceStandardTermsReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.StandardTermsSetting"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/user": {
             "get": {
                 "description": "GetUser",
@@ -2788,6 +2948,166 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.UserInfoResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/auth_group/:id": {
+            "put": {
+                "description": "UpdateAuthGroup",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "UpdateAuthGroup",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Auth Group ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "UpdateAuthGroup Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.UpdateAuthGroupReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "DeleteAuthGroup",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "DeleteAuthGroup",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Auth Group ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/auth_group/create": {
+            "post": {
+                "description": "CreateAuthGroup",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "CreateAuthGroup",
+                "parameters": [
+                    {
+                        "description": "CreateAuthGroup Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateAuthGroupReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/v1.CreateAuthGroupResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/auth_group/list": {
+            "get": {
+                "description": "ListAuthGroups",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "ListAuthGroups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge Base ID",
+                        "name": "kb_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.PWResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/v1.AuthGroupListResp"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -2865,6 +3185,234 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/groups": {
+            "get": {
+                "description": "GetUserGroups - 获取用户所属的用户组",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "GetUserGroups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.PWResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/v1.GetUserGroupsResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "UpdateUserGroups - 更新用户所属的用户组",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "UpdateUserGroups",
+                "parameters": [
+                    {
+                        "description": "UpdateUserGroups Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.UpdateUserGroupsReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/guest/:id": {
+            "put": {
+                "description": "UpdateGuestUser",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "UpdateGuestUser",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "UpdateGuestUser Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.UpdateGuestUserReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "DeleteGuestUser",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "DeleteGuestUser",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/guest/create": {
+            "post": {
+                "description": "CreateGuestUser",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "CreateGuestUser",
+                "parameters": [
+                    {
+                        "description": "CreateGuestUser Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateUserReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/v1.CreateUserResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/guest/list": {
+            "get": {
+                "description": "ListGuestUsers",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "ListGuestUsers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.PWResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/v1.UserListResp"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -2963,6 +3511,30 @@
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/share/pro/v1/auth/logout": {
+            "post": {
+                "description": "清除 share 会话 cookie，前端通常调用 /share/pro/v1/auth/logout",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share_auth"
+                ],
+                "summary": "用户登出",
+                "operationId": "v1-AuthLogout",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3253,6 +3825,48 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/v1.AuthLoginSimpleReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/share/v1/auth/login/user_password": {
+            "post": {
+                "description": "通过用户名和密码验证 users 表中的用户，并创建 session",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share_auth"
+                ],
+                "summary": "用户名密码登录",
+                "operationId": "v1-AuthLoginUserPassword",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kb_id",
+                        "name": "X-KB-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "para",
+                        "name": "param",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.AuthLoginUserPasswordReq"
                         }
                     }
                 ],
@@ -3717,8 +4331,7 @@
                         "type": "string",
                         "description": "captcha_token",
                         "name": "captcha_token",
-                        "in": "formData",
-                        "required": true
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -3785,6 +4398,201 @@
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/domain.ShareConversationDetailResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/share/v1/conversation/history": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share_conversation"
+                ],
+                "summary": "Get current user's training conversation history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kb id",
+                        "name": "X-KB-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page size",
+                        "name": "per_page",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.PWResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ShareConversationHistoryResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/share/v1/conversation/history/detail": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share_conversation"
+                ],
+                "summary": "Get an owned training conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kb id",
+                        "name": "X-KB-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.PWResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.ShareConversationDetailResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/share/v1/method_rules/categories": {
+            "get": {
+                "description": "返回当前知识库实战模式可选品类及属性枚举。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share_method_rule"
+                ],
+                "summary": "List work mode categories",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kb id",
+                        "name": "X-KB-ID",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/share.CategoryListResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/share/v1/method_rules/match": {
+            "post": {
+                "description": "根据品类 + 已收集属性查表，返回命中的开封方法（含文档名）。无 LLM 调用。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "share_method_rule"
+                ],
+                "summary": "MatchMethodRules",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "kb id",
+                        "name": "X-KB-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/share.MatchReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/domain.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/share.MatchResp"
                                         }
                                     }
                                 }
@@ -4286,6 +5094,7 @@
                 "github",
                 "cas",
                 "ldap",
+                "user_password",
                 "widget",
                 "dingtalk_bot",
                 "feishu_bot",
@@ -4306,6 +5115,7 @@
                 "SourceTypeGitHub",
                 "SourceTypeCAS",
                 "SourceTypeLDAP",
+                "SourceTypeUserPassword",
                 "SourceTypeWidget",
                 "SourceTypeDingtalkBot",
                 "SourceTypeFeishuBot",
@@ -4340,44 +5150,60 @@
                 "",
                 "full_control",
                 "doc_manage",
-                "data_operate"
+                "data_operate",
+                "audit_manage",
+                "user_manage",
+                "consult_manage"
             ],
             "x-enum-comments": {
+                "UserKBPermissionAuditManage": "审核管理（发布文档）",
+                "UserKBPermissionConsultManage": "咨询管理（疑难咨询与用户反馈）",
                 "UserKBPermissionDataOperate": "数据运营",
                 "UserKBPermissionDocManage": "文档管理",
                 "UserKBPermissionFullControl": "完全控制",
-                "UserKBPermissionNull": "无权限"
+                "UserKBPermissionNull": "无权限",
+                "UserKBPermissionUserManage": "用户管理"
             },
             "x-enum-descriptions": [
                 "无权限",
                 "完全控制",
                 "文档管理",
-                "数据运营"
+                "数据运营",
+                "审核管理（发布文档）",
+                "用户管理",
+                "咨询管理（疑难咨询与用户反馈）"
             ],
             "x-enum-varnames": [
                 "UserKBPermissionNull",
                 "UserKBPermissionFullControl",
                 "UserKBPermissionDocManage",
-                "UserKBPermissionDataOperate"
+                "UserKBPermissionDataOperate",
+                "UserKBPermissionAuditManage",
+                "UserKBPermissionUserManage",
+                "UserKBPermissionConsultManage"
             ]
         },
         "consts.UserRole": {
             "type": "string",
             "enum": [
                 "admin",
-                "user"
+                "user",
+                "guest"
             ],
             "x-enum-comments": {
                 "UserRoleAdmin": "管理员",
+                "UserRoleGuest": "访客用户",
                 "UserRoleUser": "普通用户"
             },
             "x-enum-descriptions": [
                 "管理员",
-                "普通用户"
+                "普通用户",
+                "访客用户"
             ],
             "x-enum-varnames": [
                 "UserRoleAdmin",
-                "UserRoleUser"
+                "UserRoleUser",
+                "UserRoleGuest"
             ]
         },
         "consts.WatermarkSetting": {
@@ -4517,6 +5343,10 @@
             "type": "object",
             "properties": {
                 "base_url": {
+                    "type": "string"
+                },
+                "kb_id": {
+                    "description": "KBID 当前应用所属知识库 ID（与请求头 X-KB-ID 一致，供前端登录等场景使用）",
                     "type": "string"
                 },
                 "name": {
@@ -4696,6 +5526,14 @@
                 "title": {
                     "description": "nav",
                     "type": "string"
+                },
+                "topology_settings": {
+                    "description": "TopologySettings 首页知识拓扑图配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.TopologySettings"
+                        }
+                    ]
                 },
                 "watermark_content": {
                     "type": "string"
@@ -4980,6 +5818,14 @@
                 "title": {
                     "description": "nav",
                     "type": "string"
+                },
+                "topology_settings": {
+                    "description": "TopologySettings 首页知识拓扑图配置",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.TopologySettings"
+                        }
+                    ]
                 },
                 "watermark_content": {
                     "type": "string"
@@ -5396,6 +6242,20 @@
                 },
                 "nonce": {
                     "type": "string"
+                },
+                "qa_mode": {
+                    "description": "QaMode 前台智能问答：training=培训模式，work=实战模式；空表示不追加模式说明",
+                    "type": "string",
+                    "enum": [
+                        "training",
+                        "work"
+                    ]
+                },
+                "top_n": {
+                    "description": "TopN 为向量检索返回片段数量上限；0 或未传表示使用默认 10；合法范围为 1～10",
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 1
                 }
             }
         },
@@ -5631,6 +6491,9 @@
         "domain.ConversationInfo": {
             "type": "object",
             "properties": {
+                "qa_mode": {
+                    "type": "string"
+                },
                 "user_info": {
                     "$ref": "#/definitions/domain.UserInfo"
                 }
@@ -6365,13 +7228,11 @@
                 "name": {
                     "type": "string"
                 },
-                "perm": {
-                    "description": "用户对知识库的权限",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/consts.UserKBPermission"
-                        }
-                    ]
+                "perms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/consts.UserKBPermission"
+                    }
                 },
                 "updated_at": {
                     "type": "string"
@@ -6697,7 +7558,6 @@
                     "type": "string"
                 },
                 "work_mode_directory": {
-                    "description": "文件夹：是否为实战模式检索根目录",
                     "type": "boolean"
                 }
             }
@@ -6706,7 +7566,7 @@
             "type": "object",
             "properties": {
                 "attributes": {
-                    "description": "实战模式识别用的结构化属性键值对",
+                    "description": "Attributes 实战模式识别用的结构化属性键值对，键必须是该品类「属性维护」中配置过的项。",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -6718,15 +7578,19 @@
                 "emoji": {
                     "type": "string"
                 },
+                "show_in_topology": {
+                    "description": "ShowInTopology 为 true 时，该目录/文档展示在前台首页「知识拓扑图」中（目录和文档均可独立勾选）。",
+                    "type": "boolean"
+                },
                 "summary": {
                     "type": "string"
                 },
                 "work_mode_category": {
-                    "description": "文档：所属实战模式品类名",
+                    "description": "WorkModeCategory 该文档所属「实战模式」品类名（与后台「提示词管理」中的品类对齐）。",
                     "type": "string"
                 },
                 "work_mode_directory": {
-                    "description": "文件夹：实战模式检索根目录标记",
+                    "description": "WorkModeDirectory 为 true 时，该文件夹及其子目录下的已发布文档纳入「实战模式」问答检索范围（可多选根目录）。",
                     "type": "boolean"
                 }
             }
@@ -6772,6 +7636,17 @@
                 "NodeStatusReleased"
             ]
         },
+        "domain.NodeSummaryMode": {
+            "type": "string",
+            "enum": [
+                "chat",
+                "analysis"
+            ],
+            "x-enum-varnames": [
+                "NodeSummaryModeChat",
+                "NodeSummaryModeAnalysis"
+            ]
+        },
         "domain.NodeSummaryReq": {
             "type": "object",
             "required": [
@@ -6779,6 +7654,9 @@
                 "kb_id"
             ],
             "properties": {
+                "content": {
+                    "type": "string"
+                },
                 "ids": {
                     "type": "array",
                     "items": {
@@ -6786,6 +7664,12 @@
                     }
                 },
                 "kb_id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "$ref": "#/definitions/domain.NodeSummaryMode"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -7212,6 +8096,17 @@
                 }
             }
         },
+        "domain.ReplaceStandardTermsReq": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.StandardTermItem"
+                    }
+                }
+            }
+        },
         "domain.Response": {
             "type": "object",
             "properties": {
@@ -7295,6 +8190,37 @@
                 },
                 "subject": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.ShareConversationHistoryItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ShareConversationHistoryResp": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "boolean"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ShareConversationHistoryItem"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -7398,6 +8324,34 @@
                 },
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.StandardTermItem": {
+            "type": "object",
+            "properties": {
+                "aliases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "term": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.StandardTermsSetting": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.StandardTermItem"
+                    }
                 }
             }
         },
@@ -7541,6 +8495,23 @@
                 }
             }
         },
+        "domain.TopologySettings": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "Description 区块副标题/描述。",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled 为 true 时在自定义首页展示知识拓扑图区块。",
+                    "type": "boolean"
+                },
+                "title": {
+                    "description": "Title 区块标题，为空时前台使用默认标题。",
+                    "type": "string"
+                }
+            }
+        },
         "domain.UpdateAppReq": {
             "type": "object",
             "properties": {
@@ -7634,7 +8605,7 @@
             ],
             "properties": {
                 "attributes": {
-                    "description": "仅文档：实战模式识别用属性键值对；nil 表示不修改，{} 表示清空",
+                    "description": "Attributes 仅对文档（type=2）生效：实战模式识别用的属性键值对；nil 表示不修改，{} 表示清空。",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -7661,15 +8632,19 @@
                 "position": {
                     "type": "number"
                 },
+                "show_in_topology": {
+                    "description": "ShowInTopology 对目录（type=1）和文档（type=2）均生效：是否展示在前台首页「知识拓扑图」中；nil 表示不修改。",
+                    "type": "boolean"
+                },
                 "summary": {
                     "type": "string"
                 },
                 "work_mode_category": {
-                    "description": "仅文档：所属实战模式品类名；空字符串表示清空",
+                    "description": "WorkModeCategory 仅对文档（type=2）生效：所属实战模式品类名；空字符串表示清空。",
                     "type": "string"
                 },
                 "work_mode_directory": {
-                    "description": "仅文件夹：为 true 时本目录及子目录纳入实战模式问答检索",
+                    "description": "WorkModeDirectory 仅对文件夹（type=1）生效：为 true 时本目录及子目录纳入实战模式问答检索范围。",
                     "type": "boolean"
                 }
             }
@@ -8217,6 +9192,99 @@
                 "Tool"
             ]
         },
+        "share.CategoryListResp": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/share.CategoryView"
+                    }
+                }
+            }
+        },
+        "share.CategoryView": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "specs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/share.MatchAttrSpec"
+                    }
+                }
+            }
+        },
+        "share.MatchAttrSpec": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "share.MatchMethodView": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "share.MatchReq": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "collected": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "share.MatchResp": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/share.MatchMethodView"
+                    }
+                },
+                "specs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/share.MatchAttrSpec"
+                    }
+                }
+            }
+        },
         "share.ShareCommentLists": {
             "type": "object",
             "properties": {
@@ -8247,6 +9315,67 @@
             "properties": {
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "v1.AuthGroupListItemResp": {
+            "type": "object",
+            "properties": {
+                "auth_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kb_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "用户组路径，用于显示层级结构",
+                    "type": "string"
+                },
+                "position": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_ids": {
+                    "description": "关联 users 表的用户 ID",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "v1.AuthGroupListResp": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v1.AuthGroupListItemResp"
+                    }
+                },
+                "list": {
+                    "description": "兼容前端类型定义",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v1.AuthGroupListItemResp"
+                    }
                 }
             }
         },
@@ -8283,6 +9412,21 @@
             ],
             "properties": {
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "v1.AuthLoginUserPasswordReq": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }
@@ -8480,6 +9624,48 @@
                 }
             }
         },
+        "v1.CreateAuthGroupReq": {
+            "type": "object",
+            "required": [
+                "kb_id",
+                "name"
+            ],
+            "properties": {
+                "auth_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "kb_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "position": {
+                    "type": "number"
+                },
+                "user_ids": {
+                    "description": "关联 users 表的用户 ID",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "v1.CreateAuthGroupResp": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
         "v1.CreateUserReq": {
             "type": "object",
             "required": [
@@ -8495,10 +9681,14 @@
                     "type": "string",
                     "minLength": 8
                 },
+                "region": {
+                    "type": "string"
+                },
                 "role": {
                     "enum": [
                         "admin",
-                        "user"
+                        "user",
+                        "guest"
                     ],
                     "allOf": [
                         {
@@ -8533,28 +9723,34 @@
                 }
             }
         },
+        "v1.GetUserGroupsResp": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v1.AuthGroupListItemResp"
+                    }
+                }
+            }
+        },
         "v1.KBUserInviteReq": {
             "type": "object",
             "required": [
                 "kb_id",
-                "perm",
+                "perms",
                 "user_id"
             ],
             "properties": {
                 "kb_id": {
                     "type": "string"
                 },
-                "perm": {
-                    "enum": [
-                        "full_control",
-                        "doc_manage",
-                        "data_operate"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/consts.UserKBPermission"
-                        }
-                    ]
+                "perms": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "user_id": {
                     "type": "string"
@@ -8571,7 +9767,10 @@
                     "type": "string"
                 },
                 "perms": {
-                    "$ref": "#/definitions/consts.UserKBPermission"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "role": {
                     "$ref": "#/definitions/consts.UserRole"
@@ -8582,24 +9781,19 @@
             "type": "object",
             "required": [
                 "kb_id",
-                "perm",
+                "perms",
                 "user_id"
             ],
             "properties": {
                 "kb_id": {
                     "type": "string"
                 },
-                "perm": {
-                    "enum": [
-                        "full_control",
-                        "doc_manage",
-                        "data_operate"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/consts.UserKBPermission"
-                        }
-                    ]
+                "perms": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "user_id": {
                     "type": "string"
@@ -8643,6 +9837,9 @@
                 },
                 "creator_id": {
                     "type": "string"
+                },
+                "editing_locked": {
+                    "type": "boolean"
                 },
                 "editor_account": {
                     "type": "string"
@@ -8701,6 +9898,10 @@
                     "items": {
                         "type": "integer"
                     }
+                },
+                "apply_children": {
+                    "description": "是否递归应用到子目录和文件",
+                    "type": "boolean"
                 },
                 "ids": {
                     "type": "array",
@@ -8805,9 +10006,6 @@
         },
         "v1.ShareFileUploadReq": {
             "type": "object",
-            "required": [
-                "captcha_token"
-            ],
             "properties": {
                 "captcha_token": {
                     "type": "string"
@@ -8910,6 +10108,66 @@
                 }
             }
         },
+        "v1.UpdateAuthGroupReq": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "auth_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "position": {
+                    "type": "number"
+                },
+                "user_ids": {
+                    "description": "关联 users 表的用户 ID",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "v1.UpdateGuestUserReq": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "region": {
+                    "type": "string"
+                }
+            }
+        },
+        "v1.UpdateUserGroupsReq": {
+            "type": "object",
+            "required": [
+                "user_id"
+            ],
+            "properties": {
+                "group_ids": {
+                    "description": "用户组 ID 列表",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "v1.UserInfoResp": {
             "type": "object",
             "properties": {
@@ -8933,6 +10191,23 @@
                 }
             }
         },
+        "v1.UserKBPermItem": {
+            "type": "object",
+            "properties": {
+                "kb_id": {
+                    "type": "string"
+                },
+                "kb_name": {
+                    "type": "string"
+                },
+                "perms": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "v1.UserListItemResp": {
             "type": "object",
             "properties": {
@@ -8945,7 +10220,17 @@
                 "id": {
                     "type": "string"
                 },
+                "kb_perms": {
+                    "description": "各 Wiki 站上的权限（超级管理员通常为空，前端按 role 展示全部权限）",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v1.UserKBPermItem"
+                    }
+                },
                 "last_access": {
+                    "type": "string"
+                },
+                "region": {
                     "type": "string"
                 },
                 "role": {

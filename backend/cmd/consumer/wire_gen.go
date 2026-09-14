@@ -45,23 +45,24 @@ func createApp() (*App, error) {
 	}
 	nodeRepository := pg2.NewNodeRepository(db, logger)
 	knowledgeBaseRepository := pg2.NewKnowledgeBaseRepository(db, configConfig, logger, ragService)
+	minioClient, err := s3.NewMinioClient(configConfig)
+	if err != nil {
+		return nil, err
+	}
 	conversationRepository := pg2.NewConversationRepository(db, logger)
 	modelRepository := pg2.NewModelRepository(db, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
-	categoryPromptRepository := pg2.NewCategoryPromptRepo(db, logger)
-	methodRuleRepository := pg2.NewMethodRuleRepo(db, logger)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepository, methodRuleRepository, logger)
+	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
+	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
+	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
+	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, logger)
 	mqProducer, err := mq.NewMQProducer(configConfig, logger)
 	if err != nil {
 		return nil, err
 	}
 	ragRepository := mq2.NewRAGRepository(mqProducer)
-	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
 	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo)
-	minioClient, err := s3.NewMinioClient(configConfig)
-	if err != nil {
-		return nil, err
-	}
 	ragmqHandler, err := mq3.NewRAGMQHandler(mqConsumer, logger, ragService, nodeRepository, knowledgeBaseRepository, minioClient, llmUsecase, modelUsecase)
 	if err != nil {
 		return nil, err

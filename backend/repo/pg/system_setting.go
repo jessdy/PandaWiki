@@ -2,6 +2,9 @@ package pg
 
 import (
 	"context"
+	"time"
+
+	"gorm.io/gorm/clause"
 
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
@@ -33,4 +36,20 @@ func (r *SystemSettingRepo) GetSystemSetting(ctx context.Context, key consts.Sys
 
 func (r *SystemSettingRepo) UpdateSystemSetting(ctx context.Context, key, value string) error {
 	return r.db.WithContext(ctx).Model(&domain.SystemSetting{}).Where("key = ?", key).Update("value", value).Error
+}
+
+func (r *SystemSettingRepo) UpsertSystemSetting(ctx context.Context, key consts.SystemSettingKey, value, description string) error {
+	setting := domain.SystemSetting{
+		Key:         key,
+		Value:       []byte(value),
+		Description: description,
+	}
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "key"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"value":       value,
+			"description": description,
+			"updated_at":  time.Now(),
+		}),
+	}).Create(&setting).Error
 }

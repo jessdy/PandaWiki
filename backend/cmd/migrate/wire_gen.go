@@ -50,9 +50,11 @@ func createApp() (*App, error) {
 	conversationRepository := pg2.NewConversationRepository(db, logger)
 	modelRepository := pg2.NewModelRepository(db, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
-	categoryPromptRepository := pg2.NewCategoryPromptRepo(db, logger)
-	methodRuleRepository := pg2.NewMethodRuleRepo(db, logger)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepository, methodRuleRepository, logger)
+	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
+	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
+	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
+	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
 	if err != nil {
 		return nil, err
@@ -62,12 +64,11 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	authRepo := pg2.NewAuthRepo(db, logger, cacheCache)
-	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
 	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
 	kbRepo := cache2.NewKBRepo(cacheCache)
-	imageDescriptionTemplateRepository := pg2.NewImageDescriptionTemplateRepo(db, logger)
-	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepository, imageDescriptionTemplateRepository, methodRuleRepository)
+	imageDescriptionTemplateRepo := pg2.NewImageDescriptionTemplateRepo(db, logger)
+	knowledgeBaseUsecase, err := usecase.NewKnowledgeBaseUsecase(knowledgeBaseRepository, nodeRepository, ragRepository, userRepository, ragService, kbRepo, logger, configConfig, categoryPromptRepo, imageDescriptionTemplateRepo, methodRuleRepo)
 	if err != nil {
 		return nil, err
 	}
