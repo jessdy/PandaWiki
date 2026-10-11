@@ -41,3 +41,12 @@ type AuthLoginUserPasswordReq struct {
 
 type AuthLoginUserPasswordResp struct {
 }
+
+type AuthLoginUserLinkReq struct {
+	User string `json:"user" validate:"required"`
+}
+
+type AuthLoginUserLinkResp struct {
+	Username string `json:"username"`
+	Region   string `json:"region"`
+}

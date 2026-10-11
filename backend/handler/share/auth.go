@@ -47,6 +47,7 @@ func NewShareAuthHandler(
 	share.GET("/get", h.AuthGet)
 	share.POST("/login/simple", h.AuthLoginSimple)
 	share.POST("/login/user_password", h.AuthLoginUserPassword)
+	share.POST("/login/user_link", h.AuthLoginUserLink)
 	share.POST("/github", h.AuthGitHub)
 
 	// PRO 前端使用的路由前缀：/share/pro/v1/auth/...

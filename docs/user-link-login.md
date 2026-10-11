@@ -1,0 +1,127 @@
+# 前台用户链接登录
+
+第三方系统把用户浏览器跳转到 系统 登录地址，即可使用指定用户名登录。用户名不存在时，系统会创建后台「用户管理」中的访客用户，并加入当前知识库的全部用户组。
+
+第三方不需要调用登录接口，也不需要保存密码。只需要生成链接并让用户访问。
+
+## 登录地址
+
+```text
+{站点地址}/auth/login?user={Base64编码的用户信息}
+```
+
+`user` 必须做 URL 编码后再放入查询参数。Base64 中的 `+`、`/`、`=` 分别编码为 `%2B`、`%2F`、`%3D`。
+
+可选参数 `redirect` 表示登录成功后的站内路径，同样需要 URL 编码。未提供时进入站点首页。
+
+```text
+{站点地址}/auth/login?user={用户信息}&redirect={登录后的路径}
+```
+
+## 用户信息
+
+先构造 UTF-8 JSON，再进行标准 Base64 编码。
+
+```json
+{
+  "username": "lisi",
+  "region": "上海"
+}
+```
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `username` | 是 | 用户名，对应后台用户管理中的账号。也接受 `user_name` 或 `用户名` |
+| `region` | 否 | 地区。新建用户时写入；已有用户不覆盖。也接受 `地区` |
+
+限制：
+
+- 用户名去掉首尾空格后不能为空，最长 100 个字符。
+- 地区最长 100 个字符。
+- 推荐使用后台地区选项中的省级简称，例如 `北京`、`上海`、`广东`、`四川`。
+
+## 处理规则
+
+1. 按用户名查找后台用户。
+2. 已存在的访客用户直接登录。已有用户的密码、地区和用户组保持不变。
+3. 用户不存在时创建访客用户：
+   - 用户名使用传入值。
+   - 密码随机生成，不返回给第三方。
+   - 地区使用传入值。
+   - 加入本次访问知识库在后台「用户组」中显示的全部用户组。
+   - 创建完成后登录。
+4. 同名的管理员或其他非访客账号不会通过此链接登录，也不会被覆盖。
+
+登录成功后，浏览器获得有效期 30 天的登录会话。
+
+## 示例
+
+李四，上海：
+
+```json
+{"username":"lisi","region":"上海"}
+```
+
+```text
+/auth/login?user=eyJ1c2VybmFtZSI6Imxpc2kiLCJyZWdpb24iOiLkuIrmtbcifQ%3D%3D
+```
+
+王五，广东：
+
+```json
+{"username":"wangwu","region":"广东"}
+```
+
+```text
+/auth/login?user=eyJ1c2VybmFtZSI6Indhbmd3dSIsInJlZ2lvbiI6IuW5v%2BS4nCJ9
+```
+
+赵六，四川，登录后打开 `/consult`：
+
+```json
+{"username":"zhaoliu","region":"四川"}
+```
+
+```text
+/auth/login?user=eyJ1c2VybmFtZSI6InpoYW9saXUiLCJyZWdpb24iOiLlm5vlt50ifQ%3D%3D&redirect=%2Fconsult
+```
+
+中文字段名同样可用：
+
+```json
+{"用户名":"chenqi","地区":"北京"}
+```
+
+```text
+/auth/login?user=eyLnlKjmiLflkI0iOiJjaGVucWkiLCLlnLDljLoiOiLljJfkuqwifQ%3D%3D
+```
+
+## 生成代码
+
+```javascript
+const payload = {
+  username: "lisi",
+  region: "上海",
+};
+const user = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+const url = `${siteOrigin}/auth/login?user=${encodeURIComponent(user)}`;
+window.location.href = url;
+```
+
+```python
+import base64
+import json
+from urllib.parse import quote
+
+payload = {"username": "lisi", "region": "上海"}
+user = base64.b64encode(
+    json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+).decode()
+url = f"{site_origin}/auth/login?user={quote(user, safe='')}"
+```
+
+```java
+String json = "{\"username\":\"lisi\",\"region\":\"上海\"}";
+String user = Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
+String url = siteOrigin + "/auth/login?user=" + URLEncoder.encode(user, StandardCharsets.UTF_8);
+```

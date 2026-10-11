@@ -13,6 +13,7 @@ import { postShareV1AuthGithub } from '@/request/ShareAuth';
 import {
   getShareV1AuthGet,
   postShareV1AuthLoginSimple,
+  postShareV1AuthLoginUserLink,
   postShareV1AuthLoginUserPassword,
 } from '@/request/ShareAuth';
 import { getShareV1NodeList } from '@/request/ShareNode';
@@ -40,15 +41,17 @@ import {
 import {
   Box,
   Button,
+  CircularProgress,
   IconButton,
   InputAdornment,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
 import { message } from '@ctzhian/ui';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBasePath } from '@/hooks';
 import { getImagePath } from '@/utils/getImagePath';
 function isWeComByUA() {
@@ -74,6 +77,10 @@ export default function Login() {
     avatar_url: string;
   }>({ username: '', email: '', avatar_url: '' });
   const [loading, setLoading] = useState(false);
+  const [linkLoggingIn, setLinkLoggingIn] = useState(() =>
+    Boolean(searchParams.get('user')),
+  );
+  const linkLoginStarted = useRef(false);
   const [authType, setAuthType] = useState<ConstsAuthType>();
   const [licenseEdition, setLicenseEdition] = useState<ConstsLicenseEdition>();
   const [sourceType, setSourceType] = useState<ConstsSourceType>();
@@ -84,6 +91,16 @@ export default function Login() {
     typeof window !== 'undefined'
       ? `${window.location.origin}${basePath}${decodeURIComponent(searchParams.get('redirect') || '')}`
       : '';
+  const userLink = searchParams.get('user') || '';
+
+  const resolveKbId = () =>
+    searchParams.get('kb_id') ||
+    (kbDetail as { id?: string; kb_id?: string } | undefined)?.id ||
+    (kbDetail as { id?: string; kb_id?: string } | undefined)?.kb_id ||
+    (typeof window !== 'undefined'
+      ? (window as { __KB_ID__?: string }).__KB_ID__
+      : '') ||
+    (process.env.DEV_KB_ID ?? 'ef07559f-88ee-45c9-a4f5-44db295144e4');
 
   const handleLogin = async () => {
     if (!password.trim()) {
@@ -193,12 +210,7 @@ export default function Login() {
       return;
     }
     console.log('kbDetail', kbDetail, searchParams, process.env);
-    const kbId =
-      searchParams.get('kb_id') ||
-      (kbDetail as any)?.id ||
-      (kbDetail as any)?.kb_id ||
-      (typeof window !== 'undefined' ? (window as any).__KB_ID__ : '') ||
-      (process.env.DEV_KB_ID ?? 'ef07559f-88ee-45c9-a4f5-44db295144e4');
+    const kbId = resolveKbId();
     if (!kbId) {
       message.error('知识库ID未找到，请刷新页面重试');
       return;
@@ -236,6 +248,43 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!userLink || linkLoginStarted.current) return;
+    const kbId = resolveKbId();
+    if (!kbId) return;
+    linkLoginStarted.current = true;
+    const loginByLink = async () => {
+      setLinkLoggingIn(true);
+      try {
+        clearCookie();
+        const result = await postShareV1AuthLoginUserLink(
+          { user: userLink },
+          { headers: { 'X-KB-ID': kbId } },
+        );
+        const username =
+          (result as { username?: string } | undefined)?.username || '';
+        localStorage.setItem(
+          'authInfo',
+          JSON.stringify({
+            username,
+            email: username,
+            avatar_url: '',
+          }),
+        );
+        const nodes = await getShareV1NodeList();
+        setNodeList?.((nodes as never) ?? []);
+        window.open(redirectUrl, '_self');
+      } catch (error: unknown) {
+        linkLoginStarted.current = false;
+        message.error(
+          (error as { message?: string })?.message || '链接登录失败，请重试',
+        );
+        setLinkLoggingIn(false);
+      }
+    };
+    void loginByLink();
+  }, [kbDetail, redirectUrl, searchParams, setNodeList, userLink]);
 
   useEffect(() => {
     getShareV1AuthGet({}).then(res => {
@@ -293,7 +342,13 @@ export default function Login() {
                 {'FZK知识库'}
               </Box>
             </Stack>
-            {authType === ConstsAuthType.AuthTypeSimple && (
+            {linkLoggingIn && (
+              <Stack alignItems='center' spacing={2} sx={{ py: 4 }}>
+                <CircularProgress size={28} />
+                <Typography color='text.secondary'>正在登录…</Typography>
+              </Stack>
+            )}
+            {!linkLoggingIn && authType === ConstsAuthType.AuthTypeSimple && (
               <>
                 <TextField
                   fullWidth
@@ -347,165 +402,166 @@ export default function Login() {
               </>
             )}
 
-            {authType === ConstsAuthType.AuthTypeEnterprise && (
-              <>
-                {sourceType === ConstsSourceType.SourceTypeDingTalk && (
-                  <IconButton onClick={handleDingTalkLogin}>
-                    <IconDingDing sx={{ fontSize: 40 }}></IconDingDing>
-                  </IconButton>
-                )}
-                {sourceType === ConstsSourceType.SourceTypeFeishu && (
-                  <IconButton onClick={handleFeishuLogin}>
-                    <IconFeishu sx={{ fontSize: 40 }}></IconFeishu>
-                  </IconButton>
-                )}
-                {sourceType === ConstsSourceType.SourceTypeWeCom && (
-                  <IconButton onClick={handleQiyeweixinLogin}>
-                    <IconQiyeweixin sx={{ fontSize: 28 }}></IconQiyeweixin>
-                  </IconButton>
-                )}
-                {sourceType === ConstsSourceType.SourceTypeOAuth && (
-                  <Button
-                    fullWidth
-                    variant='contained'
-                    onClick={handleOAuthLogin}
-                    sx={{ height: '50px', fontSize: 16 }}
-                  >
-                    登录
-                  </Button>
-                )}
-                {sourceType === ConstsSourceType.SourceTypeGitHub && (
-                  <Button
-                    fullWidth
-                    variant='contained'
-                    onClick={handleGitHubLogin}
-                    startIcon={<IconGitHub1 />}
-                    sx={{ height: '50px', fontSize: 16 }}
-                  >
-                    登录
-                  </Button>
-                )}
+            {!linkLoggingIn &&
+              authType === ConstsAuthType.AuthTypeEnterprise && (
+                <>
+                  {sourceType === ConstsSourceType.SourceTypeDingTalk && (
+                    <IconButton onClick={handleDingTalkLogin}>
+                      <IconDingDing sx={{ fontSize: 40 }}></IconDingDing>
+                    </IconButton>
+                  )}
+                  {sourceType === ConstsSourceType.SourceTypeFeishu && (
+                    <IconButton onClick={handleFeishuLogin}>
+                      <IconFeishu sx={{ fontSize: 40 }}></IconFeishu>
+                    </IconButton>
+                  )}
+                  {sourceType === ConstsSourceType.SourceTypeWeCom && (
+                    <IconButton onClick={handleQiyeweixinLogin}>
+                      <IconQiyeweixin sx={{ fontSize: 28 }}></IconQiyeweixin>
+                    </IconButton>
+                  )}
+                  {sourceType === ConstsSourceType.SourceTypeOAuth && (
+                    <Button
+                      fullWidth
+                      variant='contained'
+                      onClick={handleOAuthLogin}
+                      sx={{ height: '50px', fontSize: 16 }}
+                    >
+                      登录
+                    </Button>
+                  )}
+                  {sourceType === ConstsSourceType.SourceTypeGitHub && (
+                    <Button
+                      fullWidth
+                      variant='contained'
+                      onClick={handleGitHubLogin}
+                      startIcon={<IconGitHub1 />}
+                      sx={{ height: '50px', fontSize: 16 }}
+                    >
+                      登录
+                    </Button>
+                  )}
 
-                {sourceType === ConstsSourceType.SourceTypeCAS && (
-                  <IconButton onClick={handleCASLogin}>
-                    <IconCAS sx={{ fontSize: 40 }}></IconCAS>
-                  </IconButton>
-                )}
+                  {sourceType === ConstsSourceType.SourceTypeCAS && (
+                    <IconButton onClick={handleCASLogin}>
+                      <IconCAS sx={{ fontSize: 40 }}></IconCAS>
+                    </IconButton>
+                  )}
 
-                {
-                  <Stack spacing={2} width='100%'>
-                    {(() => {
-                      const textFieldSx = {
-                        borderRadius: '10px',
-                        overflow: 'hidden',
-                        '& .MuiInputBase-input': {
-                          p: 2,
-                          lineHeight: '24px',
-                          height: '24px',
-                          fontFamily: 'Mono',
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          pr: '18px',
-                          bgcolor: 'background.paper',
-                          '& fieldset': {
-                            borderRadius: '10px',
-                            borderColor: 'divider',
-                            px: 2,
+                  {
+                    <Stack spacing={2} width='100%'>
+                      {(() => {
+                        const textFieldSx = {
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          '& .MuiInputBase-input': {
+                            p: 2,
+                            lineHeight: '24px',
+                            height: '24px',
+                            fontFamily: 'Mono',
                           },
-                        },
-                      };
-
-                      return (
-                        <>
-                          <TextField
-                            fullWidth
-                            type='text'
-                            value={username}
-                            autoFocus
-                            onChange={e => setUsername(e.target.value)}
-                            placeholder='用户名'
-                            disabled={loading}
-                            slotProps={{
-                              input: {
-                                startAdornment: (
-                                  <InputAdornment position='start'>
-                                    <IconZhanghao
-                                      sx={{
-                                        fontSize: 16,
-                                        width: 24,
-                                        height: 16,
-                                      }}
-                                    />
-                                  </InputAdornment>
-                                ),
-                              },
-                            }}
-                            sx={textFieldSx}
-                          />
-                          <TextField
-                            fullWidth
-                            type='password'
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder='密码'
-                            disabled={loading}
-                            slotProps={{
-                              input: {
-                                startAdornment: (
-                                  <InputAdornment position='start'>
-                                    <IconMima
-                                      sx={{
-                                        fontSize: 16,
-                                        width: 24,
-                                        height: 16,
-                                      }}
-                                    />
-                                  </InputAdornment>
-                                ),
-                              },
-                            }}
-                            sx={textFieldSx}
-                          />
-                          <Button
-                            fullWidth
-                            variant='contained'
-                            onClick={handleLDAPLogin}
-                            sx={{
-                              mt: 2,
-                              height: '50px',
-                              fontSize: 16,
+                          '& .MuiOutlinedInput-root': {
+                            pr: '18px',
+                            bgcolor: 'background.paper',
+                            '& fieldset': {
                               borderRadius: '10px',
-                              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
-                            }}
-                            startIcon={
-                              <IconLDAP
-                                sx={{
-                                  fontSize: 16,
-                                  width: 24,
-                                  height: 16,
-                                  color:
-                                    loading ||
-                                    !username.trim() ||
-                                    !password.trim()
-                                      ? ''
-                                      : '#e73f3f',
-                                }}
-                              />
-                            }
-                            disabled={
-                              loading || !username.trim() || !password.trim()
-                            }
-                          >
-                            {loading ? '验证中...' : '登录'}
-                          </Button>
-                        </>
-                      );
-                    })()}
-                  </Stack>
-                }
-              </>
-            )}
+                              borderColor: 'divider',
+                              px: 2,
+                            },
+                          },
+                        };
+
+                        return (
+                          <>
+                            <TextField
+                              fullWidth
+                              type='text'
+                              value={username}
+                              autoFocus
+                              onChange={e => setUsername(e.target.value)}
+                              placeholder='用户名'
+                              disabled={loading}
+                              slotProps={{
+                                input: {
+                                  startAdornment: (
+                                    <InputAdornment position='start'>
+                                      <IconZhanghao
+                                        sx={{
+                                          fontSize: 16,
+                                          width: 24,
+                                          height: 16,
+                                        }}
+                                      />
+                                    </InputAdornment>
+                                  ),
+                                },
+                              }}
+                              sx={textFieldSx}
+                            />
+                            <TextField
+                              fullWidth
+                              type='password'
+                              value={password}
+                              onChange={e => setPassword(e.target.value)}
+                              onKeyDown={handleKeyDown}
+                              placeholder='密码'
+                              disabled={loading}
+                              slotProps={{
+                                input: {
+                                  startAdornment: (
+                                    <InputAdornment position='start'>
+                                      <IconMima
+                                        sx={{
+                                          fontSize: 16,
+                                          width: 24,
+                                          height: 16,
+                                        }}
+                                      />
+                                    </InputAdornment>
+                                  ),
+                                },
+                              }}
+                              sx={textFieldSx}
+                            />
+                            <Button
+                              fullWidth
+                              variant='contained'
+                              onClick={handleLDAPLogin}
+                              sx={{
+                                mt: 2,
+                                height: '50px',
+                                fontSize: 16,
+                                borderRadius: '10px',
+                                boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+                              }}
+                              startIcon={
+                                <IconLDAP
+                                  sx={{
+                                    fontSize: 16,
+                                    width: 24,
+                                    height: 16,
+                                    color:
+                                      loading ||
+                                      !username.trim() ||
+                                      !password.trim()
+                                        ? ''
+                                        : '#e73f3f',
+                                  }}
+                                />
+                              }
+                              disabled={
+                                loading || !username.trim() || !password.trim()
+                              }
+                            >
+                              {loading ? '验证中...' : '登录'}
+                            </Button>
+                          </>
+                        );
+                      })()}
+                    </Stack>
+                  }
+                </>
+              )}
 
             <Box
               sx={{
