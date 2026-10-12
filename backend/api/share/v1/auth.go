@@ -49,4 +49,5 @@ type AuthLoginUserLinkReq struct {
 type AuthLoginUserLinkResp struct {
 	Username string `json:"username"`
 	Region   string `json:"region"`
+	Role     string `json:"role"`
 }

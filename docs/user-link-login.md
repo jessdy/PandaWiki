@@ -1,6 +1,9 @@
 # 前台用户链接登录
 
-第三方系统把用户浏览器跳转到 系统 登录地址，即可使用指定用户名登录。用户名不存在时，系统会创建后台「用户管理」中的访客用户，并加入当前知识库的全部用户组。
+第三方系统把用户浏览器跳转到 系统 登录地址，即可使用指定用户名登录。用户名不存在时，系统按 `role` 创建账号：
+
+- 普通用户出现在后台「用户管理」，并加入当前知识库的全部用户组。
+- 管理员出现在后台「管理员管理」，角色为普通管理员，并拥有当前知识库的完全控制。
 
 第三方不需要调用登录接口，也不需要保存密码。只需要生成链接并让用户访问。
 
@@ -25,58 +28,75 @@
 ```json
 {
   "username": "lisi",
-  "region": "上海"
+  "region": "上海",
+  "role": "user"
 }
 ```
 
-| 字段 | 必填 | 说明 |
-| --- | --- | --- |
-| `username` | 是 | 用户名，对应后台用户管理中的账号。也接受 `user_name` 或 `用户名` |
-| `region` | 否 | 地区。新建用户时写入；已有用户不覆盖。也接受 `地区` |
+
+| 字段         | 必填  | 说明                                 |
+| ---------- | --- | ---------------------------------- |
+| `username` | 是   | 用户名，对应后台账号。也接受 `user_name` 或 `用户名` |
+| `region`   | 否   | 地区。新建用户时写入；已有用户不覆盖。也接受 `地区`        |
+| `role`     | 否   | 角色。也接受字段名 `角色`。不传时按 `user` 处理      |
+
+
+`role` 取值：
+
+
+| 传入值       | 账号                     |
+| --------- | ---------------------- |
+| 不传、`user` | 普通用户，写入「用户管理」          |
+| `admin`   | 管理员，写入「管理员管理」，显示为普通管理员 |
+
 
 限制：
 
 - 用户名去掉首尾空格后不能为空，最长 100 个字符。
 - 地区最长 100 个字符。
 - 推荐使用后台地区选项中的省级简称，例如 `北京`、`上海`、`广东`、`四川`。
+- 其他角色值会登录失败。超级管理员不能通过此链接创建或登录。
+
+
 
 ## 处理规则
 
-1. 按用户名查找后台用户。
-2. 已存在的访客用户直接登录。已有用户的密码、地区和用户组保持不变。
-3. 用户不存在时创建访客用户：
-   - 用户名使用传入值。
-   - 密码随机生成，不返回给第三方。
-   - 地区使用传入值。
-   - 加入本次访问知识库在后台「用户组」中显示的全部用户组。
-   - 创建完成后登录。
-4. 同名的管理员或其他非访客账号不会通过此链接登录，也不会被覆盖。
+1. 按用户名查找后台账号。
+2. 已存在且角色匹配的账号直接登录。已有账号的密码、地区、角色和权限保持不变。
+3. 用户不存在时创建账号：
+  - 用户名使用传入值。
+  - 密码随机生成，不返回给第三方。
+  - 地区使用传入值。
+  - 普通用户加入本次访问知识库在后台「用户组」中显示的全部用户组。
+  - 管理员获得当前知识库的完全控制。
+  - 创建完成后登录。
+4. 角色不匹配时拒绝登录，也不修改原账号。例如用管理员链接登录一个普通用户，或用普通用户链接登录一个管理员。
 
-登录成功后，浏览器获得有效期 30 天的登录会话。
+登录成功后，浏览器获得有效期 30 天的登录会话。接口返回的 `role` 为 `user` 或 `admin`。
 
 ## 示例
 
-李四，上海：
+李四，上海，普通用户：
 
 ```json
-{"username":"lisi","region":"上海"}
+{"username":"lisi","region":"上海","role":"user"}
 ```
 
 ```text
-/auth/login?user=eyJ1c2VybmFtZSI6Imxpc2kiLCJyZWdpb24iOiLkuIrmtbcifQ%3D%3D
+/auth/login?user=eyJ1c2VybmFtZSI6Imxpc2kiLCJyZWdpb24iOiLkuIrmtbciLCJyb2xlIjoidXNlciJ9
 ```
 
-王五，广东：
+王五，广东，管理员：
 
 ```json
-{"username":"wangwu","region":"广东"}
+{"username":"wangwu","region":"广东","role":"admin"}
 ```
 
 ```text
-/auth/login?user=eyJ1c2VybmFtZSI6Indhbmd3dSIsInJlZ2lvbiI6IuW5v%2BS4nCJ9
+/auth/login?user=eyJ1c2VybmFtZSI6Indhbmd3dSIsInJlZ2lvbiI6IuW5v%2BS4nCIsInJvbGUiOiJhZG1pbiJ9
 ```
 
-赵六，四川，登录后打开 `/consult`：
+赵六，四川，登录后打开 `/consult`。未传 `role`，按普通用户处理：
 
 ```json
 {"username":"zhaoliu","region":"四川"}
@@ -89,12 +109,14 @@
 中文字段名同样可用：
 
 ```json
-{"用户名":"chenqi","地区":"北京"}
+{"用户名":"chenqi","地区":"北京","角色":"管理员"}
 ```
 
 ```text
-/auth/login?user=eyLnlKjmiLflkI0iOiJjaGVucWkiLCLlnLDljLoiOiLljJfkuqwifQ%3D%3D
+/auth/login?user=eyLnlKjmiLflkI0iOiJjaGVucWkiLCLlnLDljLoiOiLljJfkuqwiLCLop5LoibIiOiLnrqHnkIblkZgifQ%3D%3D
 ```
+
+
 
 ## 生成代码
 
@@ -102,6 +124,7 @@
 const payload = {
   username: "lisi",
   region: "上海",
+  role: "user",
 };
 const user = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
 const url = `${siteOrigin}/auth/login?user=${encodeURIComponent(user)}`;
@@ -113,7 +136,7 @@ import base64
 import json
 from urllib.parse import quote
 
-payload = {"username": "lisi", "region": "上海"}
+payload = {"username": "lisi", "region": "上海", "role": "管理员"}
 user = base64.b64encode(
     json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
 ).decode()
@@ -121,7 +144,8 @@ url = f"{site_origin}/auth/login?user={quote(user, safe='')}"
 ```
 
 ```java
-String json = "{\"username\":\"lisi\",\"region\":\"上海\"}";
+String json = "{\"username\":\"lisi\",\"region\":\"上海\",\"role\":\"user\"}";
 String user = Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
 String url = siteOrigin + "/auth/login?user=" + URLEncoder.encode(user, StandardCharsets.UTF_8);
 ```
+

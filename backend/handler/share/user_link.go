@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
+	kbv1 "github.com/chaitin/panda-wiki/api/kb/v1"
 	v1 "github.com/chaitin/panda-wiki/api/share/v1"
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
@@ -33,33 +34,61 @@ type userLinkPayload struct {
 	UsernameCN string `json:"用户名"`
 	Region     string `json:"region"`
 	RegionCN   string `json:"地区"`
+	Role       string `json:"role"`
+	RoleCN     string `json:"角色"`
 }
 
-func decodeUserLink(raw string) (string, string, error) {
+type decodedUserLink struct {
+	Username string
+	Region   string
+	Role     consts.UserRole
+}
+
+func decodeUserLink(raw string) (decodedUserLink, error) {
 	payload, err := decodeUserLinkBase64(raw)
 	if err != nil {
-		return "", "", fmt.Errorf("用户信息无法解析")
+		return decodedUserLink{}, fmt.Errorf("用户信息无法解析")
 	}
 
 	var data userLinkPayload
 	if err := json.Unmarshal(payload, &data); err != nil {
-		return "", "", fmt.Errorf("用户信息格式无效")
+		return decodedUserLink{}, fmt.Errorf("用户信息格式无效")
 	}
 
-	username := firstNonEmpty(data.Username, data.UserName, data.UsernameCN)
-	region := firstNonEmpty(data.Region, data.RegionCN)
-	username = strings.TrimSpace(username)
-	region = strings.TrimSpace(region)
+	username := strings.TrimSpace(firstNonEmpty(data.Username, data.UserName, data.UsernameCN))
+	region := strings.TrimSpace(firstNonEmpty(data.Region, data.RegionCN))
+	role, err := parseUserLinkRole(firstNonEmpty(data.Role, data.RoleCN))
+	if err != nil {
+		return decodedUserLink{}, err
+	}
 	if username == "" {
-		return "", "", fmt.Errorf("用户名不能为空")
+		return decodedUserLink{}, fmt.Errorf("用户名不能为空")
 	}
 	if utf8.RuneCountInString(username) > maxUserLinkUsernameRunes {
-		return "", "", fmt.Errorf("用户名不能超过 %d 个字符", maxUserLinkUsernameRunes)
+		return decodedUserLink{}, fmt.Errorf("用户名不能超过 %d 个字符", maxUserLinkUsernameRunes)
 	}
 	if utf8.RuneCountInString(region) > maxUserLinkRegionRunes {
-		return "", "", fmt.Errorf("地区不能超过 %d 个字符", maxUserLinkRegionRunes)
+		return decodedUserLink{}, fmt.Errorf("地区不能超过 %d 个字符", maxUserLinkRegionRunes)
 	}
-	return username, region, nil
+	return decodedUserLink{Username: username, Region: region, Role: role}, nil
+}
+
+func parseUserLinkRole(raw string) (consts.UserRole, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "user", "guest":
+		return consts.UserRoleGuest, nil
+	case "admin", "管理员":
+		return consts.UserRoleUser, nil
+	default:
+		return "", fmt.Errorf("角色只能是 user 或 admin")
+	}
+}
+
+func userLinkRoleName(role consts.UserRole) string {
+	if role == consts.UserRoleUser {
+		return "admin"
+	}
+	return "user"
 }
 
 func decodeUserLinkBase64(raw string) ([]byte, error) {
@@ -93,22 +122,22 @@ func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "用户信息无效", err)
 	}
-	username, region, err := decodeUserLink(req.User)
+	link, err := decodeUserLink(req.User)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
 
-	user, created, err := h.findOrCreateLinkUser(ctx, c, username, region)
+	user, created, err := h.findOrCreateLinkUser(ctx, c, link)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
-	if user.Role != consts.UserRoleGuest {
-		return h.NewResponseWithError(c, "该用户名对应的不是前台用户", nil)
+	if err := matchUserLinkRole(user.Role, link.Role); err != nil {
+		return h.NewResponseWithError(c, err.Error(), nil)
 	}
 	if created {
-		if err := h.addUserToAllGroups(ctx, kbID, user.ID); err != nil {
-			h.logger.Error("failed to add linked user to groups", log.Error(err))
-			return h.NewResponseWithError(c, "加入用户组失败", err)
+		if err := h.grantLinkUserAccess(ctx, kbID, user); err != nil {
+			h.logger.Error("failed to grant linked user access", log.Error(err))
+			return h.NewResponseWithError(c, err.Error(), err)
 		}
 	}
 
@@ -135,16 +164,29 @@ func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
 	return h.NewResponseWithData(c, v1.AuthLoginUserLinkResp{
 		Username: user.Account,
 		Region:   user.Region,
+		Role:     userLinkRoleName(user.Role),
 	})
+}
+
+func matchUserLinkRole(actual, requested consts.UserRole) error {
+	if requested == consts.UserRoleGuest && actual != consts.UserRoleGuest {
+		return fmt.Errorf("该用户名对应的不是普通用户")
+	}
+	if requested == consts.UserRoleUser && actual == consts.UserRoleAdmin {
+		return fmt.Errorf("超级管理员不能通过此链接登录")
+	}
+	if requested == consts.UserRoleUser && actual != consts.UserRoleUser {
+		return fmt.Errorf("该用户名对应的不是管理员")
+	}
+	return nil
 }
 
 func (h *ShareAuthHandler) findOrCreateLinkUser(
 	ctx context.Context,
 	c echo.Context,
-	username string,
-	region string,
+	link decodedUserLink,
 ) (*domain.User, bool, error) {
-	user, err := h.userUsecase.GetUserByAccount(ctx, username)
+	user, err := h.userUsecase.GetUserByAccount(ctx, link.Username)
 	if err == nil {
 		return user, false, nil
 	}
@@ -158,14 +200,14 @@ func (h *ShareAuthHandler) findOrCreateLinkUser(
 	}
 	user = &domain.User{
 		ID:       uuid.New().String(),
-		Account:  username,
+		Account:  link.Username,
 		Password: password,
-		Role:     consts.UserRoleGuest,
-		Region:   region,
+		Role:     link.Role,
+		Region:   link.Region,
 	}
 	if err := h.userUsecase.CreateUser(ctx, user, consts.GetLicenseEdition(c)); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "duplicate key") {
-			existing, getErr := h.userUsecase.GetUserByAccount(ctx, username)
+			existing, getErr := h.userUsecase.GetUserByAccount(ctx, link.Username)
 			if getErr == nil {
 				return existing, false, nil
 			}
@@ -173,6 +215,23 @@ func (h *ShareAuthHandler) findOrCreateLinkUser(
 		return nil, false, fmt.Errorf("创建用户失败")
 	}
 	return user, true, nil
+}
+
+func (h *ShareAuthHandler) grantLinkUserAccess(ctx context.Context, kbID string, user *domain.User) error {
+	if user.Role == consts.UserRoleGuest {
+		if err := h.addUserToAllGroups(ctx, kbID, user.ID); err != nil {
+			return fmt.Errorf("加入用户组失败")
+		}
+		return nil
+	}
+	if err := h.kbUsecase.KBUserInvite(ctx, kbv1.KBUserInviteReq{
+		KBId:   kbID,
+		UserId: user.ID,
+		Perms:  []string{string(consts.UserKBPermissionFullControl)},
+	}); err != nil {
+		return fmt.Errorf("授予知识库权限失败")
+	}
+	return nil
 }
 
 func (h *ShareAuthHandler) addUserToAllGroups(ctx context.Context, kbID, userID string) error {
