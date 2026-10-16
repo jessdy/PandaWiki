@@ -56,6 +56,7 @@ services:
       - ./data/conf/api:/data
     environment:
       - NATS_PASSWORD=${NATS_PASSWORD}
+      - MQ_NATS_SERVER=nats://panda-wiki-nats:4222
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
@@ -77,6 +78,7 @@ services:
     image: chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-consumer:latest
     environment:
       - NATS_PASSWORD=${NATS_PASSWORD}
+      - MQ_NATS_SERVER=nats://panda-wiki-nats:4222
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - S3_SECRET_KEY=${S3_SECRET_KEY}

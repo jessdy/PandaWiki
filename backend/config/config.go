@@ -101,8 +101,7 @@ func NewConfig() (*Config, error) {
 		MQ: MQConfig{
 			Type: "nats",
 			NATS: NATSConfig{
-				// Server:   fmt.Sprintf("nats://%s.13:4222", SUBNET_PREFIX),
-				Server:   "nats://10.10.10.252:4222",
+				Server:   "nats://panda-wiki-nats:4222",
 				User:     "panda-wiki",
 				Password: "panda-wiki-nats-password",
 			},
