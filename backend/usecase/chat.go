@@ -908,7 +908,12 @@ func (u *ChatUsecase) Chat(ctx context.Context, req *domain.ChatRequest) (<-chan
 				}
 				eventCh <- domain.SSEEvent{Type: "chain_step", Content: string(b)}
 			}
-			sendChainStep(0, "附图检索准备", "已收到附图，将依次完成：识别画面 → 品类判断 →（若命中）按品类提取检索要点 → 向量检索。")
+			testEnvRandom := u.llmUsecase.TestEnvEnabled(ctx) && strings.TrimSpace(req.QaMode) != domain.QaModeWork
+			imagePrepareDetail := "已收到附图，将依次完成：识别画面 → 品类判断 →（若命中）按品类提取检索要点 → 向量检索。"
+			if testEnvRandom {
+				imagePrepareDetail = "已收到附图，将依次完成：识别画面 → 品类判断 →（若命中）按品类提取检索要点 → 随机抽取文档。"
+			}
+			sendChainStep(0, "附图检索准备", imagePrepareDetail)
 
 			dataURL, rerr := ResolveImageRefForVision(ctx, u.s3Client, req.ImagePaths[0])
 			if rerr != nil {
@@ -929,7 +934,11 @@ func (u *ChatUsecase) Chat(ctx context.Context, req *domain.ChatRequest) (<-chan
 					}
 				}
 			}
-			sendChainStep(4, "向量检索", "正在根据上述理解与知识库进行关联检索…")
+			if testEnvRandom {
+				sendChainStep(4, "随机检索", fmt.Sprintf("测试环境已打开，不使用向量模型和重排模型，随机抽取 %d 篇文档。", topN))
+			} else {
+				sendChainStep(4, "向量检索", "正在根据上述理解与知识库进行关联检索…")
+			}
 		}
 
 		var workModeRes workModeGateResult
@@ -1113,6 +1122,7 @@ func (u *ChatUsecase) ChatRagOnly(ctx context.Context, req *domain.ChatRagOnlyRe
 			return
 		}
 		_, rankedNodes, err := u.llmUsecase.GetRankNodes(ctx, GetRankNodesRequest{
+			KBID:                req.KBID,
 			DatasetID:           kb.DatasetID,
 			Question:            req.Message,
 			GroupIDs:            groupIds,
@@ -1207,6 +1217,7 @@ func (u *ChatUsecase) Search(ctx context.Context, req *domain.ChatSearchReq) (*d
 		return nil, err
 	}
 	_, rankedNodes, err := u.llmUsecase.GetRankNodes(ctx, GetRankNodesRequest{
+		KBID:                req.KBID,
 		DatasetID:           kb.DatasetID,
 		Question:            req.Message,
 		GroupIDs:            groupIds,

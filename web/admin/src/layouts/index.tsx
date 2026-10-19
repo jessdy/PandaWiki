@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import KBCreate from '@/components/KB/KBCreate';
 import CreateWikiModal from '@/components/CreateWikiModal';
 import { getApiV1ModelList } from '@/request/Model';
+import { getApiV1SystemTestEnv } from '@/request/TestEnv';
 import { getApiV1KnowledgeBaseList } from '@/request/KnowledgeBase';
 import { getApiV1User } from '@/request/User';
 import { useAppDispatch } from '@/store';
@@ -24,14 +25,17 @@ const useAuth = (hasAuth: boolean) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const getModel = () => {
-    return getApiV1ModelList().then(res => {
+    return Promise.all([
+      getApiV1ModelList(),
+      getApiV1SystemTestEnv().catch(() => ({ enabled: false })),
+    ]).then(([res, testEnv]) => {
       // @ts-expect-error 类型不匹配
       const chat = res.find(it => it.type === 'chat') || null;
       // @ts-expect-error 类型不匹配
       const embedding = res.find(it => it.type === 'embedding') || null;
       // @ts-expect-error 类型不匹配
       const rerank = res.find(it => it.type === 'rerank') || null;
-      const status = chat && embedding && rerank;
+      const status = testEnv?.enabled ? !!chat : !!(chat && embedding && rerank);
       dispatch(setModelStatus(status));
       dispatch(setModelList(res));
       return status;

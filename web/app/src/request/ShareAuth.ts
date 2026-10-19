@@ -115,6 +115,21 @@ export const postShareV1AuthLoginUserLink = (
     ...params,
   });
 
+export const postShareV1AuthLoginTgt = (
+  param: { tgt: string },
+  params: RequestParams = {},
+) =>
+  httpRequest<
+    DomainResponse & { data?: { username: string; region: string; role: string } }
+  >({
+    path: `/share/v1/auth/login/tgt`,
+    method: "POST",
+    body: param,
+    type: ContentType.Json,
+    format: "json",
+    ...params,
+  });
+
 export const postShareV1AuthLoginUserPassword = (
   param: { username: string; password: string },
   params: RequestParams = {},

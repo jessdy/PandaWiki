@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	v1 "github.com/chaitin/panda-wiki/api/share/v1"
+	"github.com/chaitin/panda-wiki/config"
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/handler"
@@ -19,10 +20,12 @@ import (
 
 type ShareAuthHandler struct {
 	*handler.BaseHandler
-	logger      *log.Logger
-	kbUsecase   *usecase.KnowledgeBaseUsecase
-	authUsecase *usecase.AuthUsecase
-	userUsecase *usecase.UserUsecase
+	logger           *log.Logger
+	kbUsecase        *usecase.KnowledgeBaseUsecase
+	authUsecase      *usecase.AuthUsecase
+	userUsecase      *usecase.UserUsecase
+	cloudAuthUsecase *usecase.CloudAuthUsecase
+	config           *config.Config
 }
 
 func NewShareAuthHandler(
@@ -32,13 +35,17 @@ func NewShareAuthHandler(
 	kbUsecase *usecase.KnowledgeBaseUsecase,
 	authUsecase *usecase.AuthUsecase,
 	userUsecase *usecase.UserUsecase,
+	cloudAuthUsecase *usecase.CloudAuthUsecase,
+	config *config.Config,
 ) *ShareAuthHandler {
 	h := &ShareAuthHandler{
-		BaseHandler: baseHandler,
-		logger:      logger.WithModule("handler.share.auth"),
-		kbUsecase:   kbUsecase,
-		authUsecase: authUsecase,
-		userUsecase: userUsecase,
+		BaseHandler:      baseHandler,
+		logger:           logger.WithModule("handler.share.auth"),
+		kbUsecase:        kbUsecase,
+		authUsecase:      authUsecase,
+		userUsecase:      userUsecase,
+		cloudAuthUsecase: cloudAuthUsecase,
+		config:           config,
 	}
 
 	shareAuthMiddleware := middleware.NewShareAuthMiddleware(logger, kbUsecase)
@@ -48,6 +55,7 @@ func NewShareAuthHandler(
 	share.POST("/login/simple", h.AuthLoginSimple)
 	share.POST("/login/user_password", h.AuthLoginUserPassword)
 	share.POST("/login/user_link", h.AuthLoginUserLink)
+	share.POST("/login/tgt", h.AuthLoginTgt)
 	share.POST("/github", h.AuthGitHub)
 
 	// PRO 前端使用的路由前缀：/share/pro/v1/auth/...

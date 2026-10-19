@@ -74,6 +74,34 @@
 
 登录成功后，浏览器获得有效期 30 天的登录会话。接口返回的 `role` 为 `user` 或 `admin`。
 
+## 会话令牌登录
+
+第三方也可以把已经拿到的平台会话令牌放到登录地址上：
+
+```text
+{站点地址}/auth/login?tgt={tgt}
+```
+
+`tgt` 需要做 URL 编码。可选参数 `redirect` 与用户链接登录相同。
+
+系统按下面的顺序处理：
+
+1. 调用平台 `loginVerify`，用 `tgt` 换取 `loginName` 和 `userId`。
+2. 调用平台 `checkPermissions`，确认该用户拥有 `100000:function:kfsuser`。没有该权限时登录失败。
+3. 用 `loginName` 查找本系统账号。
+4. 已存在的普通用户直接登录。密码、地区、角色和用户组保持不变。
+5. 用户不存在时创建普通用户：密码随机生成，地区固定为 `上海`，并加入当前知识库的全部用户组，然后登录。
+6. 同名账号如果不是普通用户，拒绝登录，也不修改原账号。
+
+平台 IP 和端口在后台「系统配置 → 平台地址」中填写。系统按 `http://IP:端口` 调用：
+
+```text
+POST http://IP:端口/CloudUserManagement/rest/UserManageRestService/loginVerify
+POST http://IP:端口/CloudAuthorization/rest/CloudAuthorizationRestService/checkPermissions
+```
+
+后台未填写时，才使用环境变量 `CLOUD_AUTH_BASE_URL`。
+
 ## 示例
 
 李四，上海，普通用户：

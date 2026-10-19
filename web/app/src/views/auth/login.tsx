@@ -14,6 +14,7 @@ import {
   getShareV1AuthGet,
   postShareV1AuthLoginSimple,
   postShareV1AuthLoginUserLink,
+  postShareV1AuthLoginTgt,
   postShareV1AuthLoginUserPassword,
 } from '@/request/ShareAuth';
 import { getShareV1NodeList } from '@/request/ShareNode';
@@ -78,7 +79,7 @@ export default function Login() {
   }>({ username: '', email: '', avatar_url: '' });
   const [loading, setLoading] = useState(false);
   const [linkLoggingIn, setLinkLoggingIn] = useState(() =>
-    Boolean(searchParams.get('user')),
+    Boolean(searchParams.get('user') || searchParams.get('tgt')),
   );
   const linkLoginStarted = useRef(false);
   const [authType, setAuthType] = useState<ConstsAuthType>();
@@ -92,6 +93,7 @@ export default function Login() {
       ? `${window.location.origin}${basePath}${decodeURIComponent(searchParams.get('redirect') || '')}`
       : '';
   const userLink = searchParams.get('user') || '';
+  const tgt = searchParams.get('tgt') || '';
 
   const resolveKbId = () =>
     searchParams.get('kb_id') ||
@@ -250,7 +252,7 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if (!userLink || linkLoginStarted.current) return;
+    if ((!userLink && !tgt) || linkLoginStarted.current) return;
     const kbId = resolveKbId();
     if (!kbId) return;
     linkLoginStarted.current = true;
@@ -258,10 +260,15 @@ export default function Login() {
       setLinkLoggingIn(true);
       try {
         clearCookie();
-        const result = await postShareV1AuthLoginUserLink(
-          { user: userLink },
-          { headers: { 'X-KB-ID': kbId } },
-        );
+        const result = tgt
+          ? await postShareV1AuthLoginTgt(
+              { tgt },
+              { headers: { 'X-KB-ID': kbId } },
+            )
+          : await postShareV1AuthLoginUserLink(
+              { user: userLink },
+              { headers: { 'X-KB-ID': kbId } },
+            );
         const username =
           (result as { username?: string } | undefined)?.username || '';
         localStorage.setItem(
@@ -284,7 +291,7 @@ export default function Login() {
       }
     };
     void loginByLink();
-  }, [kbDetail, redirectUrl, searchParams, setNodeList, userLink]);
+  }, [kbDetail, redirectUrl, searchParams, setNodeList, tgt, userLink]);
 
   useEffect(() => {
     getShareV1AuthGet({}).then(res => {

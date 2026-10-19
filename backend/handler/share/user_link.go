@@ -112,7 +112,6 @@ func decodeUserLinkBase64(raw string) ([]byte, error) {
 }
 
 func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
-	ctx := c.Request().Context()
 	kbID := c.Request().Header.Get("X-KB-ID")
 	if kbID == "" {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
@@ -127,17 +126,30 @@ func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
 
-	user, created, err := h.findOrCreateLinkUser(ctx, c, link)
+	user, err := h.loginLinkedUser(c, kbID, link)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
+	return h.NewResponseWithData(c, v1.AuthLoginUserLinkResp{
+		Username: user.Account,
+		Region:   user.Region,
+		Role:     userLinkRoleName(user.Role),
+	})
+}
+
+func (h *ShareAuthHandler) loginLinkedUser(c echo.Context, kbID string, link decodedUserLink) (*domain.User, error) {
+	ctx := c.Request().Context()
+	user, created, err := h.findOrCreateLinkUser(ctx, c, link)
+	if err != nil {
+		return nil, err
+	}
 	if err := matchUserLinkRole(user.Role, link.Role); err != nil {
-		return h.NewResponseWithError(c, err.Error(), nil)
+		return nil, err
 	}
 	if created {
 		if err := h.grantLinkUserAccess(ctx, kbID, user); err != nil {
 			h.logger.Error("failed to grant linked user access", log.Error(err))
-			return h.NewResponseWithError(c, err.Error(), err)
+			return nil, err
 		}
 	}
 
@@ -155,17 +167,13 @@ func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
 	auth, err = h.authUsecase.AuthRepo.GetOrCreateAuth(ctxWithEdition, auth, consts.SourceTypeUserPassword)
 	if err != nil {
 		h.logger.Error("failed to get or create auth", log.Error(err))
-		return h.NewResponseWithError(c, "创建登录会话失败", err)
+		return nil, fmt.Errorf("创建登录会话失败")
 	}
 	if err := h.authUsecase.SaveNewSession(c, auth); err != nil {
 		h.logger.Error("failed to save session", log.Error(err))
-		return h.NewResponseWithError(c, "保存登录会话失败", err)
+		return nil, fmt.Errorf("保存登录会话失败")
 	}
-	return h.NewResponseWithData(c, v1.AuthLoginUserLinkResp{
-		Username: user.Account,
-		Region:   user.Region,
-		Role:     userLinkRoleName(user.Role),
-	})
+	return user, nil
 }
 
 func matchUserLinkRole(actual, requested consts.UserRole) error {

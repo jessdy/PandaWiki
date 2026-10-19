@@ -24,6 +24,8 @@ type APIHandlers struct {
 	DocumentFeedbackHandler *DocumentFeedbackHandler
 	ConsultHandler          *ConsultHandler
 	StandardTermHandler     *StandardTermHandler
+	TestEnvHandler          *TestEnvHandler
+	CloudAuthHandler        *CloudAuthHandler
 	ExpertProfileHandler    *ExpertProfileHandler
 }
 
@@ -47,6 +49,8 @@ var ProviderSet = wire.NewSet(
 	NewDocumentFeedbackHandler,
 	NewConsultHandler,
 	NewStandardTermHandler,
+	NewTestEnvHandler,
+	NewCloudAuthHandler,
 	NewExpertProfileHandler,
 
 	wire.Struct(new(APIHandlers), "*"),

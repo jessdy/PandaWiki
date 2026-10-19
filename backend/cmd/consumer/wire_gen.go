@@ -56,7 +56,8 @@ func createApp() (*App, error) {
 	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
 	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
 	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, logger)
+	testEnvUsecase := usecase.NewTestEnvUsecase(systemSettingRepo)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, testEnvUsecase, logger)
 	mqProducer, err := mq.NewMQProducer(configConfig, logger)
 	if err != nil {
 		return nil, err

@@ -51,3 +51,13 @@ type AuthLoginUserLinkResp struct {
 	Region   string `json:"region"`
 	Role     string `json:"role"`
 }
+
+type AuthLoginTgtReq struct {
+	Tgt string `json:"tgt" validate:"required"`
+}
+
+type AuthLoginTgtResp struct {
+	Username string `json:"username"`
+	Region   string `json:"region"`
+	Role     string `json:"role"`
+}

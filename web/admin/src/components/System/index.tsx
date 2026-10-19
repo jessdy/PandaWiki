@@ -11,6 +11,11 @@ import ModelConfig, { ModelConfigRef } from './component/ModelConfig';
 import StandardTermsConfig, {
   StandardTermsConfigRef,
 } from './component/StandardTermsConfig';
+import TestEnvConfig from './component/TestEnvConfig';
+import CloudAuthConfig, { CloudAuthConfigRef } from './component/CloudAuthConfig';
+import { getApiV1SystemTestEnv } from '@/request/TestEnv';
+
+type SystemTab = 'model' | 'standard-terms' | 'test-env' | 'cloud-auth';
 
 const System = () => {
   const { user, modelList, isCreateWikiModalOpen } = useAppSelector(
@@ -20,9 +25,9 @@ const System = () => {
   const dispatch = useAppDispatch();
   const modelConfigRef = useRef<ModelConfigRef>(null);
   const standardTermsConfigRef = useRef<StandardTermsConfigRef>(null);
-  const [activeTab, setActiveTab] = useState<'model' | 'standard-terms'>(
-    'model',
-  );
+  const cloudAuthConfigRef = useRef<CloudAuthConfigRef>(null);
+  const [activeTab, setActiveTab] = useState<SystemTab>('model');
+  const [testEnvEnabled, setTestEnvEnabled] = useState(false);
   const [chatModelData, setChatModelData] =
     useState<GithubComChaitinPandaWikiDomainModelListItem | null>(null);
   const [embeddingModelData, setEmbeddingModelData] =
@@ -44,6 +49,7 @@ const System = () => {
 
   const handleModelList = (
     list: GithubComChaitinPandaWikiDomainModelListItem[],
+    testEnvOn = testEnvEnabled,
   ) => {
     const chat = list.find(it => it.type === 'chat') || null;
     const embedding = list.find(it => it.type === 'embedding') || null;
@@ -56,16 +62,25 @@ const System = () => {
     setAnalysisModelData(analysis);
     setAnalysisVLModelData(analysisVL);
 
-    // 检查模型配置状态
-    const status = !!(chat && embedding && rerank);
+    // 测试环境只要求对话模型；关闭后仍要求向量模型和重排模型。
+    const status = testEnvOn ? !!chat : !!(chat && embedding && rerank);
     dispatch(setModelStatus(status));
   };
 
   useEffect(() => {
+    if (user.role !== 'admin') return;
+    getApiV1SystemTestEnv()
+      .then(res => setTestEnvEnabled(!!res?.enabled))
+      .catch(() => setTestEnvEnabled(false));
+  }, [user.role]);
+
+  useEffect(() => {
     if (modelList) {
-      handleModelList(modelList);
+      handleModelList(modelList, testEnvEnabled);
     }
-  }, [modelList]);
+    // handleModelList 读取当前模型列表，随测试环境开关一起刷新状态。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelList, testEnvEnabled]);
 
   useEffect(() => {
     if (isCreateWikiModalOpen) {
@@ -73,23 +88,36 @@ const System = () => {
     }
   }, [isCreateWikiModalOpen]);
 
-  const currentConfigHasChanges = () =>
-    activeTab === 'model'
-      ? (modelConfigRef.current?.hasUnsavedChanges() ?? false)
-      : (standardTermsConfigRef.current?.hasUnsavedChanges() ?? false);
+  const currentConfigHasChanges = () => {
+    if (activeTab === 'model') {
+      return modelConfigRef.current?.hasUnsavedChanges() ?? false;
+    }
+    if (activeTab === 'standard-terms') {
+      return standardTermsConfigRef.current?.hasUnsavedChanges() ?? false;
+    }
+    if (activeTab === 'cloud-auth') {
+      return cloudAuthConfigRef.current?.hasUnsavedChanges() ?? false;
+    }
+    return false;
+  };
 
   const closeCurrentConfig = () => {
     if (activeTab === 'model') {
       if (modelConfigRef.current) modelConfigRef.current.handleClose();
       else setOpen(false);
-    } else {
+    } else if (activeTab === 'standard-terms') {
       if (standardTermsConfigRef.current)
         standardTermsConfigRef.current.handleClose();
       else setOpen(false);
+    } else if (activeTab === 'cloud-auth') {
+      if (cloudAuthConfigRef.current) cloudAuthConfigRef.current.handleClose();
+      else setOpen(false);
+    } else {
+      setOpen(false);
     }
   };
 
-  const switchTab = (nextTab: 'model' | 'standard-terms') => {
+  const switchTab = (nextTab: SystemTab) => {
     if (nextTab === activeTab) return;
     if (!currentConfigHasChanges()) {
       setActiveTab(nextTab);
@@ -128,11 +156,13 @@ const System = () => {
       >
         <Tabs
           value={activeTab}
-          onChange={(_, value: 'model' | 'standard-terms') => switchTab(value)}
+          onChange={(_, value: SystemTab) => switchTab(value)}
           sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}
         >
           <Tab value='model' label='模型配置' />
           <Tab value='standard-terms' label='标准术语' />
+          <Tab value='test-env' label='测试环境' />
+          <Tab value='cloud-auth' label='平台地址' />
         </Tabs>
         {activeTab === 'model' ? (
           <ModelConfig
@@ -145,9 +175,16 @@ const System = () => {
             analysisVLModelData={analysisVLModelData}
             getModelList={getModelList}
           />
-        ) : (
+        ) : activeTab === 'standard-terms' ? (
           <StandardTermsConfig
             ref={standardTermsConfigRef}
+            onCloseModal={() => setOpen(false)}
+          />
+        ) : activeTab === 'test-env' ? (
+          <TestEnvConfig onEnabledChange={setTestEnvEnabled} />
+        ) : (
+          <CloudAuthConfig
+            ref={cloudAuthConfigRef}
             onCloseModal={() => setOpen(false)}
           />
         )}

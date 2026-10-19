@@ -9,18 +9,23 @@ import (
 )
 
 type Config struct {
-	Log           LogConfig    `mapstructure:"log"`
-	HTTP          HTTPConfig   `mapstructure:"http"`
-	AdminPassword string       `mapstructure:"admin_password"`
-	PG            PGConfig     `mapstructure:"pg"`
-	MQ            MQConfig     `mapstructure:"mq"`
-	RAG           RAGConfig    `mapstructure:"rag"`
-	Redis         RedisConfig  `mapstructure:"redis"`
-	Auth          AuthConfig   `mapstructure:"auth"`
-	S3            S3Config     `mapstructure:"s3"`
-	Sentry        SentryConfig `mapstructure:"sentry"`
-	CaddyAPI      string       `mapstructure:"caddy_api"`
-	SubnetPrefix  string       `mapstructure:"subnet_prefix"`
+	Log           LogConfig       `mapstructure:"log"`
+	HTTP          HTTPConfig      `mapstructure:"http"`
+	AdminPassword string          `mapstructure:"admin_password"`
+	PG            PGConfig        `mapstructure:"pg"`
+	MQ            MQConfig        `mapstructure:"mq"`
+	RAG           RAGConfig       `mapstructure:"rag"`
+	Redis         RedisConfig     `mapstructure:"redis"`
+	Auth          AuthConfig      `mapstructure:"auth"`
+	S3            S3Config        `mapstructure:"s3"`
+	Sentry        SentryConfig    `mapstructure:"sentry"`
+	CaddyAPI      string          `mapstructure:"caddy_api"`
+	SubnetPrefix  string          `mapstructure:"subnet_prefix"`
+	CloudAuth     CloudAuthConfig `mapstructure:"cloud_auth"`
+}
+
+type CloudAuthConfig struct {
+	BaseURL string `mapstructure:"base_url"`
 }
 
 type LogConfig struct {
@@ -211,6 +216,9 @@ func overrideWithEnv(c *Config) {
 	// caddy api
 	if env := os.Getenv("CADDY_API"); env != "" {
 		c.CaddyAPI = env
+	}
+	if env := os.Getenv("CLOUD_AUTH_BASE_URL"); env != "" {
+		c.CloudAuth.BaseURL = env
 	}
 	// log level
 	if env := os.Getenv("LOG_LEVEL"); env != "" {

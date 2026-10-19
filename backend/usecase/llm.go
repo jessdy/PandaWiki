@@ -37,6 +37,7 @@ type LLMUsecase struct {
 	categoryPromptRepo  *pg.CategoryPromptRepo
 	methodRuleRepo      *pg.MethodRuleRepo
 	standardTermUsecase *StandardTermUsecase
+	testEnvUsecase      *TestEnvUsecase
 	config              *config.Config
 	logger              *log.Logger
 	modelkit            *modelkit.ModelKit
@@ -47,7 +48,7 @@ const (
 	summaryMaxChunks       = 4     // max chunks to process for summary
 )
 
-func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *pg.ConversationRepository, kbRepo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, modelRepo *pg.ModelRepository, promptRepo *pg.PromptRepo, categoryPromptRepo *pg.CategoryPromptRepo, methodRuleRepo *pg.MethodRuleRepo, standardTermUsecase *StandardTermUsecase, logger *log.Logger) *LLMUsecase {
+func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *pg.ConversationRepository, kbRepo *pg.KnowledgeBaseRepository, nodeRepo *pg.NodeRepository, modelRepo *pg.ModelRepository, promptRepo *pg.PromptRepo, categoryPromptRepo *pg.CategoryPromptRepo, methodRuleRepo *pg.MethodRuleRepo, standardTermUsecase *StandardTermUsecase, testEnvUsecase *TestEnvUsecase, logger *log.Logger) *LLMUsecase {
 	tiktoken.SetBpeLoader(&utils.Localloader{})
 	modelkit := modelkit.NewModelKit(logger.Logger)
 	return &LLMUsecase{
@@ -61,6 +62,7 @@ func NewLLMUsecase(config *config.Config, rag rag.RAGService, conversationRepo *
 		categoryPromptRepo:  categoryPromptRepo,
 		methodRuleRepo:      methodRuleRepo,
 		standardTermUsecase: standardTermUsecase,
+		testEnvUsecase:      testEnvUsecase,
 		logger:              logger.WithModule("usecase.llm"),
 		modelkit:            modelkit,
 	}
@@ -204,6 +206,7 @@ func (u *LLMUsecase) BuildConversationMessageWithRAG(
 				}
 			}
 			rankReq := GetRankNodesRequest{
+				KBID:                     kbID,
 				DatasetID:                kb.DatasetID,
 				Question:                 question,
 				GroupIDs:                 groupIDs,
@@ -212,6 +215,7 @@ func (u *LLMUsecase) BuildConversationMessageWithRAG(
 				TopK:                     topK,
 				WorkModeDirectoryRootIDs: workModeDirRoots,
 				PinnedNodeIDs:            opt.PinnedNodeIDs,
+				IgnoreTestEnv:            strings.TrimSpace(qaMode) == domain.QaModeWork,
 			}
 			// 锚定文档时放宽 TopK 与相似度阈值，确保该文档命中
 			if len(opt.PinnedNodeIDs) > 0 {
@@ -853,6 +857,7 @@ func (u *LLMUsecase) RetrieveCandidateNodesForWorkMode(
 		workModeDirRoots = nil
 	}
 	_, ranked, err := u.GetRankNodes(ctx, GetRankNodesRequest{
+		KBID:                     kbID,
 		DatasetID:                kb.DatasetID,
 		Question:                 question,
 		GroupIDs:                 groupIDs,
@@ -861,6 +866,7 @@ func (u *LLMUsecase) RetrieveCandidateNodesForWorkMode(
 		TopK:                     workModeGateRetrieveTopK,
 		MaxChunksPerDoc:          1,
 		WorkModeDirectoryRootIDs: workModeDirRoots,
+		IgnoreTestEnv:            true,
 	})
 	if err != nil {
 		return nil, err
@@ -1457,6 +1463,7 @@ func filterRankedNodesByWorkModeDirectoryRoots(ranked []*domain.RankedNodeChunks
 }
 
 type GetRankNodesRequest struct {
+	KBID                string
 	DatasetID           string
 	Question            string
 	GroupIDs            []int
@@ -1468,6 +1475,8 @@ type GetRankNodesRequest struct {
 	WorkModeDirectoryRootIDs []string
 	// PinnedNodeIDs 非空时，最终结果仅保留 NodeID ∈ 该集合的文档（实战模式识别成功后强制锚定到唯一文档）。
 	PinnedNodeIDs []string
+	// IgnoreTestEnv 为真时仍走向量检索和重排。实战模式固定忽略测试环境开关。
+	IgnoreTestEnv bool
 }
 
 func (u *LLMUsecase) GetRankNodes(ctx context.Context, req GetRankNodesRequest) (string, []*domain.RankedNodeChunks, error) {
@@ -1475,6 +1484,19 @@ func (u *LLMUsecase) GetRankNodes(ctx context.Context, req GetRankNodesRequest) 
 	topK := req.TopK
 	if topK <= 0 {
 		topK = 10
+	}
+	if !req.IgnoreTestEnv && u.testEnvUsecase != nil && u.testEnvUsecase.Enabled(ctx) {
+		rankedNodes, err := u.randomRankNodes(ctx, req, topK)
+		if err != nil {
+			return "", nil, err
+		}
+		if len(req.WorkModeDirectoryRootIDs) > 0 {
+			rankedNodes = filterRankedNodesByWorkModeDirectoryRoots(rankedNodes, req.WorkModeDirectoryRootIDs)
+		}
+		if len(req.PinnedNodeIDs) > 0 {
+			rankedNodes = filterRankedNodesByPinnedNodeIDs(rankedNodes, req.PinnedNodeIDs)
+		}
+		return req.Question, rankedNodes, nil
 	}
 	// get related documents from raglite
 	rewrittenQuery, records, err := u.rag.QueryRecords(ctx, &rag.QueryRecordsRequest{
@@ -1529,6 +1551,90 @@ func (u *LLMUsecase) GetRankNodes(ctx context.Context, req GetRankNodesRequest) 
 		rankedNodes = filterRankedNodesByPinnedNodeIDs(rankedNodes, req.PinnedNodeIDs)
 	}
 	return rewrittenQuery, rankedNodes, nil
+}
+
+const testEnvDocRuneLimit = 6000
+
+func truncateRunes(content string, limit int) string {
+	runes := []rune(content)
+	if limit <= 0 || len(runes) <= limit {
+		return content
+	}
+	return string(runes[:limit]) + "\n……（测试环境已截断）"
+}
+
+func answerContentFromRelease(release *domain.NodeRelease) string {
+	content := strings.TrimSpace(release.Content)
+	if len(release.Meta.Attributes) > 0 {
+		var b strings.Builder
+		b.WriteString("【文档结构化属性】\n")
+		for k, v := range release.Meta.Attributes {
+			b.WriteString("- ")
+			b.WriteString(k)
+			b.WriteString(": ")
+			b.WriteString(v)
+			b.WriteString("\n")
+		}
+		if content != "" {
+			b.WriteString("\n【文档正文】\n")
+			b.WriteString(content)
+		}
+		content = strings.TrimSpace(b.String())
+	}
+	if content == "" {
+		content = "（该文档暂无正文，请基于文档名与属性作答）"
+	}
+	return truncateRunes(content, testEnvDocRuneLimit)
+}
+
+func (u *LLMUsecase) TestEnvEnabled(ctx context.Context) bool {
+	return u.testEnvUsecase != nil && u.testEnvUsecase.Enabled(ctx)
+}
+
+// randomRankNodes 测试环境：不调用向量模型和重排模型，随机抽取已发布文档交给对话模型理解。
+func (u *LLMUsecase) randomRankNodes(ctx context.Context, req GetRankNodesRequest, topK int) ([]*domain.RankedNodeChunks, error) {
+	kbID := strings.TrimSpace(req.KBID)
+	if kbID == "" {
+		return nil, errors.New("test env retrieval requires kb id")
+	}
+	var allowedIDs []string
+	if len(req.WorkModeDirectoryRootIDs) > 0 {
+		allowedIDs = u.nodeRepo.GetAllChildNodeIDs(ctx, kbID, req.WorkModeDirectoryRootIDs)
+	}
+	docs, err := u.nodeRepo.ListRandomReleasedDocuments(ctx, kbID, topK, allowedIDs, req.GroupIDs)
+	if err != nil {
+		return nil, fmt.Errorf("random retrieve documents failed: %w", err)
+	}
+	ranked := make([]*domain.RankedNodeChunks, 0, len(docs))
+	for _, doc := range docs {
+		if doc == nil || doc.NodeID == "" {
+			continue
+		}
+		pathIDs := []string{doc.NodeID}
+		if len(req.WorkModeDirectoryRootIDs) > 0 {
+			pathIDs = append(append([]string{}, req.WorkModeDirectoryRootIDs...), doc.NodeID)
+		}
+		ranked = append(ranked, &domain.RankedNodeChunks{
+			NodeID:      doc.NodeID,
+			NodeName:    doc.Name,
+			NodeSummary: doc.Meta.Summary,
+			NodeEmoji:   doc.Meta.Emoji,
+			NodePathIDs: pathIDs,
+			Chunks: []*domain.NodeContentChunk{{
+				ID:      doc.NodeID,
+				KBID:    doc.KBID,
+				DocID:   doc.NodeID,
+				Name:    doc.Name,
+				Content: answerContentFromRelease(doc),
+			}},
+		})
+	}
+	u.logger.Info("test env random retrieve documents",
+		log.String("kb_id", kbID),
+		log.Int("top_k", topK),
+		log.Int("document_count", len(ranked)),
+	)
+	return ranked, nil
 }
 
 // ensurePinnedDocsInRanked 保证 pinnedIDs 中的每个文档都在最终上下文里。

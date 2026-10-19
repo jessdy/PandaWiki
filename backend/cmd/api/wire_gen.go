@@ -98,7 +98,9 @@ func createApp() (*App, error) {
 	promptRepo := pg2.NewPromptRepo(db, logger)
 	systemSettingRepo := pg2.NewSystemSettingRepo(db, logger)
 	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
-	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, logger)
+	testEnvUsecase := usecase.NewTestEnvUsecase(systemSettingRepo)
+	cloudAuthUsecase := usecase.NewCloudAuthUsecase(systemSettingRepo)
+	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, testEnvUsecase, logger)
 	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, authMiddleware, logger)
 	appRepository := pg2.NewAppRepository(db, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
@@ -151,6 +153,8 @@ func createApp() (*App, error) {
 	consultUsecase := usecase.NewConsultUsecase(consultRepo, logger)
 	consultHandler := v1.NewConsultHandler(echo, baseHandler, logger, authMiddleware, consultUsecase, userUsecase)
 	standardTermHandler := v1.NewStandardTermHandler(echo, baseHandler, logger, authMiddleware, standardTermUsecase)
+	testEnvHandler := v1.NewTestEnvHandler(echo, baseHandler, logger, authMiddleware, testEnvUsecase)
+	cloudAuthHandler := v1.NewCloudAuthHandler(echo, baseHandler, logger, authMiddleware, cloudAuthUsecase)
 	expertProfileRepo := pg2.NewExpertProfileRepo(db, logger)
 	expertProfileUsecase := usecase.NewExpertProfileUsecase(userRepository, expertProfileRepo)
 	expertProfileHandler := v1.NewExpertProfileHandler(echo, baseHandler, logger, authMiddleware, expertProfileUsecase)
@@ -170,6 +174,8 @@ func createApp() (*App, error) {
 		DocumentFeedbackHandler: documentFeedbackHandler,
 		ConsultHandler:          consultHandler,
 		StandardTermHandler:     standardTermHandler,
+		TestEnvHandler:          testEnvHandler,
+		CloudAuthHandler:        cloudAuthHandler,
 		ExpertProfileHandler:    expertProfileHandler,
 	}
 	shareNodeHandler := share.NewShareNodeHandler(baseHandler, echo, nodeUsecase, logger)
@@ -179,7 +185,7 @@ func createApp() (*App, error) {
 	shareSitemapHandler := share.NewShareSitemapHandler(echo, baseHandler, sitemapUsecase, appUsecase, logger)
 	shareStatHandler := share.NewShareStatHandler(baseHandler, echo, statUseCase, logger)
 	shareCommentHandler := share.NewShareCommentHandler(echo, baseHandler, logger, commentUsecase, appUsecase)
-	shareAuthHandler := share.NewShareAuthHandler(echo, baseHandler, logger, knowledgeBaseUsecase, authUsecase, userUsecase)
+	shareAuthHandler := share.NewShareAuthHandler(echo, baseHandler, logger, knowledgeBaseUsecase, authUsecase, userUsecase, cloudAuthUsecase, configConfig)
 	shareConversationHandler := share.NewShareConversationHandler(baseHandler, echo, conversationUsecase, logger)
 	wechatRepository := pg2.NewWechatRepository(db, logger)
 	wechatUsecase := usecase.NewWechatUsecase(logger, appUsecase, chatUsecase, wechatRepository, authRepo)

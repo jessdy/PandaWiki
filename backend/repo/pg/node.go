@@ -146,6 +146,66 @@ func (r *NodeRepository) GetList(ctx context.Context, req *domain.GetNodeListReq
 	return nodes, nil
 }
 
+// ListRandomReleasedDocuments 从可被问答的文档中随机取出 limit 篇。
+// 测试环境包含未发布文档，使用当前正文。nodeIDs 非 nil 时只在这些节点中抽取。
+// groupIDs 用于匹配「部分开放」文档。
+func (r *NodeRepository) ListRandomReleasedDocuments(
+	ctx context.Context,
+	kbID string,
+	limit int,
+	nodeIDs []string,
+	groupIDs []int,
+) ([]*domain.NodeRelease, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	if nodeIDs != nil && len(nodeIDs) == 0 {
+		return nil, nil
+	}
+	type row struct {
+		NodeID  string          `gorm:"column:node_id"`
+		KBID    string          `gorm:"column:kb_id"`
+		Name    string          `gorm:"column:name"`
+		Content string          `gorm:"column:content"`
+		Meta    domain.NodeMeta `gorm:"column:meta"`
+	}
+	query := r.db.WithContext(ctx).
+		Model(&domain.Node{}).
+		Select("id AS node_id, kb_id, name, content, meta").
+		Where("kb_id = ?", kbID).
+		Where("type = ?", domain.NodeTypeDocument).
+		Where("status IN ?", []domain.NodeStatus{domain.NodeStatusDraft, domain.NodeStatusReleased})
+	if len(groupIDs) > 0 {
+		query = query.Where(
+			"(COALESCE(permissions->>'answerable','') IN ('', ?) OR (permissions->>'answerable' = ? AND id IN (SELECT node_id FROM node_auth_groups WHERE perm = ? AND auth_group_id IN ?)))",
+			consts.NodeAccessPermOpen,
+			consts.NodeAccessPermPartial,
+			consts.NodePermNameAnswerable,
+			groupIDs,
+		)
+	} else {
+		query = query.Where("COALESCE(permissions->>'answerable','') IN ('', ?)", consts.NodeAccessPermOpen)
+	}
+	if nodeIDs != nil {
+		query = query.Where("id IN ?", nodeIDs)
+	}
+	var rows []row
+	if err := query.Order(clause.Expr{SQL: "random()"}).Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	docs := make([]*domain.NodeRelease, 0, len(rows))
+	for _, item := range rows {
+		docs = append(docs, &domain.NodeRelease{
+			NodeID:  item.NodeID,
+			KBID:    item.KBID,
+			Name:    item.Name,
+			Content: item.Content,
+			Meta:    item.Meta,
+		})
+	}
+	return docs, nil
+}
+
 // GetWorkModeDirectoryRootNodeIDs 返回标记为「实战模式检索根目录」的文件夹 node id（可多根）。
 func (r *NodeRepository) GetWorkModeDirectoryRootNodeIDs(ctx context.Context, kbID string) ([]string, error) {
 	var ids []string
