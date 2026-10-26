@@ -17,7 +17,7 @@ admin_password: ""
 # 示例（连接远程 Linux 服务器）:
 #   host=192.168.1.100 user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai
 pg:
-  dsn: "host=10.10.10.252 user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5434 sslmode=disable TimeZone=Asia/Shanghai"
+  dsn: "host=127.0.0.1 user=panda-wiki password=CHANGE_ME dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
 
 # 消息队列配置
 mq:
@@ -36,7 +36,7 @@ rag:
     # RAG 服务地址（连接远程 Linux 服务器）
     # 示例: http://192.168.1.100:5050
     base_url: "http://localhost:5050"
-    api_key: "sk-1234567890"
+    api_key: ""
 
 # Redis 配置
 redis:

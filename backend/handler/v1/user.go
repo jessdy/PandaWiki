@@ -19,6 +19,7 @@ import (
 	"github.com/chaitin/panda-wiki/pkg/ratelimit"
 	"github.com/chaitin/panda-wiki/store/cache"
 	"github.com/chaitin/panda-wiki/usecase"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type UserHandler struct {
@@ -91,6 +92,9 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 
 	if err := c.Validate(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
+	}
+	if err := utils.ValidatePasswordComplexity(req.Password); err != nil {
+		return h.NewResponseWithError(c, err.Error(), nil)
 	}
 
 	authInfo := domain.GetAuthInfoFromCtx(c.Request().Context())
@@ -232,6 +236,9 @@ func (h *UserHandler) ResetPassword(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := utils.ValidatePasswordComplexity(req.NewPassword); err != nil {
+		return h.NewResponseWithError(c, err.Error(), nil)
+	}
 
 	authInfo := domain.GetAuthInfoFromCtx(ctx)
 	if authInfo == nil {
@@ -363,6 +370,9 @@ func (h *UserHandler) CreateGuestUser(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := utils.ValidatePasswordComplexity(req.Password); err != nil {
+		return h.NewResponseWithError(c, err.Error(), nil)
+	}
 
 	// 强制设置为 guest 角色
 	req.Role = consts.UserRoleGuest
@@ -420,6 +430,9 @@ func (h *UserHandler) UpdateGuestUser(c echo.Context) error {
 
 	// 更新密码
 	if req.Password != nil && *req.Password != "" {
+		if err := utils.ValidatePasswordComplexity(*req.Password); err != nil {
+			return h.NewResponseWithError(c, err.Error(), nil)
+		}
 		err = h.usecase.ResetPassword(c.Request().Context(), &v1.ResetPasswordReq{
 			ID:          userID,
 			NewPassword: *req.Password,

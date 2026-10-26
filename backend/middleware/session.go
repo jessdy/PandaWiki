@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/boj/redistore"
@@ -49,9 +50,10 @@ func NewSessionMiddleware(logger *log.Logger, config *config.Config, cache *cach
 
 	store.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   30 * 86400,
+		MaxAge:   7 * 86400,
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
+		Secure:   os.Getenv("COOKIE_SECURE") == "true",
 	}
 
 	return &SessionMiddleware{

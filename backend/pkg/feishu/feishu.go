@@ -113,7 +113,7 @@ func (c *Client) GetUserInfoByCode(ctx context.Context, code string, codeVerifie
 		return nil, fmt.Errorf("failed to decode user info: %w", err)
 	}
 
-	c.logger.Info("GetUserInfoByCode", log.Any("resp", r))
+	c.logger.Info("GetUserInfoByCode succeeded")
 
 	if r.Code != 0 {
 		return nil, fmt.Errorf("failed to get user info: %s", r.Msg)

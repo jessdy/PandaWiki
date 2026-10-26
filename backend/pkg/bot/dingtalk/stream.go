@@ -105,7 +105,7 @@ func (c *DingTalkClient) GetAccessToken() (string, error) {
 		return "", tryErr
 	}
 	accessToken := *response.Body.AccessToken
-	c.logger.Info("get access token", log.String("access_token", accessToken), log.Int("expire_in", int(*response.Body.ExpireIn)))
+	c.logger.Info("get access token", log.Int("expire_in", int(*response.Body.ExpireIn)))
 	c.tokenCache.accessToken = accessToken
 	c.tokenCache.expireAt = time.Now().Add(time.Duration(*response.Body.ExpireIn-300) * time.Second)
 
@@ -220,7 +220,7 @@ func (c *DingTalkClient) OnChatBotMessageReceived(ctx context.Context, data *cha
 	if err != nil {
 		c.logger.Error("GetUserInfo failed", log.Error(err))
 	} else {
-		c.logger.Info("GetUserInfo success", log.Any("userinfo", userinfo))
+		c.logger.Info("GetUserInfo success", log.String("user_id", userinfo.Result.Userid))
 		convInfo.UserInfo.UserID = userinfo.Result.Userid
 		convInfo.UserInfo.NickName = userinfo.Result.Name
 		convInfo.UserInfo.Avatar = userinfo.Result.Avatar

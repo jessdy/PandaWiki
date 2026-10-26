@@ -21,6 +21,7 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/cache"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type AuthUsecase struct {
@@ -178,11 +179,7 @@ func (u *AuthUsecase) SaveNewSession(c echo.Context, auth *domain.Auth) error {
 	newSess := sessions.NewSession(store, domain.SessionName)
 	newSess.IsNew = true
 
-	newSess.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 30,
-		HttpOnly: true,
-	}
+	newSess.Options = utils.SessionCookieOptions(c)
 
 	newSess.Values["user_id"] = auth.ID
 	newSess.Values["kb_id"] = auth.KBID

@@ -204,6 +204,7 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBaseDetail(c echo.Context) error {
 	if !perms.Contains(consts.UserKBPermissionFullControl) {
 		kb.AccessSettings.PrivateKey = ""
 		kb.AccessSettings.PublicKey = ""
+		kb.AccessSettings.SimpleAuth.Password = ""
 	}
 
 	return h.NewResponseWithData(c, &domain.KnowledgeBaseDetail{

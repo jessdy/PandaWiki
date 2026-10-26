@@ -89,7 +89,7 @@ func (c *Client) GetUserInfo(code string) (*UserInfo, error) {
 		return nil, err
 	}
 
-	c.logger.Info("oauth GetUserInfo:", log.Any("resp", string(buf)))
+	c.logger.Info("oauth GetUserInfo succeeded", log.Int("bytes", len(buf)))
 
 	jsonString := string(buf)
 

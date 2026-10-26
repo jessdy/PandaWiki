@@ -6,8 +6,8 @@ import * as Sentry from '@sentry/nextjs';
 
 // 只在生产环境下启用 Sentry
 if (process.env.NODE_ENV === 'production') {
-  Sentry.init({
-    dsn: 'https://88c396fc9b383382005465cfc9120e5d@sentry.baizhi.cloud/5',
+Sentry.init({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
 
     // Add optional integrations for additional features
     integrations: [Sentry.replayIntegration()],

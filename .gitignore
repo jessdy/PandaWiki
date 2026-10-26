@@ -35,3 +35,5 @@ local
 __debug*
 
 .qoder
+
+docs/安全测试/**

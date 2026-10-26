@@ -2,10 +2,10 @@ package usecase
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -35,11 +35,7 @@ func NewCrawlerUsecase(logger *log.Logger, mqConsumer mq.MQConsumer, cache *cach
 		anydocClient: anydocClient,
 		cache:        cache,
 		httpClient: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
+			Timeout: 30 * time.Second,
 		},
 	}, nil
 }

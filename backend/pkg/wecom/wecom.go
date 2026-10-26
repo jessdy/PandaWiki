@@ -224,7 +224,7 @@ func (c *Client) GetUserInfoByCode(ctx context.Context, code string) (*UserDetai
 	}
 	defer resp.Body.Close()
 
-	c.logger.Debug("GetUserInfoByCode raw resp:", log.Any("raw", string(rawBody)))
+	c.logger.Debug("GetUserInfoByCode response received", log.Int("bytes", len(rawBody)))
 
 	resp.Body = io.NopCloser(bytes.NewReader(rawBody))
 
@@ -233,7 +233,7 @@ func (c *Client) GetUserInfoByCode(ctx context.Context, code string) (*UserDetai
 		return nil, fmt.Errorf("failed to decode user info response: %w", err)
 	}
 
-	c.logger.Debug("GetUserInfoByCode resp:", log.Any("resp", userInfoResp))
+	c.logger.Debug("GetUserInfoByCode decoded")
 
 	if userInfoResp.ErrCode != 0 {
 		return nil, fmt.Errorf("failed to get user info: %s", userInfoResp.ErrMsg)
@@ -256,7 +256,7 @@ func (c *Client) GetUserInfoByCode(ctx context.Context, code string) (*UserDetai
 		return nil, fmt.Errorf("failed to decode user detail response: %w", err)
 	}
 
-	c.logger.Debug("GetUserInfoByCode detail info", log.Any("resp", UserDetailResp))
+	c.logger.Debug("GetUserInfoByCode detail decoded")
 
 	if UserDetailResp.Errcode != 0 {
 		return nil, fmt.Errorf("failed to get user detail: %s", UserDetailResp.Errmsg)
@@ -328,7 +328,7 @@ func (c *Client) GetUserList(ctx context.Context, deptID string) (*UserListRespo
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 
-	c.logger.Debug("GetUserList raw resp:", log.Any("raw", string(rawBody)))
+	c.logger.Debug("GetUserList response received", log.Int("bytes", len(rawBody)))
 
 	resp.Body = io.NopCloser(bytes.NewReader(rawBody))
 

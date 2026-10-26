@@ -181,7 +181,7 @@ func (c *Client) GetAccessToken() (string, error) {
 		return "", tryErr
 	}
 	accessToken := *response.Body.AccessToken
-	c.logger.Debug("get access token", log.String("access_token", accessToken), log.Int("expire_in", int(*response.Body.ExpireIn)))
+	c.logger.Debug("get access token", log.Int("expire_in", int(*response.Body.ExpireIn)))
 
 	if err := c.cache.Set(ctx, cacheKey, accessToken, time.Duration(*response.Body.ExpireIn-300)*time.Second).Err(); err != nil {
 		c.logger.Warn("failed to set cache", log.Error(err))
@@ -337,7 +337,7 @@ func (c *Client) GetUserList(deptID int) (*GetUserListResp, error) {
 		return nil, fmt.Errorf("DingTalk API returned non-200 status: %s, response: %s", resp.Status, string(body))
 	}
 
-	c.logger.Debug("GetUserList:", log.String("body", string(body)))
+	c.logger.Debug("GetUserList response received", log.Int("bytes", len(body)))
 	var getUserListResp GetUserListResp
 	if err := json.Unmarshal(body, &getUserListResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON response: %w", err)

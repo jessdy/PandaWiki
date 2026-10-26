@@ -101,21 +101,21 @@ func NewConfig() (*Config, error) {
 			Port: 8000,
 		},
 		PG: PGConfig{
-			DSN: "host=10.10.10.252 user=panda-wiki password=panda-wiki-secret dbname=panda-wiki port=5434 sslmode=disable TimeZone=Asia/Shanghai",
+			DSN: "",
 		},
 		MQ: MQConfig{
 			Type: "nats",
 			NATS: NATSConfig{
 				Server:   "nats://panda-wiki-nats:4222",
 				User:     "panda-wiki",
-				Password: "panda-wiki-nats-password",
+				Password: "",
 			},
 		},
 		RAG: RAGConfig{
 			Provider: "ct",
 			CTRAG: CTRAGConfig{
 				BaseURL: fmt.Sprintf("http://%s.18:5050", SUBNET_PREFIX),
-				APIKey:  "sk-1234567890",
+				APIKey:  "",
 			},
 		},
 		Redis: RedisConfig{
@@ -132,8 +132,8 @@ func NewConfig() (*Config, error) {
 			SecretKey: "",
 		},
 		Sentry: SentryConfig{
-			Enabled: true,
-			DSN:     "https://2a4cff1ae04b624ffc72663f523024ff@sentry.baizhi.cloud/4",
+			Enabled: false,
+			DSN:     "",
 		},
 		CaddyAPI:     "/app/run/caddy-admin.sock",
 		SubnetPrefix: "169.254.15",

@@ -2,6 +2,7 @@ package share
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -15,7 +16,10 @@ import (
 	"github.com/chaitin/panda-wiki/handler"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/middleware"
+	"github.com/chaitin/panda-wiki/pkg/ratelimit"
+	"github.com/chaitin/panda-wiki/store/cache"
 	"github.com/chaitin/panda-wiki/usecase"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type ShareAuthHandler struct {
@@ -26,6 +30,7 @@ type ShareAuthHandler struct {
 	userUsecase      *usecase.UserUsecase
 	cloudAuthUsecase *usecase.CloudAuthUsecase
 	config           *config.Config
+	rateLimiter      *ratelimit.RateLimiter
 }
 
 func NewShareAuthHandler(
@@ -37,6 +42,7 @@ func NewShareAuthHandler(
 	userUsecase *usecase.UserUsecase,
 	cloudAuthUsecase *usecase.CloudAuthUsecase,
 	config *config.Config,
+	cache *cache.Cache,
 ) *ShareAuthHandler {
 	h := &ShareAuthHandler{
 		BaseHandler:      baseHandler,
@@ -46,6 +52,7 @@ func NewShareAuthHandler(
 		userUsecase:      userUsecase,
 		cloudAuthUsecase: cloudAuthUsecase,
 		config:           config,
+		rateLimiter:      ratelimit.NewRateLimiter(logger, cache),
 	}
 
 	shareAuthMiddleware := middleware.NewShareAuthMiddleware(logger, kbUsecase)
@@ -120,6 +127,10 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
 	}
 
+	if err := h.rejectIfLoginLocked(c); err != nil {
+		return err
+	}
+
 	var req v1.AuthLoginSimpleReq
 	if err := c.Bind(&req); err != nil {
 		h.logger.Error("parse request failed", log.Error(err))
@@ -135,9 +146,11 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 		return h.NewResponseWithError(c, "simple auth is not enabled", nil)
 	}
 
-	if req.Password != kb.AccessSettings.SimpleAuth.Password {
+	if !utils.ConstantTimeEqual(req.Password, kb.AccessSettings.SimpleAuth.Password) {
+		h.rateLimiter.LockAttempt(ctx, c.RealIP())
 		return h.NewResponseWithError(c, "simple auth password is incorrect", nil)
 	}
+	_ = h.rateLimiter.ResetLoginAttempts(ctx, c.RealIP())
 
 	s := c.Get(domain.SessionCacheKey)
 	if s == nil {
@@ -148,11 +161,7 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 	newSess := sessions.NewSession(store, domain.SessionName)
 	newSess.IsNew = true
 
-	newSess.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 30,
-		HttpOnly: true,
-	}
+	newSess.Options = utils.SessionCookieOptions(c)
 
 	newSess.Values["kb_id"] = kb.ID
 
@@ -224,15 +233,23 @@ func (h *ShareAuthHandler) AuthLoginUserPassword(c echo.Context) error {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
 	}
 
+	if err := h.rejectIfLoginLocked(c); err != nil {
+		return err
+	}
+
 	var req v1.AuthLoginUserPasswordReq
 	if err := c.Bind(&req); err != nil {
 		h.logger.Error("parse request failed", log.Error(err))
 		return h.NewResponseWithError(c, "invalid request", nil)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "invalid request", err)
+	}
 
 	// 验证用户名和密码
 	user, err := h.userUsecase.VerifyUser(ctx, req.Username, req.Password)
 	if err != nil {
+		h.rateLimiter.LockAttempt(ctx, c.RealIP())
 		return h.NewResponseWithError(c, "用户名或密码错误", nil)
 	}
 
@@ -240,6 +257,7 @@ func (h *ShareAuthHandler) AuthLoginUserPassword(c echo.Context) error {
 	if user.Role == consts.UserRoleAdmin {
 		return h.NewResponseWithError(c, "管理员账户不能通过此方式登录", nil)
 	}
+	_ = h.rateLimiter.ResetLoginAttempts(ctx, c.RealIP())
 
 	// 获取知识库信息
 	kb, err := h.kbUsecase.GetKnowledgeBase(ctx, kbID)
@@ -300,10 +318,9 @@ func (h *ShareAuthHandler) AuthLogout(c echo.Context) error {
 	}
 
 	// 通过设置 MaxAge<0 来让浏览器删除 cookie
-	sess.Options = &sessions.Options{
-		Path:   "/",
-		MaxAge: -1,
-	}
+	opts := utils.SessionCookieOptions(c)
+	opts.MaxAge = -1
+	sess.Options = opts
 	sess.Values = map[interface{}]interface{}{}
 
 	if err := sess.Save(c.Request(), c.Response()); err != nil {
@@ -312,4 +329,12 @@ func (h *ShareAuthHandler) AuthLogout(c echo.Context) error {
 	}
 
 	return h.NewResponseWithData(c, nil)
+}
+
+func (h *ShareAuthHandler) rejectIfLoginLocked(c echo.Context) error {
+	locked, remaining := h.rateLimiter.CheckIPLocked(c.Request().Context(), c.RealIP())
+	if !locked {
+		return nil
+	}
+	return h.NewResponseWithError(c, fmt.Sprintf("登录失败次数过多，请 %s 后重试", remaining.Round(time.Second)), nil)
 }

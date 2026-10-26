@@ -1217,15 +1217,18 @@ func (r *NodeRepository) reorderPositions(tx *gorm.DB, nodes []*domain.Node) err
 		batch := updates[i:end]
 
 		values := make([]string, 0, len(batch))
+		args := make([]any, 0, len(batch)*2)
 		for _, update := range batch {
-			id := update["id"]
-			pos := update["position"]
-			values = append(values, fmt.Sprintf("('%v', %v)", id, pos))
+			id, _ := update["id"].(string)
+			pos, _ := update["position"].(float64)
+			args = append(args, id, pos)
+			n := len(args)
+			values = append(values, fmt.Sprintf("($%d::text, $%d::float8)", n-1, n))
 		}
 
 		sql := fmt.Sprintf("UPDATE nodes SET position = new_values.new_value FROM (VALUES %s) AS new_values(id, new_value) WHERE nodes.id = new_values.id", strings.Join(values, ", "))
 
-		if err := tx.Exec(sql).Error; err != nil {
+		if err := tx.Exec(sql, args...).Error; err != nil {
 			return err
 		}
 	}

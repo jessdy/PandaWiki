@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"mime"
@@ -35,11 +34,6 @@ import (
 func HTTPGet(url string) ([]byte, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
 	}
 
 	resp, err := client.Get(url)

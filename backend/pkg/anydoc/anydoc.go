@@ -3,7 +3,6 @@ package anydoc
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,11 +58,7 @@ func NewClient(logger *log.Logger, mqConsumer mq.MQConsumer) (*Client, error) {
 	client := &Client{
 		logger: logger.WithModule("anydoc.client"),
 		httpClient: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
+			Timeout: 60 * time.Second,
 		},
 		taskWaiters: make(map[string]chan *domain.AnydocTaskExportEvent),
 		mqConsumer:  mqConsumer,

@@ -107,11 +107,11 @@ func (h *FileHandler) UploadAnydoc(c echo.Context) error {
 	}
 
 	h.logger.Debug("AnydocUpload file", "path", path)
-	_, err = h.fileUsecase.AnyDocUploadFile(c.Request().Context(), file, path)
+	key, err := h.fileUsecase.AnyDocUploadFile(c.Request().Context(), file, path)
 	if err != nil {
 		return h.NewResponseWithError(c, "upload failed", err)
 	}
-	url := fmt.Sprintf("/static-file/%s", strings.TrimPrefix(path, "/"))
+	url := fmt.Sprintf("/static-file/%s", strings.TrimPrefix(key, "/"))
 	h.logger.Debug("AnydocUpload file", "path", url)
 
 	return c.JSON(http.StatusOK, domain.AnydocUploadResp{

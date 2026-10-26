@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: panda-wiki
-      POSTGRES_PASSWORD: panda-wiki-secret
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: panda-wiki
       TZ: Asia/Shanghai
     ports:
@@ -26,7 +26,7 @@ services:
     image: redis:7-alpine
     container_name: panda-wiki-redis
     restart: unless-stopped
-    command: redis-server --requirepass panda-wiki-redis-password
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
@@ -51,7 +51,7 @@ services:
       - "--user"
       - "panda-wiki"
       - "--pass"
-      - "panda-wiki-nats-password"
+      - "${NATS_PASSWORD}"
     ports:
       - "4222:4222"   # 客户端连接端口
       - "8222:8222"   # HTTP 监控端口
@@ -71,7 +71,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: s3panda-wiki
-      MINIO_ROOT_PASSWORD: panda-wiki-minio-secret
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9000:9000"   # API 端口
       - "9001:9001"   # 控制台端口
@@ -96,7 +96,7 @@ services:
   #   container_name: panda-wiki-ct-rag
   #   restart: unless-stopped
   #   environment:
-  #     - API_KEY=sk-1234567890
+  #     - API_KEY=${RAG_API_KEY}
   #   ports:
   #     - "5050:5050"
   #   networks:

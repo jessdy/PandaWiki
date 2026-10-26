@@ -18,6 +18,7 @@ import React, {
 import { useSmartScroll } from '@/hooks';
 import { clearImageBlobCache, createImageRenderer } from './imageRenderer';
 import { incrementalRender } from './incrementalRenderer';
+import { sanitizeMarkdownHtml } from './sanitizeHtml';
 import { createMermaidRenderer } from './mermaidRenderer';
 import { getImagePath } from '@/utils/getImagePath';
 import {
@@ -424,7 +425,7 @@ const MarkDown2: React.FC<MarkDown2Props> = ({
     try {
       // 渲染markdown（thinking标签在renderer rules中直接处理）
       const rawHtml = mdRef.current.render(processedContent);
-      const newHtml = patchChatReferenceListHtml(rawHtml);
+      const newHtml = sanitizeMarkdownHtml(patchChatReferenceListHtml(rawHtml));
 
       incrementalRender(containerRef.current, newHtml, lastContentRef.current);
       lastContentRef.current = processedContent;

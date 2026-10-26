@@ -2,13 +2,13 @@ package cas
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/chaitin/panda-wiki/log"
 )
@@ -114,9 +114,7 @@ func NewClient(ctx context.Context, logger *log.Logger, config Config) (*Client,
 		logger: logger.WithModule("pkg.cas"),
 		config: &config,
 		httpClient: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
+			Timeout: 15 * time.Second,
 		},
 	}, nil
 }
