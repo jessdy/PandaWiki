@@ -23,6 +23,7 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/s3"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 const maxUploadBytes int64 = 100 << 20
@@ -53,7 +54,7 @@ func (u *FileUsecase) UploadFileGetUrl(ctx context.Context, kbID string, file *m
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("http://panda-wiki-minio:9000/static-file/%s", key), nil
+	return utils.StaticFilePublicURL(u.config.S3.Endpoint, key), nil
 }
 
 func (u *FileUsecase) UploadFile(ctx context.Context, kbID string, file *multipart.FileHeader) (string, error) {

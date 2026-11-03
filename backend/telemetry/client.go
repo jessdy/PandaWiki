@@ -63,8 +63,12 @@ type Client struct {
 
 // NewClient creates a new telemetry client
 func NewClient(logger *log.Logger, repo *pg.KnowledgeBaseRepository, modelUsecase *usecase.ModelUsecase, userUsecase *usecase.UserUsecase, nodeRepo *pg.NodeRepository, conversationRepo *pg.ConversationRepository, mcpRepo *pg.MCPRepository, cfg *config.Config) (*Client, error) {
-	baseURL := "https://baizhi.cloud/api/public/data/report"
-	aesKey := "SZ3SDP38y9Gg2c6yHdLPgDeX"
+	baseURL := strings.TrimSpace(os.Getenv("TELEMETRY_BASE_URL"))
+	aesKey := strings.TrimSpace(os.Getenv("TELEMETRY_AES_KEY"))
+	if aesKey == "" {
+		// backward-compatible alias
+		aesKey = strings.TrimSpace(os.Getenv("TELEMETRY_SM4_KEY"))
+	}
 
 	client := &Client{
 		baseURL: baseURL,
@@ -82,6 +86,9 @@ func NewClient(logger *log.Logger, repo *pg.KnowledgeBaseRepository, modelUsecas
 		mcpRepo:          mcpRepo,
 		cfg:              cfg,
 		aesKey:           aesKey,
+	}
+	if aesKey == "" || baseURL == "" {
+		client.logger.Warn("TELEMETRY_BASE_URL/TELEMETRY_SM4_KEY not set, telemetry reporting disabled")
 	}
 
 	// get or create machine ID
@@ -237,8 +244,15 @@ func (c *Client) nextReportDataDelay() time.Duration {
 	return time.Until(nextStart.Add(offset))
 }
 
+func (c *Client) reportingEnabled() bool {
+	return strings.TrimSpace(c.aesKey) != "" && strings.TrimSpace(c.baseURL) != ""
+}
+
 // reportInstallation reports installation information
 func (c *Client) reportInstallation() error {
+	if !c.reportingEnabled() {
+		return nil
+	}
 	event := InstallationEvent{
 		Version:   Version,
 		Timestamp: time.Now().Format(time.RFC3339),
@@ -293,6 +307,9 @@ func (c *Client) reportInstallation() error {
 }
 
 func (c *Client) reportData() error {
+	if !c.reportingEnabled() {
+		return nil
+	}
 	event := DailyReportEvent{
 		InstallationEvent: InstallationEvent{
 			Version:   Version,

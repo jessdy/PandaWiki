@@ -132,7 +132,7 @@ func createApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	crawlerUsecase, err := usecase.NewCrawlerUsecase(logger, mqConsumer, cacheCache)
+	crawlerUsecase, err := usecase.NewCrawlerUsecase(logger, mqConsumer, cacheCache, configConfig)
 	if err != nil {
 		return nil, err
 	}

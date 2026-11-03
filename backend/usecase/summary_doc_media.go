@@ -14,6 +14,7 @@ import (
 
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/store/s3"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 var (
@@ -116,7 +117,7 @@ func ResolveImageRefForVision(ctx context.Context, client *s3.MinioClient, ref s
 		return "", fmt.Errorf("empty image reference")
 	}
 	lower := strings.ToLower(ref)
-	isHTTP := strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+	isHTTP := utils.IsHTTPURL(ref)
 	if isHTTP && strings.Contains(ref, "/static-file/") {
 		key, ok := StaticFileObjectKeyFromURL(ref)
 		if ok {

@@ -56,8 +56,8 @@ s3:
   # S3 服务地址（连接远程 Linux 服务器）
   # 示例: 192.168.1.100:9000
   endpoint: "localhost:9000"
-  access_key: "s3panda-wiki"
-  secret_key: ""
+  access_key: ""  # 建议使用环境变量 S3_ACCESS_KEY
+  secret_key: ""  # 建议使用环境变量 S3_SECRET_KEY
 
 # Sentry 错误监控（可选）
 sentry:

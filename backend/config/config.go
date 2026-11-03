@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -96,44 +98,38 @@ func NewConfig() (*Config, error) {
 		Log: LogConfig{
 			Level: 0,
 		},
-		AdminPassword: "",
+		// AdminPassword / JWT / Redis / S3 secrets must come from config file or env.
 		HTTP: HTTPConfig{
 			Port: 8000,
 		},
-		PG: PGConfig{
-			DSN: "",
-		},
+		PG: PGConfig{},
 		MQ: MQConfig{
 			Type: "nats",
 			NATS: NATSConfig{
-				Server:   "nats://panda-wiki-nats:4222",
-				User:     "panda-wiki",
-				Password: "",
+				Server: "nats://panda-wiki-nats:4222",
+				User:   "panda-wiki",
 			},
 		},
 		RAG: RAGConfig{
 			Provider: "ct",
 			CTRAG: CTRAGConfig{
-				BaseURL: fmt.Sprintf("http://%s.18:5050", SUBNET_PREFIX),
-				APIKey:  "",
+				BaseURL: (&url.URL{
+					Scheme: "http",
+					Host:   fmt.Sprintf("%s.18:5050", SUBNET_PREFIX),
+				}).String(),
 			},
 		},
 		Redis: RedisConfig{
-			Addr:     "panda-wiki-redis:6379",
-			Password: "",
+			Addr: "panda-wiki-redis:6379",
 		},
 		Auth: AuthConfig{
 			Type: "jwt",
-			JWT:  JWTConfig{Secret: ""},
 		},
 		S3: S3Config{
-			Endpoint:  "panda-wiki-minio:9000",
-			AccessKey: "s3panda-wiki",
-			SecretKey: "",
+			Endpoint: "panda-wiki-minio:9000",
 		},
 		Sentry: SentryConfig{
 			Enabled: false,
-			DSN:     "",
 		},
 		CaddyAPI:     "/app/run/caddy-admin.sock",
 		SubnetPrefix: "169.254.15",
@@ -160,7 +156,31 @@ func NewConfig() (*Config, error) {
 	// finally, override sensitive info with env variables
 	overrideWithEnv(defaultConfig)
 
+	if err := validateRequiredSecrets(defaultConfig); err != nil {
+		return nil, err
+	}
+
 	return defaultConfig, nil
+}
+
+func validateRequiredSecrets(c *Config) error {
+	missing := make([]string, 0, 4)
+	if strings.TrimSpace(c.Auth.JWT.Secret) == "" {
+		missing = append(missing, "JWT_SECRET")
+	}
+	if strings.TrimSpace(c.Redis.Password) == "" {
+		missing = append(missing, "REDIS_PASSWORD")
+	}
+	if strings.TrimSpace(c.S3.AccessKey) == "" {
+		missing = append(missing, "S3_ACCESS_KEY")
+	}
+	if strings.TrimSpace(c.S3.SecretKey) == "" {
+		missing = append(missing, "S3_SECRET_KEY")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf("missing required secrets: %s (set via environment or config file)", strings.Join(missing, ", "))
 }
 
 // overrideWithEnv override sensitive info with env variables
@@ -177,11 +197,17 @@ func overrideWithEnv(c *Config) {
 	if env := os.Getenv("JWT_SECRET"); env != "" {
 		c.Auth.JWT.Secret = env
 	}
+	if env := os.Getenv("S3_ACCESS_KEY"); env != "" {
+		c.S3.AccessKey = env
+	}
 	if env := os.Getenv("S3_SECRET_KEY"); env != "" {
 		c.S3.SecretKey = env
 	}
 	if env := os.Getenv("ADMIN_PASSWORD"); env != "" {
 		c.AdminPassword = env
+	}
+	if env := os.Getenv("RAG_API_KEY"); env != "" {
+		c.RAG.CTRAG.APIKey = env
 	}
 	if env := os.Getenv("SUBNET_PREFIX"); env != "" {
 		c.SubnetPrefix = env
@@ -229,7 +255,7 @@ func overrideWithEnv(c *Config) {
 			// 8: error
 			c.Log.Level = i
 		} else {
-			fmt.Fprintf(os.Stderr, "Invalid log level: %s with err: %s\n", env, err)
+			fmt.Fprintln(os.Stderr, "Invalid LOG_LEVEL; using default")
 		}
 	}
 }

@@ -20,14 +20,17 @@ RUN apk update \
     && apk upgrade \
     && apk add --no-cache ca-certificates tzdata \
     && update-ca-certificates 2>/dev/null || true \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && adduser -D -H -u 10001 panda
 
 # runtime 中 pg.go 使用编译时源码路径 /src/store/pg/migration，需在镜像中保留该路径
 RUN mkdir -p /src/store/pg/migration
 
 WORKDIR /app
-COPY --from=builder /build/panda-wiki-consumer /app/panda-wiki-consumer
-COPY --from=builder /src/store/pg/migration /app/migration
-COPY --from=builder /src/store/pg/migration /src/store/pg/migration
+COPY --from=builder --chown=panda:panda /build/panda-wiki-consumer /app/panda-wiki-consumer
+COPY --from=builder --chown=panda:panda /src/store/pg/migration /app/migration
+COPY --from=builder --chown=panda:panda /src/store/pg/migration /src/store/pg/migration
+
+USER panda
 
 CMD ["./panda-wiki-consumer"]

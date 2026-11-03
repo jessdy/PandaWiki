@@ -17,6 +17,7 @@ import (
 	"github.com/chaitin/panda-wiki/repo/mq"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/rag"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type ModelUsecase struct {
@@ -159,7 +160,7 @@ func (u *ModelUsecase) GetChatModel(ctx context.Context) (*domain.Model, error) 
 			Model:    modelName,
 			Type:     domain.ModelTypeChat,
 			IsActive: true,
-			BaseURL:  consts.AutoModeBaseURL,
+			BaseURL:  utils.ModelAutoBaseURL(),
 			APIKey:   modelModeSetting.AutoModeAPIKey,
 			Provider: domain.ModelProviderBrandBaiZhiCloud,
 		}
@@ -195,7 +196,7 @@ func (u *ModelUsecase) SwitchMode(ctx context.Context, req *domain.SwitchModeReq
 		check, err := u.modelkit.CheckModel(ctx, &modelkitDomain.CheckModelReq{
 			Provider: string(domain.ModelProviderBrandBaiZhiCloud),
 			Model:    modelName,
-			BaseURL:  consts.AutoModeBaseURL,
+			BaseURL:  utils.ModelAutoBaseURL(),
 			APIKey:   req.AutoModeAPIKey,
 			Type:     string(domain.ModelTypeChat),
 		})
@@ -328,7 +329,7 @@ func (u *ModelUsecase) updateRAGModelsByMode(ctx context.Context, mode, autoMode
 				Model:    modelName,
 				Type:     modelType,
 				IsActive: true,
-				BaseURL:  consts.AutoModeBaseURL,
+				BaseURL:  utils.ModelAutoBaseURL(),
 				APIKey:   autoModeAPIKey,
 				Provider: domain.ModelProviderBrandBaiZhiCloud,
 			}

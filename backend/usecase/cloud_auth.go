@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -97,10 +99,10 @@ func CloudAuthBaseURL(setting *domain.CloudAuthSetting) string {
 		return ""
 	}
 	host := strings.Trim(strings.TrimSpace(setting.Host), "[]")
-	if strings.Contains(host, ":") {
-		host = "[" + host + "]"
-	}
-	return fmt.Sprintf("http://%s:%d", host, setting.Port)
+	return (&url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort(host, strconv.Itoa(setting.Port)),
+	}).String()
 }
 
 func validCloudAuthHost(host string) bool {

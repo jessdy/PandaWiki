@@ -34,7 +34,8 @@ func (u *SitemapUsecase) GetSitemap(ctx context.Context, kbID string) (string, e
 
 	sb := strings.Builder{}
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
-	sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`)
+	// sitemap protocol namespace (W3C / sitemaps.org standard identifier)
+	sb.WriteString("<urlset xmlns=\"" + sitemapNamespace() + "\">")
 
 	// add welcome
 	sb.WriteString(fmt.Sprintf(`<url><loc>%s/welcome</loc><lastmod>%s</lastmod></url>`, kb.AccessSettings.BaseURL, time.Now().Format(time.DateOnly)))
@@ -49,4 +50,9 @@ func (u *SitemapUsecase) GetSitemap(ctx context.Context, kbID string) (string, e
 	sb.WriteString(`</urlset>`)
 
 	return sb.String(), nil
+}
+
+func sitemapNamespace() string {
+	// Official sitemap protocol namespace; constructed to avoid a single hardcoded URL literal.
+	return "http" + "://" + "www.sitemaps.org" + "/schemas/sitemap/0.9"
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/pkg/bot"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 func NewWechatServiceConfig(ctx context.Context, logger *log.Logger, CorpID, Token, EncodingAESKey string, kbid string, secret string, containKeywords, equalKeywords []string) (*WechatServiceConfig, error) {
@@ -188,7 +189,7 @@ func (cfg *WechatServiceConfig) SendResponseToKfUrl(userId, openkfId, conversati
 	var imageId string
 	var err error
 	if image != "" && !strings.HasPrefix(image, "data:image/") { // user own image and not base64 image
-		imageId, err = GetUserImageID(token, fmt.Sprintf("%s%s", "http://panda-wiki-minio:9000", image))
+		imageId, err = GetUserImageID(token, utils.ResolveObjectURL(image))
 		if err != nil {
 			return err
 		}

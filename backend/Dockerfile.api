@@ -20,7 +20,8 @@ RUN apk update \
     && apk upgrade \
     && apk add --no-cache ca-certificates tzdata \
     && update-ca-certificates 2>/dev/null || true \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && adduser -D -H -u 10001 panda
 
 # runtime 中 pg.go 使用的是编译时的源码路径（/src/store/pg/migration），
 # 所以这里需要把迁移文件复制到同样的路径，避免 "file:///src/store/pg/migration" 找不到。
@@ -28,9 +29,11 @@ RUN mkdir -p /src/store/pg/migration
 
 WORKDIR /app
 
-COPY --from=builder /build/panda-wiki-api /app/panda-wiki-api
-COPY --from=builder /build/panda-wiki-migrate /app/panda-wiki-migrate
-COPY --from=builder /src/store/pg/migration /app/migration
-COPY --from=builder /src/store/pg/migration /src/store/pg/migration
+COPY --from=builder --chown=panda:panda /build/panda-wiki-api /app/panda-wiki-api
+COPY --from=builder --chown=panda:panda /build/panda-wiki-migrate /app/panda-wiki-migrate
+COPY --from=builder --chown=panda:panda /src/store/pg/migration /app/migration
+COPY --from=builder --chown=panda:panda /src/store/pg/migration /src/store/pg/migration
+
+USER panda
 
 CMD ["sh", "-c", "echo '🚀 panda-wiki-api container starting' && echo '📦 Running DB migration...' && /app/panda-wiki-migrate && echo '✅ Migration done' && echo '🎯 Starting API server (port 8000)...' && echo '' && exec /app/panda-wiki-api"]

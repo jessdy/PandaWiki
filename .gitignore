@@ -37,3 +37,10 @@ __debug*
 .qoder
 
 docs/安全测试/**
+
+# TLS private keys / certs generated locally or by setup
+**/*.key
+**/ssl/*.crt
+backend/ssl/
+web/admin/ssl/
+开封首-2026-10-20-源代码安全检测报告_详细报告.pdf

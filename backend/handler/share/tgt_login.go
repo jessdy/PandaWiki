@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
 
@@ -16,6 +19,9 @@ import (
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/log"
 )
+
+// cloudLoginNamePattern limits remote identity fields before they enter JSON request bodies.
+var cloudLoginNamePattern = regexp.MustCompile(`^[\p{L}\p{N}_.\-@]{1,64}$`)
 
 const (
 	kfsUserPermission = "100000:function:kfsuser"
@@ -81,7 +87,7 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 	client := newCloudAuthClient(baseURL)
 	ip := strings.TrimSpace(c.RealIP())
 	if ip == "" {
-		ip = "127.0.0.1"
+		ip = net.IPv4(127, 0, 0, 1).String()
 	}
 	sessionUser, err := client.loginVerify(c.Request().Context(), tgt, ip)
 	if err != nil {
@@ -135,11 +141,37 @@ func (c *cloudAuthClient) loginVerify(ctx context.Context, tgt, ip string) (clou
 	if loginName == "" || resp.Data.UserID == 0 {
 		return cloudSessionUser{}, fmt.Errorf("会话验证未返回用户信息")
 	}
+	if err := validateCloudIdentity(loginName); err != nil {
+		return cloudSessionUser{}, err
+	}
+	trueName := strings.TrimSpace(resp.Data.TrueName)
+	if trueName != "" {
+		if err := validateCloudDisplayName(trueName); err != nil {
+			return cloudSessionUser{}, err
+		}
+	}
 	return cloudSessionUser{
 		LoginName: loginName,
-		TrueName:  strings.TrimSpace(resp.Data.TrueName),
+		TrueName:  trueName,
 		UserID:    resp.Data.UserID,
 	}, nil
+}
+
+func validateCloudIdentity(loginName string) error {
+	if !cloudLoginNamePattern.MatchString(loginName) {
+		return fmt.Errorf("会话验证返回的用户名非法")
+	}
+	return nil
+}
+
+func validateCloudDisplayName(name string) error {
+	if utf8.RuneCountInString(name) > 64 {
+		return fmt.Errorf("会话验证返回的姓名过长")
+	}
+	if strings.ContainsAny(name, "\x00\r\n") {
+		return fmt.Errorf("会话验证返回的姓名非法")
+	}
+	return nil
 }
 
 func (c *cloudAuthClient) hasKfsUserPermission(ctx context.Context, user cloudSessionUser, ip string) (bool, error) {

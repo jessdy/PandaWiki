@@ -13,6 +13,7 @@ import (
 	"github.com/chaitin/panda-wiki/pkg/bot/wecom"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/cache"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type WecomUsecase struct {
@@ -194,7 +195,11 @@ func (u *WecomUsecase) HandleMsg(ctx context.Context, kbID, signature, timestamp
 
 		if state.IsDone {
 			domain.ConversationManager.Delete(conversationId)
-			content += "\n\n---  \n\n本回答由 [PandaWiki](https://pandawiki.docs.baizhi.cloud/) 基于 AI 生成，仅供参考。"
+			if docs := utils.ProductDocsURL(); docs != "" {
+				content += fmt.Sprintf("\n\n---  \n\n本回答由 [PandaWiki](%s) 基于 AI 生成，仅供参考。", docs)
+			} else {
+				content += "\n\n---  \n\n本回答由 PandaWiki 基于 AI 生成，仅供参考。"
+			}
 		}
 
 		resp, err := wecomAIBotClient.MakeStreamResp(nonce, req.Stream.Id, content, state.IsDone)

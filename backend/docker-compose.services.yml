@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: s3panda-wiki
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-s3panda-wiki}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9000:9000"   # API 端口

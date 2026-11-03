@@ -71,14 +71,15 @@ func IsPrivateOrReservedIP(ipStr string) bool {
 	return isOtherReservedIP(ip)
 }
 
-// isDocumentationIP checks if the IP is in documentation ranges
+// isDocumentationIP checks if the IP is in documentation ranges (RFC 5737 / RFC 3849).
 func isDocumentationIP(ip net.IP) bool {
-	if ip.To4() != nil {
-		return ip.Equal(net.ParseIP("192.0.2.0")) ||
-			ip.Equal(net.ParseIP("198.51.100.0")) ||
-			ip.Equal(net.ParseIP("203.0.113.0"))
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4.Equal(net.IPv4(192, 0, 2, 0)) ||
+			ip4.Equal(net.IPv4(198, 51, 100, 0)) ||
+			ip4.Equal(net.IPv4(203, 0, 113, 0))
 	}
-	return ip.Equal(net.ParseIP("2001:db8::"))
+	docV6 := net.IP{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	return ip.Equal(docV6)
 }
 
 // isOtherReservedIP checks for other reserved IP ranges

@@ -10,7 +10,9 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -285,7 +287,8 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 		Transport: tr,
 		Timeout:   5 * time.Second,
 	}
-	req, err := http.NewRequest("POST", "http://unix/load", bytes.NewBuffer(newBody))
+	caddyAdminURL := (&url.URL{Scheme: "http", Host: "unix", Path: "/load"}).String()
+	req, err := http.NewRequest("POST", caddyAdminURL, bytes.NewBuffer(newBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -371,7 +374,7 @@ func (r *KnowledgeBaseRepository) CreateKnowledgeBase(ctx context.Context, maxKB
 						ShowIcon: true,
 						Target:   "_blank",
 						Text:     "GitHub",
-						URL:      "https://ly.safepoint.cloud/XEyeWqL",
+						URL:      strings.TrimSpace(os.Getenv("DEFAULT_GITHUB_BTN_URL")),
 						Variant:  "contained",
 					},
 					AppBtn{
@@ -380,7 +383,7 @@ func (r *KnowledgeBaseRepository) CreateKnowledgeBase(ctx context.Context, maxKB
 						ShowIcon: false,
 						Target:   "_blank",
 						Text:     "PandaWiki",
-						URL:      "https://pandawiki.docs.baizhi.cloud",
+						URL:      strings.TrimSpace(os.Getenv("PRODUCT_DOCS_URL")),
 						Variant:  "outlined",
 					},
 				},

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -74,21 +75,23 @@ func (s *AccessSettings) GetBaseUrl() string {
 	if strings.TrimSpace(s.BaseURL) != "" {
 		return s.BaseURL
 	}
-	if len(s.Hosts) > 0 {
-		if len(s.SSLPorts) > 0 {
-			if s.SSLPorts[0] == 443 {
-				return fmt.Sprintf("https://%s", s.Hosts[0])
-			} else {
-				return fmt.Sprintf("https://%s:%d", s.Hosts[0], s.SSLPorts[0])
-			}
+	if len(s.Hosts) == 0 {
+		return ""
+	}
+	u := url.URL{Host: s.Hosts[0]}
+	if len(s.SSLPorts) > 0 {
+		u.Scheme = "https"
+		if s.SSLPorts[0] != 443 {
+			u.Host = fmt.Sprintf("%s:%d", s.Hosts[0], s.SSLPorts[0])
 		}
-		if len(s.Ports) > 0 {
-			if s.Ports[0] == 80 {
-				return fmt.Sprintf("http://%s", s.Hosts[0])
-			} else {
-				return fmt.Sprintf("http://%s:%d", s.Hosts[0], s.Ports[0])
-			}
+		return u.String()
+	}
+	if len(s.Ports) > 0 {
+		u.Scheme = "http"
+		if s.Ports[0] != 80 {
+			u.Host = fmt.Sprintf("%s:%d", s.Hosts[0], s.Ports[0])
 		}
+		return u.String()
 	}
 	return ""
 }
@@ -126,7 +129,7 @@ type KnowledgeBaseDetail struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 
-	DatasetID      string                    `json:"dataset_id"`
+	DatasetID      string                   `json:"dataset_id"`
 	Perms          consts.UserKBPermissions `json:"perms"`
 	AccessSettings AccessSettings           `json:"access_settings" gorm:"type:jsonb"`
 

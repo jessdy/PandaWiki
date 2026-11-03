@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	v1 "github.com/chaitin/panda-wiki/api/crawler/v1"
+	"github.com/chaitin/panda-wiki/config"
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/mq"
@@ -23,9 +24,10 @@ type CrawlerUsecase struct {
 	anydocClient *anydoc.Client
 	httpClient   *http.Client
 	cache        *cache.Cache
+	config       *config.Config
 }
 
-func NewCrawlerUsecase(logger *log.Logger, mqConsumer mq.MQConsumer, cache *cache.Cache) (*CrawlerUsecase, error) {
+func NewCrawlerUsecase(logger *log.Logger, mqConsumer mq.MQConsumer, cache *cache.Cache, cfg *config.Config) (*CrawlerUsecase, error) {
 	anydocClient, err := anydoc.NewClient(logger, mqConsumer)
 	if err != nil {
 		return nil, err
@@ -34,6 +36,7 @@ func NewCrawlerUsecase(logger *log.Logger, mqConsumer mq.MQConsumer, cache *cach
 		logger:       logger,
 		anydocClient: anydocClient,
 		cache:        cache,
+		config:       cfg,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -48,7 +51,11 @@ func (u *CrawlerUsecase) ParseUrl(ctx context.Context, req *v1.CrawlerParseReq) 
 
 	// 文件类型的解析会先走上传接口
 	if req.CrawlerSource.Type() == consts.CrawlerSourceTypeFile {
-		req.Key = fmt.Sprintf("http://panda-wiki-minio:9000/static-file/%s", req.Key)
+		endpoint := ""
+		if u.config != nil {
+			endpoint = u.config.S3.Endpoint
+		}
+		req.Key = utils.StaticFilePublicURL(endpoint, req.Key)
 	}
 
 	var (

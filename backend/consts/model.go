@@ -33,7 +33,3 @@ const (
 	ModelSettingModeManual ModelSettingMode = "manual"
 	ModelSettingModeAuto   ModelSettingMode = "auto"
 )
-
-const (
-	AutoModeBaseURL = "https://model-square.app.baizhi.cloud/v1"
-)

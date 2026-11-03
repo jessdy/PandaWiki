@@ -470,7 +470,7 @@ func (u *NodeUsecase) visionSummaryModel(ctx context.Context) (*domain.Model, er
 			Model:    consts.GetAutoModeDefaultModel(string(domain.ModelTypeAnalysisVL)),
 			Type:     domain.ModelTypeAnalysisVL,
 			IsActive: true,
-			BaseURL:  consts.AutoModeBaseURL,
+			BaseURL:  utils.ModelAutoBaseURL(),
 			APIKey:   modelModeSetting.AutoModeAPIKey,
 			Provider: domain.ModelProviderBrandBaiZhiCloud,
 		}, nil

@@ -2,15 +2,17 @@ package setup
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/tjfoc/gmsm/sm2"
+	gmx509 "github.com/tjfoc/gmsm/x509"
 )
 
 var (
@@ -45,7 +47,7 @@ func getSSLDir() string {
 		}
 		return filepath.Join(os.TempDir(), "panda-wiki-ssl")
 	}
-	
+
 	// 尝试使用 /app/etc/nginx/ssl（生产环境，Linux Docker 容器）
 	// 先检查 /app 目录是否存在且可写
 	if info, err := os.Stat("/app"); err == nil && info.IsDir() {
@@ -73,6 +75,13 @@ func getSSLDir() string {
 	return filepath.Join(os.TempDir(), "panda-wiki-ssl")
 }
 
+func sslCertCommonName() string {
+	if v := strings.TrimSpace(os.Getenv("SSL_CERT_CN")); v != "" {
+		return v
+	}
+	return "localhost"
+}
+
 // check init cert
 func CheckInitCert() error {
 	// Check both key and cert files
@@ -96,73 +105,55 @@ func CheckInitCert() error {
 }
 
 func createSelfSignedCerts() error {
-	// Generate RSA private key
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	// Generate SM2 private key (国家商用密码)
+	privateKey, err := sm2.GenerateKey(rand.Reader)
 	if err != nil {
-		return fmt.Errorf("failed to generate private key: %v", err)
+		return fmt.Errorf("failed to generate sm2 private key: %v", err)
 	}
 
-	// Create certificate template
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+	cn := sslCertCommonName()
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return fmt.Errorf("failed to generate serial: %v", err)
+	}
+
+	template := &gmx509.Certificate{
+		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName: "pandawiki.docs.baizhi.cloud",
+			CommonName: cn,
 		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0), // Certificate valid for 10 year
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
 		IsCA:                  true,
 		BasicConstraintsValid: true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:              []string{"pandawiki.docs.baizhi.cloud"},
+		KeyUsage:              gmx509.KeyUsageCertSign | gmx509.KeyUsageDigitalSignature | gmx509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []gmx509.ExtKeyUsage{gmx509.ExtKeyUsageServerAuth},
+		DNSNames:              []string{cn},
 	}
 
-	// Sign certificate with private key
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, privateKey.Public(), privateKey)
+	certPEM, err := gmx509.CreateCertificateToPem(template, template, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return fmt.Errorf("failed to create certificate: %v", err)
+		return fmt.Errorf("failed to create sm2 certificate: %v", err)
 	}
 
-	// ensure ssl dir exists
 	sslDir := getSSLDir()
 	if err := os.MkdirAll(sslDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create ssl dir: %v", err)
 	}
 
-	// Write certificate file with appropriate permissions
 	certFilePath := getSSLCertFile()
-	certFile, err := os.Create(certFilePath)
+	if err := os.WriteFile(certFilePath, certPEM, 0o644); err != nil {
+		return fmt.Errorf("failed to write cert file: %v", err)
+	}
+
+	keyDER, err := gmx509.MarshalSm2PrivateKey(privateKey, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create cert file: %v", err)
+		return fmt.Errorf("failed to marshal sm2 private key: %v", err)
 	}
-	defer certFile.Close()
-
-	// Set certificate file permissions to 644 (readable by all)
-	if err := certFile.Chmod(0o644); err != nil {
-		return fmt.Errorf("failed to set cert file permissions: %v", err)
-	}
-
-	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
-	if err != nil {
-		return fmt.Errorf("failed to encode certificate: %v", err)
-	}
-
-	// Write private key file with appropriate permissions
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
 	keyFilePath := getSSLKeyFile()
-	keyFile, err := os.Create(keyFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to create key file: %v", err)
-	}
-	defer keyFile.Close()
-
-	// Set private key file permissions to 600 (owner read/write)
-	if err := keyFile.Chmod(0o600); err != nil {
-		return fmt.Errorf("failed to set key file permissions: %v", err)
-	}
-
-	err = pem.Encode(keyFile, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
-	if err != nil {
-		return fmt.Errorf("failed to encode private key: %v", err)
+	if err := os.WriteFile(keyFilePath, keyPEM, 0o600); err != nil {
+		return fmt.Errorf("failed to write key file: %v", err)
 	}
 
 	return nil

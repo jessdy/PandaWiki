@@ -171,7 +171,7 @@ func UploadImage(ctx context.Context, minioClient *s3.MinioClient, imageURL stri
 	}
 	var data []byte
 	var contentType string
-	if strings.HasPrefix(imageURL, "http://") || strings.HasPrefix(imageURL, "https://") {
+	if IsHTTPURL(imageURL) {
 		resp, err := http.Get(imageURL)
 		if err != nil {
 			return "", fmt.Errorf("failed to fetch image: %v", err)
