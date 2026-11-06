@@ -2,7 +2,6 @@ package share
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/labstack/echo/v4"
 	wechat_v2 "github.com/silenceper/wechat/v2"
@@ -35,18 +34,7 @@ func NewShareAppHandler(
 		usecase:     usecase,
 	}
 
-	share := e.Group("share/v1/app",
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				c.Response().Header().Set("Access-Control-Allow-Origin", "*")
-				c.Response().Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				c.Response().Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept")
-				if c.Request().Method == "OPTIONS" {
-					return c.NoContent(http.StatusOK)
-				}
-				return next(c)
-			}
-		})
+	share := e.Group("share/v1/app", shareCORSMiddleware)
 	share.GET("/web/info", h.GetWebAppInfo)
 	share.GET("/widget/info", h.GetWidgetAppInfo)
 	share.GET("/wechat/info", h.WechatAppInfo)

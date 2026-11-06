@@ -1,7 +1,6 @@
 package share
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -42,19 +41,7 @@ func NewShareConsultHandler(
 		authUsecase:   authUsecase,
 		expertUsecase: expertUsecase,
 	}
-	g := e.Group("share/pro/v1/consult",
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				c.Response().Header().Set("Access-Control-Allow-Origin", "*")
-				c.Response().Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				c.Response().Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept")
-				if c.Request().Method == http.MethodOptions {
-					return c.NoContent(http.StatusOK)
-				}
-				return next(c)
-			}
-		},
-	)
+	g := e.Group("share/pro/v1/consult", shareCORSMiddleware)
 	g.POST("", h.Create)
 	g.GET("/list", h.List)
 	g.GET("/detail", h.Detail)

@@ -5,7 +5,6 @@ import { useBasePath } from '@/hooks';
 import {
   getShareV1AuthGet,
   postShareV1AuthLoginSimple,
-  postShareV1AuthLoginUserPassword,
 } from '@/request/ShareAuth';
 import { getShareV1NodeList } from '@/request/ShareNode';
 import { clearCookie } from '@/utils/cookie';
@@ -25,7 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { IconKoulingrenzheng, IconMima, IconZhanghao } from '@panda-wiki/icons';
+import { IconKoulingrenzheng } from '@panda-wiki/icons';
 import { message } from '@ctzhian/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -45,7 +44,6 @@ export default function LoginModal() {
   const router = useRouter();
 
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [authType, setAuthType] = useState<ConstsAuthType>();
   const [sourceType, setSourceType] = useState<ConstsSourceType>();
@@ -56,7 +54,6 @@ export default function LoginModal() {
   useEffect(() => {
     if (!loginModalOpen) return;
     setPassword('');
-    setUsername('');
     setAuthType(undefined);
     setSourceType(undefined);
     setAuthLoaded(false);
@@ -68,7 +65,7 @@ export default function LoginModal() {
         setSourceType(res?.source_type as ConstsSourceType | undefined);
       })
       .catch(() => {
-        /* 仍展示账号密码表单，由提交接口返回具体错误 */
+        /* 由完整登录页处理具体错误 */
       })
       .finally(() => setAuthLoaded(true));
   }, [loginModalOpen, kbId, kbDetail]);
@@ -114,50 +111,20 @@ export default function LoginModal() {
     }
   };
 
-  const handleUserPasswordLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      message.error('请输入用户名和密码');
-      return;
-    }
-    const effectiveKbId = getResolvedKbId(kbDetail).trim();
-    setLoading(true);
-    try {
-      clearCookie();
-      await postShareV1AuthLoginUserPassword(
-        { username, password },
-        effectiveKbId ? { headers: { 'X-KB-ID': effectiveKbId } } : {},
-      );
-      persistClientAuthInfo?.({
-        username,
-        email: username,
-        avatar_url: '',
-      });
-      await afterAuthSuccess();
-    } catch (e: unknown) {
-      message.error((e as { message?: string })?.message || '认证失败，请重试');
-      clearCookie();
-    } finally {
-      setLoading(false);
-    }
-  };
-
   /** 仅简单口令走口令框 */
   const showSimpleForm =
     authLoaded && authType === ConstsAuthType.AuthTypeSimple;
 
   /**
-   * 企业认证且为飞书/钉钉/OAuth 等需整页跳转的方式
-   *（用户名密码、LDAP 与 auth 未配置/空值均在弹窗内用账号密码尝试）
+   * 企业认证（含原用户名密码源）统一引导完整登录页：
+   * 密码直登已下线，保留 tgt / user_link / LDAP / 第三方跳转。
    */
-  const showEnterpriseThirdParty =
+  const showEnterpriseRedirect =
     authLoaded &&
     authType === ConstsAuthType.AuthTypeEnterprise &&
-    !!sourceType &&
-    sourceType !== ConstsSourceType.SourceTypeUserPassword &&
-    sourceType !== ConstsSourceType.SourceTypeLDAP;
+    (!!sourceType || sourceType === ConstsSourceType.SourceTypeUserPassword);
 
-  const showUserPasswordForm =
-    authLoaded && !showSimpleForm && !showEnterpriseThirdParty;
+  const showFallbackRedirect = authLoaded && !showSimpleForm;
 
   return (
     <Dialog open={!!loginModalOpen} onClose={close} maxWidth='xs' fullWidth>
@@ -215,65 +182,12 @@ export default function LoginModal() {
             </>
           )}
 
-          {showUserPasswordForm && (
-            <>
-              <TextField
-                fullWidth
-                type='text'
-                value={username}
-                autoFocus
-                onChange={e => setUsername(e.target.value)}
-                placeholder='用户名'
-                disabled={loading}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position='start'>
-                        <IconZhanghao
-                          sx={{ fontSize: 16, width: 24, height: 16 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <TextField
-                fullWidth
-                type='password'
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') void handleUserPasswordLogin();
-                }}
-                placeholder='密码'
-                disabled={loading}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position='start'>
-                        <IconMima
-                          sx={{ fontSize: 16, width: 24, height: 16 }}
-                        />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <Button
-                fullWidth
-                variant='contained'
-                onClick={() => void handleUserPasswordLogin()}
-                disabled={loading || !username.trim() || !password.trim()}
-              >
-                {loading ? '登录中…' : '登录'}
-              </Button>
-            </>
-          )}
-
-          {showEnterpriseThirdParty && (
+          {showFallbackRedirect && (
             <Box>
               <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
-                当前知识库使用第三方或企业统一登录，请在登录页完成认证。
+                {showEnterpriseRedirect
+                  ? '请通过平台会话（tgt）或授权链接登录；已禁用用户名密码直登。'
+                  : '请在登录页完成认证。'}
               </Typography>
               <Button fullWidth variant='contained' onClick={goFullLoginPage}>
                 前往登录页

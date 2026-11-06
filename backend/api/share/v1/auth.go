@@ -34,14 +34,6 @@ type GitHubCallbackReq struct {
 type GitHubCallbackResp struct {
 }
 
-type AuthLoginUserPasswordReq struct {
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required"`
-}
-
-type AuthLoginUserPasswordResp struct {
-}
-
 type AuthLoginUserLinkReq struct {
 	User string `json:"user" validate:"required"`
 }

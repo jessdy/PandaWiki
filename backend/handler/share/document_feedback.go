@@ -1,7 +1,6 @@
 package share
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -33,17 +32,7 @@ func NewShareDocumentFeedbackHandler(
 	}
 
 	g := e.Group("share/pro/v1/document",
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				c.Response().Header().Set("Access-Control-Allow-Origin", "*")
-				c.Response().Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				c.Response().Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, X-KB-ID")
-				if c.Request().Method == http.MethodOptions {
-					return c.NoContent(http.StatusOK)
-				}
-				return next(c)
-			}
-		},
+		shareCORSMiddleware,
 		h.ShareAuthMiddleware.CheckForbidden,
 	)
 	g.POST("/feedback", h.CreateFeedback)

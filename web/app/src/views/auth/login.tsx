@@ -15,10 +15,8 @@ import {
   postShareV1AuthLoginSimple,
   postShareV1AuthLoginUserLink,
   postShareV1AuthLoginTgt,
-  postShareV1AuthLoginUserPassword,
 } from '@/request/ShareAuth';
 import { getShareV1NodeList } from '@/request/ShareNode';
-import { postApiV1UserLogin, getApiV1User } from '@/request/User';
 import { clearCookie } from '@/utils/cookie';
 
 import {
@@ -132,14 +130,13 @@ export default function Login() {
     if (e.key === 'Enter') {
       if (
         authType === ConstsAuthType.AuthTypeEnterprise &&
-        (sourceType === ConstsSourceType.SourceTypeLDAP ||
-          sourceType === ConstsSourceType.SourceTypeUserPassword)
+        sourceType === ConstsSourceType.SourceTypeLDAP
       ) {
         if (username.trim() && password.trim()) {
-          handleLDAPLogin();
+          void handleLDAPLogin();
         }
-      } else {
-        handleLogin();
+      } else if (authType === ConstsAuthType.AuthTypeSimple) {
+        void handleLogin();
       }
     }
   };
@@ -211,7 +208,6 @@ export default function Login() {
       message.error('请输入用户名和密码');
       return;
     }
-    console.log('kbDetail', kbDetail, searchParams, process.env);
     const kbId = resolveKbId();
     if (!kbId) {
       message.error('知识库ID未找到，请刷新页面重试');
@@ -220,9 +216,9 @@ export default function Login() {
     setLoading(true);
     try {
       clearCookie();
-
-      await postShareV1AuthLoginUserPassword(
+      await postShareProV1AuthLdap(
         {
+          kb_id: kbId,
           username,
           password,
         },
@@ -232,19 +228,18 @@ export default function Login() {
           },
         },
       );
-      let auth = { username, email: username, avatar_url: '' };
-      setAuthInfo({ username, email: username, avatar_url: '' });
-      // 登录成功，并保存到localStorage
+      const auth = { username, email: username, avatar_url: '' };
+      setAuthInfo(auth);
       localStorage.setItem('authInfo', JSON.stringify(auth));
 
-      getShareV1NodeList().then(res => {
-        setNodeList?.((res as any) ?? []);
-        message.success('认证成功');
-        window.open(redirectUrl, '_self');
-      });
-    } catch (error: any) {
-      console.error('登录失败:', error);
-      message.error(error?.message || '认证失败，请重试');
+      const res = await getShareV1NodeList();
+      setNodeList?.((res as never) ?? []);
+      message.success('认证成功');
+      window.open(redirectUrl, '_self');
+    } catch (error: unknown) {
+      message.error(
+        (error as { message?: string })?.message || '认证失败，请重试',
+      );
       clearCookie();
     } finally {
       setLoading(false);
@@ -295,13 +290,9 @@ export default function Login() {
 
   useEffect(() => {
     getShareV1AuthGet({}).then(res => {
-      console.log('getShareV1AuthGet', res);
-      setAuthType('enterprise' as ConstsAuthType);
-      setSourceType('user_password' as ConstsSourceType);
+      setAuthType(res?.auth_type as ConstsAuthType | undefined);
+      setSourceType(res?.source_type as ConstsSourceType | undefined);
       setLicenseEdition(res?.license_edition);
-      // if (res?.auth_type === ConstsAuthType.AuthTypeNull) {
-      //   window.open(redirectUrl, '_self');
-      // }
     });
   }, []);
 
@@ -455,7 +446,7 @@ export default function Login() {
                     </IconButton>
                   )}
 
-                  {
+                  {sourceType === ConstsSourceType.SourceTypeLDAP && (
                     <Stack spacing={2} width='100%'>
                       {(() => {
                         const textFieldSx = {
@@ -533,7 +524,7 @@ export default function Login() {
                             <Button
                               fullWidth
                               variant='contained'
-                              onClick={handleLDAPLogin}
+                              onClick={() => void handleLDAPLogin()}
                               sx={{
                                 mt: 2,
                                 height: '50px',
@@ -566,7 +557,16 @@ export default function Login() {
                         );
                       })()}
                     </Stack>
-                  }
+                  )}
+
+                  {sourceType === ConstsSourceType.SourceTypeUserPassword && (
+                    <Typography
+                      color='text.secondary'
+                      sx={{ textAlign: 'center', px: 1 }}
+                    >
+                      请通过平台会话（tgt）或授权链接登录，已禁用用户名密码直登。
+                    </Typography>
+                  )}
                 </>
               )}
 

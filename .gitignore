@@ -43,4 +43,7 @@ docs/安全测试/**
 **/ssl/*.crt
 backend/ssl/
 web/admin/ssl/
-开封首-2026-10-20-源代码安全检测报告_详细报告.pdf
+/*.pdf
+/arm/*
+# 雳鉴 iast_go 二进制（构建脚本从 arm/iast 复制到 backend/iast）
+backend/iast/go-active-linux-arm64

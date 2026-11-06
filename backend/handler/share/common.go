@@ -2,7 +2,6 @@ package share
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/labstack/echo/v4"
 
@@ -31,18 +30,7 @@ func NewShareCommonHandler(
 		fileUsecase: fileUsecase,
 	}
 
-	share := e.Group("share/v1/common",
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				c.Response().Header().Set("Access-Control-Allow-Origin", "*")
-				c.Response().Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				c.Response().Header().Set("Access-Control-Allow-Headers", "Content-Type, Origin, Accept")
-				if c.Request().Method == "OPTIONS" {
-					return c.NoContent(http.StatusOK)
-				}
-				return next(c)
-			}
-		})
+	share := e.Group("share/v1/common", shareCORSMiddleware)
 	share.POST("/file/upload", h.FileUpload, h.ShareAuthMiddleware.Authorize)
 	return h
 }

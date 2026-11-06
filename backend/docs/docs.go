@@ -3845,48 +3845,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/share/v1/auth/login/user_password": {
-            "post": {
-                "description": "通过用户名和密码验证 users 表中的用户，并创建 session",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "share_auth"
-                ],
-                "summary": "用户名密码登录",
-                "operationId": "v1-AuthLoginUserPassword",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "kb_id",
-                        "name": "X-KB-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "para",
-                        "name": "param",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.AuthLoginUserPasswordReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/domain.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/share/v1/captcha/challenge": {
             "post": {
                 "description": "CreateCaptcha",
@@ -9419,21 +9377,6 @@ const docTemplate = `{
             ],
             "properties": {
                 "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "v1.AuthLoginUserPasswordReq": {
-            "type": "object",
-            "required": [
-                "password",
-                "username"
-            ],
-            "properties": {
-                "password": {
-                    "type": "string"
-                },
-                "username": {
                     "type": "string"
                 }
             }

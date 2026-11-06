@@ -19,7 +19,8 @@ func SessionCookieOptions(c echo.Context) *sessions.Options {
 	}
 	return &sessions.Options{
 		Path:     "/",
-		MaxAge:   7 * 86400,
+		// 会话级 Cookie，避免永久 Cookie 存储敏感会话信息
+		MaxAge:   0,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   secure,

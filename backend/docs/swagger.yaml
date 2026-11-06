@@ -3075,16 +3075,7 @@ definitions:
     required:
     - password
     type: object
-  v1.AuthLoginUserPasswordReq:
-    properties:
-      password:
-        type: string
-      username:
-        type: string
-    required:
-    - password
-    - username
-    type: object
+
   v1.AuthSetReq:
     properties:
       client_id:
@@ -5992,34 +5983,7 @@ paths:
       summary: AuthLoginSimple
       tags:
       - share_auth
-  /share/v1/auth/login/user_password:
-    post:
-      consumes:
-      - application/json
-      description: 通过用户名和密码验证 users 表中的用户，并创建 session
-      operationId: v1-AuthLoginUserPassword
-      parameters:
-      - description: kb_id
-        in: header
-        name: X-KB-ID
-        required: true
-        type: string
-      - description: para
-        in: body
-        name: param
-        required: true
-        schema:
-          $ref: '#/definitions/v1.AuthLoginUserPasswordReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.Response'
-      summary: 用户名密码登录
-      tags:
-      - share_auth
+
   /share/v1/captcha/challenge:
     post:
       consumes:

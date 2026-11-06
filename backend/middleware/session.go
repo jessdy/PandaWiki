@@ -50,7 +50,8 @@ func NewSessionMiddleware(logger *log.Logger, config *config.Config, cache *cach
 
 	store.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   7 * 86400,
+		// 会话级 Cookie（关闭浏览器即失效），避免永久 Cookie 存会话信息
+		MaxAge:   0,
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
 		Secure:   os.Getenv("COOKIE_SECURE") == "true",

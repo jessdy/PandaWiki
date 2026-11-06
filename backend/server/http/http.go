@@ -123,6 +123,7 @@ func NewEcho(
 		},
 	}))
 
+	e.Use(PWMiddleware.SecurityHeaders())
 	e.Use(pwMiddleware.ReadOnly)
 	e.Use(sessionMiddleware.Session())
 

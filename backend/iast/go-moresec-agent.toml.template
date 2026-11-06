@@ -1,0 +1,18 @@
+[nameserver]
+
+# 雳鉴 Name Server 端地址（由 IAST_SERVER_IP / IAST_SERVER_PORT 注入）
+IP="__IAST_SERVER_IP__"
+Port=__IAST_SERVER_PORT__
+
+[agent]
+
+# 用于创建项目的规则 tag（由 IAST_AGENT_TAG 注入）
+agent_tag="__IAST_AGENT_TAG__"
+
+[others]
+
+# 配置 https 端口
+iast_xschema_ports="__IAST_XSCHEMA_PORTS__"
+
+# 主动 agent 关联版本号
+moresec_iast_project_version="__IAST_PROJECT_VERSION__"
