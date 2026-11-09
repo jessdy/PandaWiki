@@ -24,9 +24,10 @@ panda-wiki-iast-deploy/
 └── 更新操作说明.md                         # 本文
 ```
 
-252 上路径示例（以实际拷贝为准）：
+252 上已打好：
 
-`/root/projects/PandaWiki-Back/panda-wiki-iast-deploy.tar.gz`
+- 整包：`/root/projects/PandaWiki-Back/panda-wiki-iast-deploy.tar.gz`
+- 解压目录：`/root/projects/PandaWiki-Back/panda-wiki-iast-deploy/`
 
 ---
 
