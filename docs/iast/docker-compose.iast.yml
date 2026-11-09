@@ -1,0 +1,21 @@
+# 雳鉴 IAST 主动插桩覆盖配置（现场用）
+# 复制到部署目录后与主 compose 一起使用：
+#   docker compose -f docker-compose.yml -f docker-compose.iast.yml \
+#     up -d --no-build --pull never --force-recreate api consumer
+#
+# 现场先准备：
+#   mkdir -p data/conf/iast
+#   cp go-moresec-agent.api.toml.example data/conf/iast/api.toml
+#   cp go-moresec-agent.consumer.toml.example data/conf/iast/consumer.toml
+#   编辑两个 toml 填入雳鉴 IP/端口
+#   .env 中 API_IMAGE_TAG=prod-iast CONSUMER_IMAGE_TAG=prod-iast
+
+services:
+  api:
+    image: panda-wiki-api:${API_IMAGE_TAG:-prod-iast}
+    volumes:
+      - ./data/conf/iast/api.toml:/iast-config/go-moresec-agent.toml:ro
+  consumer:
+    image: panda-wiki-consumer:${CONSUMER_IMAGE_TAG:-prod-iast}
+    volumes:
+      - ./data/conf/iast/consumer.toml:/iast-config/go-moresec-agent.toml:ro

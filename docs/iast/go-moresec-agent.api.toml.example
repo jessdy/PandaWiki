@@ -1,0 +1,15 @@
+[nameserver]
+
+# 现场填写雳鉴 Name Server 地址（禁止 127.0.0.1 / localhost）
+IP="改成雳鉴IP"
+Port=8888
+
+[agent]
+
+# 与雳鉴项目规则中的 tag 对应
+agent_tag="panda-wiki-api"
+
+[others]
+
+iast_xschema_ports="443,8443"
+moresec_iast_project_version="v1.0"
