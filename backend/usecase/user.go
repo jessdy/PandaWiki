@@ -51,7 +51,10 @@ func (u *UserUsecase) ensureBuiltinUsers() error {
 			continue
 		}
 		if err := utils.ValidatePasswordComplexity(item.password); err != nil {
-			return fmt.Errorf("内置账号 %s 口令不符合复杂度要求: %w", item.account, err)
+			// 不阻断启动：现场弱口令会导致整站起不来；跳过写入并要求尽快更换
+			u.logger.Error("内置账号口令不符合复杂度要求，已跳过写入",
+				log.String("account", item.account), log.Error(err))
+			continue
 		}
 		if err := u.repo.UpsertDefaultUser(context.Background(), &domain.User{
 			ID:       uuid.New().String(),
