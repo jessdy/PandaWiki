@@ -245,9 +245,6 @@ func (h *ShareWechatHandler) WechatHandlerService(c echo.Context) error {
 
 	// 创建一个wechat service对象
 	wechatServiceConf, err := h.wechatUsecase.NewWechatServiceConfig(context.Background(), appInfo, kbID)
-
-	h.logger.Info("wechat service config", log.Any("wechat service config", wechatServiceConf))
-
 	if err != nil {
 		return err
 	}
@@ -309,8 +306,6 @@ func (h *ShareWechatHandler) VerifyUrlWechatApp(c echo.Context) error {
 		h.logger.Info("wechat service bot is not enabled")
 		return nil
 	}
-
-	h.logger.Debug("wechat app info", log.Any("info", appInfo))
 
 	WechatConf, err := h.wechatAppUsecase.NewWechatConfig(ctx, appInfo, kbID)
 	if err != nil {
@@ -374,7 +369,7 @@ func (h *ShareWechatHandler) WechatHandlerApp(c echo.Context) error {
 	if err != nil {
 		return h.NewResponseWithError(c, "UnmarshalMsg failed", err)
 	}
-	h.logger.Info("wechat app msg", log.Any("user msg", msg))
+	h.logger.Info("wechat app msg", log.String("msg_type", string(msg.MsgType)))
 
 	if msg.MsgType != "text" { // 用户进入会话，或者其他非提问类型的事件
 		return c.String(http.StatusOK, "")

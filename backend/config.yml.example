@@ -13,11 +13,12 @@ http:
 admin_password: ""
 
 # PostgreSQL 数据库配置
-# 格式: host=主机地址 user=用户名 password=密码 dbname=数据库名 port=端口 sslmode=disable TimeZone=Asia/Shanghai
+# 格式: host=主机地址 user=用户名 password=密码 dbname=数据库名 port=端口 sslmode=prefer TimeZone=Asia/Shanghai
+# sslmode=prefer 在数据库开启 TLS 时自动加密；数据库已配置证书时建议用 verify-full 并设置 sslrootcert
 # 示例（连接远程 Linux 服务器）:
-#   host=192.168.1.100 user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai
+#   host=192.168.1.100 user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=verify-full sslrootcert=/path/to/ca.crt TimeZone=Asia/Shanghai
 pg:
-  dsn: "host=127.0.0.1 user=panda-wiki password=CHANGE_ME dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+  dsn: "host=127.0.0.1 user=panda-wiki password=CHANGE_ME dbname=panda-wiki port=5432 sslmode=prefer TimeZone=Asia/Shanghai"
 
 # 消息队列配置
 mq:
@@ -25,7 +26,7 @@ mq:
   nats:
     # NATS 服务器地址（连接远程 Linux 服务器）
     # 示例: nats://192.168.1.100:4222
-    server: "nats://10.10.10.252:4222"
+    server: "nats://localhost:4222"
     user: "panda-wiki"
     password: ""
 

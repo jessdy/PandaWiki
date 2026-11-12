@@ -1,6 +1,7 @@
 package share
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -48,11 +49,34 @@ func NewShareChatHandler(
 	share := e.Group("share/v1/chat", shareCORSMiddleware)
 	share.POST("/message", h.ChatMessage, h.ShareAuthMiddleware.Authorize)
 	share.POST("/search", h.ChatSearch, h.ShareAuthMiddleware.Authorize)
-	share.POST("/completions", h.ChatCompletions)
-	share.POST("/widget", h.ChatWidget)
-	share.POST("/widget/search", h.WidgetSearch)
-	share.POST("/feedback", h.FeedBack)
+	share.POST("/completions", h.ChatCompletions, h.openAIAPIKeyAuth)
+	share.POST("/widget", h.ChatWidget, h.ShareAuthMiddleware.Authorize)
+	share.POST("/widget/search", h.WidgetSearch, h.ShareAuthMiddleware.Authorize)
+	share.POST("/feedback", h.FeedBack, h.ShareAuthMiddleware.Authorize)
 	return h
+}
+
+// openAIAPIKeyAuth 校验 OpenAI 兼容接口的 Bearer 密钥（应用设置中的 secret_key），接口未启用时拒绝。
+func (h *ShareChatHandler) openAIAPIKeyAuth(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		kbID := c.Request().Header.Get("X-KB-ID")
+		if kbID == "" {
+			return h.sendOpenAIError(c, "X-KB-ID header is required", "invalid_request_error")
+		}
+		appBot, err := h.appUsecase.GetOpenAIAPIAppInfo(c.Request().Context(), kbID)
+		if err != nil {
+			return h.sendOpenAIError(c, "API Bot is not available", "internal_error")
+		}
+		if !appBot.Settings.OpenAIAPIBotSettings.IsEnabled {
+			return h.sendOpenAIError(c, "API Bot is not enabled", "forbidden")
+		}
+		secretKey, found := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
+		expected := appBot.Settings.OpenAIAPIBotSettings.SecretKey
+		if !found || expected == "" || subtle.ConstantTimeCompare([]byte(secretKey), []byte(expected)) != 1 {
+			return h.sendOpenAIError(c, "Invalid Authorization key", "unauthorized")
+		}
+		return next(c)
+	}
 }
 
 // ChatMessage chat message
@@ -283,27 +307,6 @@ func (h *ShareChatHandler) ChatCompletions(c echo.Context) error {
 	}
 	if lastUserMessage == "" {
 		return h.sendOpenAIError(c, "no user message found", "invalid_request_error")
-	}
-
-	// validate api bot settings
-	appBot, err := h.appUsecase.GetOpenAIAPIAppInfo(c.Request().Context(), kbID)
-	if err != nil {
-		return h.sendOpenAIError(c, err.Error(), "internal_error")
-	}
-	if !appBot.Settings.OpenAIAPIBotSettings.IsEnabled {
-		return h.sendOpenAIError(c, "API Bot is not enabled", "forbidden")
-	}
-
-	secretKeyHeader := c.Request().Header.Get("Authorization")
-	if secretKeyHeader == "" {
-		return h.sendOpenAIError(c, "Authorization header is required", "invalid_request_error")
-	}
-	if secretKey, found := strings.CutPrefix(secretKeyHeader, "Bearer "); !found {
-		return h.sendOpenAIError(c, "Invalid Authorization key format", "invalid_request_error")
-	} else {
-		if appBot.Settings.OpenAIAPIBotSettings.SecretKey != secretKey {
-			return h.sendOpenAIError(c, "Invalid Authorization key", "unauthorized")
-		}
 	}
 
 	chatReq := &domain.ChatRequest{

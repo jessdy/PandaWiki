@@ -43,3 +43,9 @@ type UserAccessTime struct {
 	UserID    string    `json:"user_id"`
 	Timestamp time.Time `json:"timestamp"`
 }
+
+// AuthUserKey echo.Context 中保存当前登录用户（id/account/role），供审计与审批读取主体
+const AuthUserKey = "pw_auth_user"
+
+// AuthTokenCookieName 管理端 JWT 的 HttpOnly Cookie 名（避免 localStorage 被 XSS 读取）
+const AuthTokenCookieName = "panda_wiki_token"

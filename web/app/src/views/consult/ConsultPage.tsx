@@ -62,7 +62,7 @@ const ConsultPage = () => {
 
   /**
    * 处理「后端 session 失效」错误：
-   * 前端 localStorage authInfo 可能因为长期未刷新而过期，但 cookie/session 已失效；
+   * 页面内存中的 authInfo 可能因为长期未刷新而过期，但 cookie/session 已失效；
    * 此时调任意鉴权接口会回 "请先登录"。一旦命中：清掉本地 authInfo + 打开登录框，
    * 状态归一，用户重新登录后所有页面状态一致。
    */

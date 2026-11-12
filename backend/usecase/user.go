@@ -23,21 +23,42 @@ type UserUsecase struct {
 }
 
 func NewUserUsecase(repo *pg.UserRepository, logger *log.Logger, config *config.Config) (*UserUsecase, error) {
-	if config.AdminPassword != "" {
-		if err := repo.UpsertDefaultUser(context.Background(), &domain.User{
-			ID:       uuid.New().String(),
-			Account:  "admin",
-			Password: config.AdminPassword,
-			Role:     consts.UserRoleAdmin,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to create default user: %w", err)
-		}
-	}
-	return &UserUsecase{
+	u := &UserUsecase{
 		repo:   repo,
 		logger: logger.WithModule("usecase.user"),
 		config: config,
-	}, nil
+	}
+	if err := u.ensureBuiltinUsers(); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (u *UserUsecase) ensureBuiltinUsers() error {
+	type builtin struct {
+		account  string
+		password string
+		role     consts.UserRole
+	}
+	users := []builtin{
+		{account: "admin", password: u.config.AdminPassword, role: consts.UserRoleAdmin},
+		{account: consts.SecurityAdminAccount, password: u.config.SecurityAdminPassword, role: consts.UserRoleSecurityAdmin},
+		{account: consts.AuditAdminAccount, password: u.config.AuditAdminPassword, role: consts.UserRoleAuditAdmin},
+	}
+	for _, item := range users {
+		if item.password == "" {
+			continue
+		}
+		if err := u.repo.UpsertDefaultUser(context.Background(), &domain.User{
+			ID:       uuid.New().String(),
+			Account:  item.account,
+			Password: item.password,
+			Role:     item.role,
+		}); err != nil {
+			return fmt.Errorf("failed to upsert builtin user %s: %w", item.account, err)
+		}
+	}
+	return nil
 }
 
 func (u *UserUsecase) CreateUser(ctx context.Context, user *domain.User, edition consts.LicenseEdition) error {
@@ -70,7 +91,6 @@ func (u *UserUsecase) GetUserByAccount(ctx context.Context, account string) (*do
 }
 
 func (u *UserUsecase) ListUsers(ctx context.Context) (*v1.UserListResp, error) {
-	// 获取所有用户列表
 	users, err := u.repo.ListUsers(ctx)
 	if err != nil {
 		return nil, err
@@ -79,7 +99,6 @@ func (u *UserUsecase) ListUsers(ctx context.Context) (*v1.UserListResp, error) {
 }
 
 func (u *UserUsecase) ListGuestUsers(ctx context.Context) (*v1.UserListResp, error) {
-	// 获取所有访客用户列表
 	users, err := u.repo.ListGuestUsers(ctx)
 	if err != nil {
 		return nil, err

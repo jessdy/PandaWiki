@@ -22,6 +22,7 @@ type ShareHandler struct {
 	ShareDocumentFeedbackHandler *ShareDocumentFeedbackHandler
 	ShareMethodRuleHandler       *ShareMethodRuleHandler
 	ShareConsultHandler          *ShareConsultHandler
+	StaticFileHandler            *StaticFileHandler
 }
 
 var ProviderSet = wire.NewSet(
@@ -41,6 +42,7 @@ var ProviderSet = wire.NewSet(
 	NewShareDocumentFeedbackHandler,
 	NewShareMethodRuleHandler,
 	NewShareConsultHandler,
+	NewStaticFileHandler,
 	NewOpenapiV1Handler,
 
 	wire.Struct(new(ShareHandler), "*"),

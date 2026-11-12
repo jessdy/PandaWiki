@@ -58,7 +58,7 @@ type SitemapExportDocData struct {
 
 // SitemapListDocs 获取 Sitemap 文档列表
 func (c *Client) SitemapListDocs(ctx context.Context, xmlUrl, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *Client) SitemapListDocs(ctx context.Context, xmlUrl, uuid string) (*Lis
 
 // SitemapExportDoc 导出 Sitemap 文档
 func (c *Client) SitemapExportDoc(ctx context.Context, uuid, docID, kbId string) (*SitemapExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (c *Client) SitemapExportDoc(ctx context.Context, uuid, docID, kbId string)
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

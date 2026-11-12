@@ -2,6 +2,8 @@ FROM --platform=$BUILDPLATFORM golang:1.24.3-alpine AS builder
 
 WORKDIR /src
 ENV CGO_ENABLED=0
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
 
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -14,23 +16,54 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-s -w -extldflags '-static'" -o /build/panda-wiki-consumer cmd/consumer/main.go cmd/consumer/wire_gen.go
 
-FROM alpine:3.21 AS consumer
+# 雳鉴 IAST 主动插桩版：仅当目标为 arm64 且构建上下文含 iast/go-active-linux-arm64 时产出 panda-wiki-consumer.iast，否则为空。
+FROM golang:1.24.3-alpine AS iast-builder
 
-RUN apk update \
-    && apk upgrade \
-    && apk add --no-cache ca-certificates tzdata \
-    && update-ca-certificates 2>/dev/null || true \
-    && rm -rf /var/cache/apk/* \
-    && adduser -D -H -u 10001 panda
+WORKDIR /src
+ENV CGO_ENABLED=0
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
+
+COPY . .
+
+ARG TARGETARCH
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    mkdir -p /build \
+    && if [ "$TARGETARCH" = "arm64" ] && [ -f iast/go-active-linux-arm64 ]; then \
+         install -m 0755 iast/go-active-linux-arm64 /usr/local/bin/iast_go \
+         && rm -rf vendor \
+         && iast_go build -ldflags "-s -w -extldflags '-static'" \
+              -o /build/panda-wiki-consumer.iast cmd/consumer/main.go cmd/consumer/wire_gen.go; \
+       else \
+         echo "skip IAST build (arch=$TARGETARCH)"; \
+       fi
+
+FROM openeuler/openeuler:24.03-lts AS consumer
+
+RUN dnf -y update \
+    && dnf -y install ca-certificates tzdata shadow-utils \
+    && update-ca-trust force-enable || true \
+    && groupadd -g 10001 panda \
+    && useradd -u 10001 -g panda -M -d /home/panda -s /sbin/nologin panda \
+    && mkdir -p /home/panda /app/data/backups \
+    && chown -R panda:panda /home/panda /app/data \
+    && dnf clean all
 
 # runtime 中 pg.go 使用编译时源码路径 /src/store/pg/migration，需在镜像中保留该路径
 RUN mkdir -p /src/store/pg/migration
 
 WORKDIR /app
 COPY --from=builder --chown=panda:panda /build/panda-wiki-consumer /app/panda-wiki-consumer
+COPY --from=iast-builder --chown=panda:panda /build/ /app/
 COPY --from=builder --chown=panda:panda /src/store/pg/migration /app/migration
 COPY --from=builder --chown=panda:panda /src/store/pg/migration /src/store/pg/migration
+COPY --chown=panda:panda iast/go-moresec-agent.toml.template /app/iast/go-moresec-agent.toml.template
+COPY --chown=panda:panda --chmod=0755 iast/entrypoint.sh /app/iast/entrypoint.sh
+
+ENV HOME=/home/panda
 
 USER panda
 
-CMD ["./panda-wiki-consumer"]
+ENTRYPOINT ["/app/iast/entrypoint.sh"]
+CMD ["sh", "-c", "exec /app/panda-wiki-consumer${IAST_SUFFIX:-}"]

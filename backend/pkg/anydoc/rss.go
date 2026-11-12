@@ -58,7 +58,7 @@ type RssExportDocData struct {
 
 // RssListDocs 获取 Rss 文档列表
 func (c *Client) RssListDocs(ctx context.Context, xmlUrl, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *Client) RssListDocs(ctx context.Context, xmlUrl, uuid string) (*ListDoc
 
 // RssExportDoc 导出 Rss 文档
 func (c *Client) RssExportDoc(ctx context.Context, uuid, docID, kbId string) (*RssExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (c *Client) RssExportDoc(ctx context.Context, uuid, docID, kbId string) (*R
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

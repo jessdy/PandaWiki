@@ -41,4 +41,8 @@ var ProviderSet = wire.NewSet(
 	NewTestEnvUsecase,
 	NewCloudAuthUsecase,
 	NewExpertProfileUsecase,
+	NewAuditUsecase,
+	NewApprovalUsecase,
+	NewBackupUsecase,
+	NewSystemInfoUsecase,
 )

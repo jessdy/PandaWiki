@@ -33,7 +33,7 @@ func NewShareDocumentFeedbackHandler(
 
 	g := e.Group("share/pro/v1/document",
 		shareCORSMiddleware,
-		h.ShareAuthMiddleware.CheckForbidden,
+		h.ShareAuthMiddleware.Authorize,
 	)
 	g.POST("/feedback", h.CreateFeedback)
 	return h

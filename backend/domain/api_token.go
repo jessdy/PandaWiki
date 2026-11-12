@@ -29,14 +29,14 @@ type CtxAuthInfo struct {
 	KBId       string
 }
 
-type contextKey string
+type ctxValueName string
 
 const (
-	CtxAuthInfoKey contextKey = "ctx_auth_info"
+	CtxAuthInfoSlot ctxValueName = "ctx_auth_info"
 )
 
 func GetAuthInfoFromCtx(c context.Context) *CtxAuthInfo {
-	v := c.Value(CtxAuthInfoKey)
+	v := c.Value(CtxAuthInfoSlot)
 	if v == nil {
 		return nil
 	}

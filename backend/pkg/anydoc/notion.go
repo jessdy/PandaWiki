@@ -44,7 +44,7 @@ type NotionExportDocResponse struct {
 
 // NotionListDocs 获取 Notion 文档列表
 func (c *Client) NotionListDocs(ctx context.Context, secret, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (c *Client) NotionListDocs(ctx context.Context, secret, uuid string) (*List
 
 // NotionExportDoc 导出 Notion 文档
 func (c *Client) NotionExportDoc(ctx context.Context, uuid, docID, kbId string) (*NotionExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *Client) NotionExportDoc(ctx context.Context, uuid, docID, kbId string) 
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

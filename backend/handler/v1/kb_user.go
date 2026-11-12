@@ -1,12 +1,22 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/labstack/echo/v4"
 
 	v1 "github.com/chaitin/panda-wiki/api/kb/v1"
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
+	"github.com/chaitin/panda-wiki/usecase"
 )
+
+func (h *KnowledgeBaseHandler) approvalActor(c echo.Context) (usecase.ApprovalActor, error) {
+	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+		return usecase.ApprovalActor{ID: user.ID, Account: user.Account, Role: user.Role}, nil
+	}
+	return usecase.ApprovalActor{}, fmt.Errorf("unauthorized")
+}
 
 // KBUserList
 //
@@ -64,12 +74,17 @@ func (h *KnowledgeBaseHandler) KBUserInvite(c echo.Context) error {
 		}
 	}
 
-	err := h.usecase.KBUserInvite(c.Request().Context(), req)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "invite user to kb failed", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalKBUserInvite,
+		fmt.Sprintf("邀请用户 %s 加入知识库 %s", req.UserId, req.KBId),
+		req.UserId, "", req.KBId, req)
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // KBUserUpdate
@@ -100,12 +115,17 @@ func (h *KnowledgeBaseHandler) KBUserUpdate(c echo.Context) error {
 		}
 	}
 
-	err := h.usecase.UpdateUserKB(c.Request().Context(), req)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "update user kb permission failed", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalKBUserUpdate,
+		fmt.Sprintf("更新用户 %s 在知识库 %s 的权限", req.UserId, req.KBId),
+		req.UserId, "", req.KBId, req)
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // KBUserDelete
@@ -129,10 +149,15 @@ func (h *KnowledgeBaseHandler) KBUserDelete(c echo.Context) error {
 		return h.NewResponseWithError(c, "validate request failed", err)
 	}
 
-	err := h.usecase.KBUserDelete(c.Request().Context(), req)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "remove user from kb failed", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalKBUserDelete,
+		fmt.Sprintf("移除用户 %s 出知识库 %s", req.UserId, req.KBId),
+		req.UserId, "", req.KBId, req)
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }

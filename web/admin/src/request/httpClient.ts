@@ -18,6 +18,7 @@ import type {
   ResponseType,
 } from "axios";
 import axios from "axios";
+import { clearAuth, getLegacyBearerToken } from "@/utils/auth";
 
 export type QueryParamsType = Record<string | number, any>;
 
@@ -103,8 +104,8 @@ export class HttpClient<SecurityDataType = unknown> {
       },
       (error) => {
         if (error.response?.status === 401) {
+          clearAuth();
           window.location.href = window.__BASENAME__ + "/login";
-          localStorage.removeItem("panda_wiki_token");
         }
         if (error.code !== "ERR_CANCELED") {
           message.error(error.response?.statusText || "网络异常");
@@ -200,17 +201,21 @@ export class HttpClient<SecurityDataType = unknown> {
     ) {
       body = JSON.stringify(body);
     }
-    const token = localStorage.getItem("panda_wiki_token") || "";
+    const token = getLegacyBearerToken();
+    const headers: Record<string, string> = {
+      ...(requestParams.headers || {}),
+      ...(type && type !== ContentType.FormData
+        ? { "Content-Type": type }
+        : {}),
+    };
+    // 优先 HttpOnly Cookie；仅兼容旧版 localStorage Bearer
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
 
     return this.instance.request({
       ...requestParams,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(requestParams.headers || {}),
-        ...(type && type !== ContentType.FormData
-          ? { "Content-Type": type }
-          : {}),
-      },
+      headers,
       params: query,
       responseType: responseFormat,
       data: body,

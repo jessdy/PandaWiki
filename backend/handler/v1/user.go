@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -24,29 +25,32 @@ import (
 
 type UserHandler struct {
 	*handler.BaseHandler
-	usecase     *usecase.UserUsecase
-	authUsecase *usecase.AuthUsecase
-	logger      *log.Logger
-	config      *config.Config
-	auth        middleware.AuthMiddleware
-	rateLimiter *ratelimit.RateLimiter
+	usecase         *usecase.UserUsecase
+	authUsecase     *usecase.AuthUsecase
+	approvalUsecase *usecase.ApprovalUsecase
+	logger          *log.Logger
+	config          *config.Config
+	auth            middleware.AuthMiddleware
+	rateLimiter     *ratelimit.RateLimiter
 }
 
-func NewUserHandler(e *echo.Echo, baseHandler *handler.BaseHandler, logger *log.Logger, usecase *usecase.UserUsecase, authUsecase *usecase.AuthUsecase, auth middleware.AuthMiddleware, config *config.Config, cache *cache.Cache) *UserHandler {
+func NewUserHandler(e *echo.Echo, baseHandler *handler.BaseHandler, logger *log.Logger, usecase *usecase.UserUsecase, authUsecase *usecase.AuthUsecase, approvalUsecase *usecase.ApprovalUsecase, auth middleware.AuthMiddleware, config *config.Config, cache *cache.Cache) *UserHandler {
 	handlerLogger := logger.WithModule("handler.v1.user")
 	h := &UserHandler{
-		BaseHandler: baseHandler,
-		logger:      handlerLogger,
-		usecase:     usecase,
-		authUsecase: authUsecase,
-		auth:        auth,
-		config:      config,
-		rateLimiter: ratelimit.NewRateLimiter(handlerLogger, cache),
+		BaseHandler:     baseHandler,
+		logger:          handlerLogger,
+		usecase:         usecase,
+		authUsecase:     authUsecase,
+		approvalUsecase: approvalUsecase,
+		auth:            auth,
+		config:          config,
+		rateLimiter:     ratelimit.NewRateLimiter(handlerLogger, cache),
 	}
 	group := e.Group("/api/v1/user")
 	group.POST("/login", h.Login)
 
 	group.GET("", h.GetUserInfo, h.auth.Authorize)
+	group.POST("/logout", h.Logout, h.auth.Authorize)
 	group.GET("/list", h.ListUsers, h.auth.Authorize)
 	userManagePerm := h.auth.ValidateUserRoleOrAnyKBPerm(consts.UserRoleAdmin, consts.UserKBPermissionUserManage)
 	group.GET("/guest/list", h.ListGuestUsers, h.auth.Authorize, userManagePerm)
@@ -84,6 +88,21 @@ func NewUserHandler(e *echo.Echo, baseHandler *handler.BaseHandler, logger *log.
 //	@Param			body	body		v1.CreateUserReq	true	"CreateUser Request"
 //	@Success		200		{object}	domain.Response{data=v1.CreateUserResp}
 //	@Router			/api/v1/user/create [post]
+func (h *UserHandler) approvalActor(c echo.Context) (usecase.ApprovalActor, error) {
+	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+		return usecase.ApprovalActor{ID: user.ID, Account: user.Account, Role: user.Role}, nil
+	}
+	authInfo := domain.GetAuthInfoFromCtx(c.Request().Context())
+	if authInfo == nil {
+		return usecase.ApprovalActor{}, fmt.Errorf("unauthorized")
+	}
+	user, err := h.usecase.GetUser(c.Request().Context(), authInfo.UserId)
+	if err != nil {
+		return usecase.ApprovalActor{}, err
+	}
+	return usecase.ApprovalActor{ID: user.ID, Account: user.Account, Role: user.Role}, nil
+}
+
 func (h *UserHandler) CreateUser(c echo.Context) error {
 	var req v1.CreateUserReq
 	if err := c.Bind(&req); err != nil {
@@ -96,27 +115,32 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	if err := utils.ValidatePasswordComplexity(req.Password); err != nil {
 		return h.NewResponseWithError(c, err.Error(), nil)
 	}
+	if consts.IsSeparatedAdminRole(req.Role) {
+		return h.NewResponseWithError(c, "不能通过接口创建安全管理员或审计管理员", nil)
+	}
 
-	authInfo := domain.GetAuthInfoFromCtx(c.Request().Context())
-	if authInfo != nil {
-		caller, err := h.usecase.GetUser(c.Request().Context(), authInfo.UserId)
-		if err == nil && caller.Role != consts.UserRoleAdmin && req.Role == consts.UserRoleAdmin {
-			return h.NewResponseWithError(c, "非超级管理员不能创建超级管理员", nil)
-		}
+	actor, err := h.approvalActor(c)
+	if err != nil {
+		return h.NewResponseWithError(c, "unauthorized", err)
+	}
+	if actor.Role != consts.UserRoleAdmin && req.Role == consts.UserRoleAdmin {
+		return h.NewResponseWithError(c, "非超级管理员不能创建超级管理员", nil)
 	}
 
 	uid := uuid.New().String()
-	err := h.usecase.CreateUser(c.Request().Context(), &domain.User{
-		ID:       uid,
-		Account:  req.Account,
-		Password: req.Password,
-		Role:     req.Role,
-	}, consts.GetLicenseEdition(c))
+	hashed, err := usecase.HashPasswordForApproval(req.Password)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to create user", err)
+		return h.NewResponseWithError(c, "failed to hash password", err)
 	}
-
-	return h.NewResponseWithData(c, v1.CreateUserResp{ID: uid})
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalUserCreate,
+		fmt.Sprintf("创建用户 %s（角色 %s）", req.Account, req.Role),
+		uid, req.Account, "", map[string]any{
+			"id": uid, "account": req.Account, "password": hashed, "role": req.Role, "region": req.Region,
+		})
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // Login
@@ -153,13 +177,35 @@ func (h *UserHandler) Login(c echo.Context) error {
 		return h.NewResponseWithError(c, "用户名或密码错误", err)
 	}
 
+	if user, lookupErr := h.usecase.GetUserByAccount(ctx, req.Account); lookupErr == nil {
+		c.Set(domain.AuthUserKey, user)
+	}
+
 	go func() {
 		if err := h.rateLimiter.ResetLoginAttempts(context.Background(), ip); err != nil {
 			h.logger.Error("failed to reset login attempts", "error", err, "ip", ip)
 		}
 	}()
 
+	utils.SetAuthTokenCookie(c, token, 24*time.Hour)
 	return h.NewResponseWithData(c, v1.LoginResp{Token: token})
+}
+
+// Logout
+//
+//	@Summary		Logout
+//	@Description	Logout and revoke current JWT
+//	@Tags			user
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	domain.Response
+//	@Router			/api/v1/user/logout [post]
+func (h *UserHandler) Logout(c echo.Context) error {
+	if err := h.auth.RevokeToken(c.Request().Context(), c); err != nil {
+		h.logger.Error("revoke token failed", "error", err)
+	}
+	utils.ClearAuthTokenCookie(c)
+	return h.NewResponseWithData(c, nil)
 }
 
 // GetUserInfo
@@ -190,6 +236,9 @@ func (h *UserHandler) GetUserInfo(c echo.Context) error {
 		LastAccess: &user.LastAccess,
 		CreatedAt:  user.CreatedAt,
 	}
+	if !authInfo.IsToken {
+		utils.SetStaticAccessCookie(c, h.config.Auth.JWT.Secret, user.ID)
+	}
 
 	return h.NewResponseWithData(c, userInfo)
 }
@@ -207,6 +256,9 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 	var req v1.UserListReq
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
 	}
 
 	users, err := h.usecase.ListUsers(c.Request().Context())
@@ -297,6 +349,9 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
+	}
 
 	authInfo := domain.GetAuthInfoFromCtx(ctx)
 	if authInfo == nil {
@@ -311,27 +366,29 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 		return h.NewResponseWithError(c, "cannot delete yourself", nil)
 	}
 
-	user, err := h.usecase.GetUser(ctx, authInfo.UserId)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to get user", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
 
-	if user.Role != consts.UserRoleAdmin {
-		targetUser, err := h.usecase.GetUser(ctx, req.UserID)
-		if err != nil {
-			return h.NewResponseWithError(c, "failed to get target user", err)
-		}
-		if targetUser.Role == consts.UserRoleAdmin {
-			return h.NewResponseWithError(c, "非超级管理员不能删除超级管理员", nil)
-		}
-	}
-
-	err = h.usecase.DeleteUser(ctx, req.UserID)
+	targetUser, err := h.usecase.GetUser(ctx, req.UserID)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to delete user", err)
+		return h.NewResponseWithError(c, "failed to get target user", err)
+	}
+	if consts.IsSeparatedAdminRole(targetUser.Role) {
+		return h.NewResponseWithError(c, "不能删除安全管理员或审计管理员", nil)
+	}
+	if actor.Role != consts.UserRoleAdmin && targetUser.Role == consts.UserRoleAdmin {
+		return h.NewResponseWithError(c, "非超级管理员不能删除超级管理员", nil)
 	}
 
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(ctx, actor, domain.ApprovalUserDelete,
+		fmt.Sprintf("删除用户 %s", targetUser.Account),
+		targetUser.ID, targetUser.Account, "", map[string]any{"user_id": req.UserID})
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // ListGuestUsers
@@ -374,22 +431,26 @@ func (h *UserHandler) CreateGuestUser(c echo.Context) error {
 		return h.NewResponseWithError(c, err.Error(), nil)
 	}
 
-	// 强制设置为 guest 角色
 	req.Role = consts.UserRoleGuest
-
-	uid := uuid.New().String()
-	err := h.usecase.CreateUser(c.Request().Context(), &domain.User{
-		ID:       uid,
-		Account:  req.Account,
-		Password: req.Password,
-		Role:     req.Role,
-		Region:   strings.TrimSpace(req.Region),
-	}, consts.GetLicenseEdition(c))
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to create guest user", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
 
-	return h.NewResponseWithData(c, v1.CreateUserResp{ID: uid})
+	uid := uuid.New().String()
+	hashed, err := usecase.HashPasswordForApproval(req.Password)
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to hash password", err)
+	}
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalGuestCreate,
+		fmt.Sprintf("创建访客 %s", req.Account),
+		uid, req.Account, "", map[string]any{
+			"id": uid, "account": req.Account, "password": hashed, "role": req.Role, "region": strings.TrimSpace(req.Region),
+		})
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // UpdateGuestUser
@@ -477,12 +538,17 @@ func (h *UserHandler) DeleteGuestUser(c echo.Context) error {
 		return h.NewResponseWithError(c, "只能删除访客用户", nil)
 	}
 
-	err = h.usecase.DeleteUser(c.Request().Context(), userID)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to delete guest user", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalGuestDelete,
+		fmt.Sprintf("删除访客 %s", targetUser.Account),
+		targetUser.ID, targetUser.Account, "", map[string]any{"user_id": userID})
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // ListAuthGroups
@@ -614,12 +680,16 @@ func (h *UserHandler) CreateAuthGroup(c echo.Context) error {
 		SourceType: consts.SourceTypeOAuth, // 使用 OAuth 作为默认类型
 	}
 
-	err := h.authUsecase.CreateAuthGroup(c.Request().Context(), group)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to create auth group", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, v1.CreateAuthGroupResp{ID: group.ID})
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalAuthGroupCreate,
+		fmt.Sprintf("创建用户组 %s", req.Name), "", req.Name, req.KbID, group)
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // UpdateAuthGroup
@@ -666,12 +736,16 @@ func (h *UserHandler) UpdateAuthGroup(c echo.Context) error {
 		UserIDs:  userIDs,
 	}
 
-	err = h.authUsecase.UpdateAuthGroup(c.Request().Context(), id, group)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to update auth group", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalAuthGroupUpdate,
+		fmt.Sprintf("更新用户组 %s", req.Name), "", req.Name, "", map[string]any{"id": id, "group": group})
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // DeleteAuthGroup
@@ -690,12 +764,16 @@ func (h *UserHandler) DeleteAuthGroup(c echo.Context) error {
 		return h.NewResponseWithError(c, "invalid group id", err)
 	}
 
-	err := h.authUsecase.DeleteAuthGroup(c.Request().Context(), id)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to delete auth group", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalAuthGroupDelete,
+		fmt.Sprintf("删除用户组 #%d", id), "", "", "", map[string]any{"id": id})
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }
 
 // GetUserGroups
@@ -810,10 +888,15 @@ func (h *UserHandler) UpdateUserGroups(c echo.Context) error {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
 
-	err := h.authUsecase.UpdateUserGroups(c.Request().Context(), req.UserID, req.GroupIDs)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "failed to update user groups", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalUserGroupsUpdate,
+		fmt.Sprintf("更新用户 %s 所属用户组", req.UserID),
+		req.UserID, "", "", req)
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
 }

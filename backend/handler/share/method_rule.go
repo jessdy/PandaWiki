@@ -58,7 +58,7 @@ func NewShareMethodRuleHandler(
 		categoryHelper: &categoryHelper{llmUC: llmUC},
 	}
 
-	group := e.Group("share/v1/method_rules", shareCORSMiddleware)
+	group := e.Group("share/v1/method_rules", shareCORSMiddleware, h.ShareAuthMiddleware.Authorize)
 	group.GET("/categories", h.ListCategories)
 	group.POST("/match", h.Match)
 	return h
@@ -66,8 +66,8 @@ func NewShareMethodRuleHandler(
 
 // MatchReq 前台属性面板调本接口时的入参。
 type MatchReq struct {
-	Category  string            `json:"category"`
-	Collected map[string]string `json:"collected"`
+	Category  string            `json:"category" validate:"required,max=200"`
+	Collected map[string]string `json:"collected" validate:"max=100"`
 }
 
 // MatchMethodView 命中规则的前端视图（含文档名）。
@@ -159,6 +159,9 @@ func (h *ShareMethodRuleHandler) Match(c echo.Context) error {
 	req := MatchReq{}
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
+	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "category is required", err)
 	}
 	category := strings.TrimSpace(req.Category)
 	if category == "" {

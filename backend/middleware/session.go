@@ -15,6 +15,7 @@ import (
 	"github.com/chaitin/panda-wiki/config"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/store/cache"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 const (
@@ -54,7 +55,8 @@ func NewSessionMiddleware(logger *log.Logger, config *config.Config, cache *cach
 		MaxAge:   0,
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
-		Secure:   os.Getenv("COOKIE_SECURE") == "true",
+		// 默认 Secure；COOKIE_SECURE=false 时关闭（见 utils.CookieSecure）
+		Secure: utils.CookieSecure(nil) || os.Getenv("COOKIE_SECURE") == "true",
 	}
 
 	return &SessionMiddleware{

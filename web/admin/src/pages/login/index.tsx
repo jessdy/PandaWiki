@@ -14,6 +14,7 @@ import {
   IconKejian,
   IconBukejian,
 } from '@panda-wiki/icons';
+import { markAuthed } from '@/utils/auth';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -29,10 +30,10 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const submit = () => {
-    console.log(account, password);
     postApiV1UserLogin({ account, password })
-      .then(res => {
-        localStorage.setItem('panda_wiki_token', res.token!);
+      .then(() => {
+        // JWT 由服务端写入 HttpOnly Cookie，前端只保留登录态标记
+        markAuthed();
         navigate('/');
         message.success('登录成功');
       })

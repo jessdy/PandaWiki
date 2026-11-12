@@ -1,3 +1,5 @@
+import { getLegacyBearerToken } from '@/utils/auth';
+
 type SSECallback<T> = (data: T) => void;
 type SSEErrorCallback = (error: Error) => void;
 type SSECompleteCallback = () => void;
@@ -26,7 +28,15 @@ class SSEClient<T> {
     this.controller = new AbortController();
     const { url, headers, onOpen, onError, onComplete } = this.options;
 
-    const token = localStorage.getItem('panda_wiki_token') || '';
+    const token = getLegacyBearerToken();
+    const reqHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...headers,
+    };
+    if (token) {
+      reqHeaders.Authorization = `Bearer ${token}`;
+    }
 
     const timeoutDuration = 300000;
     const timeoutId = setTimeout(() => {
@@ -36,12 +46,8 @@ class SSEClient<T> {
 
     fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-        Authorization: `Bearer ${token}`,
-        ...headers,
-      },
+      credentials: 'include',
+      headers: reqHeaders,
       body,
       signal: this.controller.signal,
     })

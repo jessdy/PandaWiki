@@ -271,7 +271,7 @@ func (r *AuthRepo) GetAuths(ctx context.Context, kbID string, sourceType consts.
 
 func (r *AuthRepo) GetOrCreateAuth(ctx context.Context, auth *domain.Auth, sourceType consts.SourceType) (*domain.Auth, error) {
 
-	licenseEdition, _ := ctx.Value(consts.ContextKeyEdition).(consts.LicenseEdition)
+	licenseEdition, _ := ctx.Value(consts.CtxEdition).(consts.LicenseEdition)
 
 	if licenseEdition < consts.LicenseEditionEnterprise {
 		rdsKey := fmt.Sprintf("GetOrCreateAuth:%s", auth.KBID)

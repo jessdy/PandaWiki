@@ -328,3 +328,12 @@ export const putApiV1UserGroups = (body: { user_id: string; group_ids: number[] 
     type: ContentType.Json,
     format: "json",
   });
+
+export const postApiV1UserLogout = (params: RequestParams = {}) =>
+  httpRequest<DomainResponse>({
+    path: `/api/v1/user/logout`,
+    method: "POST",
+    type: ContentType.Json,
+    format: "json",
+    ...params,
+  });

@@ -35,20 +35,25 @@ const homeProxy = async (
 ) => {
   const url = request.nextUrl.clone();
   const { page, id } = parsePathname(url.pathname);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-current-path', url.pathname);
+  requestHeaders.set('x-current-search', url.search);
+  const forward = { request: { headers: requestHeaders } };
   try {
     // 获取节点列表
     if (url.pathname === '/') {
       const homePath = await getHomePath();
       if (homePath === 'custom') {
-        return NextResponse.rewrite(new URL('/home', request.url));
+        return NextResponse.rewrite(new URL('/home', request.url), forward);
       } else {
         const [firstNode] = await Promise.all([getFirstNode(), getHomePath()]);
         if (firstNode) {
           return NextResponse.rewrite(
             new URL(`/node/${firstNode.id}`, request.url),
+            forward,
           );
         }
-        return NextResponse.rewrite(new URL('/node', request.url));
+        return NextResponse.rewrite(new URL('/node', request.url), forward);
       }
     }
 
@@ -69,7 +74,7 @@ const homeProxy = async (
       );
     }
 
-    return NextResponse.next();
+    return NextResponse.next(forward);
   } catch (error) {
     if (
       typeof error === 'object' &&
@@ -86,7 +91,7 @@ const homeProxy = async (
     }
   }
 
-  return NextResponse.next();
+  return NextResponse.next(forward);
 };
 
 const proxyShare = async (request: NextRequest) => {
@@ -156,12 +161,10 @@ export async function proxy(request: NextRequest) {
   if (needSetSessionId) {
     response.cookies.set('x-pw-session-id', sessionId, {
       httpOnly: true,
-      maxAge: 60 * 60 * 24 * 365, // 1 年
+      secure:
+        process.env.NODE_ENV === 'production' || url.protocol === 'https:',
+      sameSite: 'lax',
     });
-  }
-  if (!pathname.startsWith('/share')) {
-    response.headers.set('x-current-path', pathname);
-    response.headers.set('x-current-search', url.search);
   }
   return response;
 }

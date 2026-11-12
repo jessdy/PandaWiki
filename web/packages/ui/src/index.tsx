@@ -18,7 +18,7 @@ export { default as Question } from './question';
 export { default as BlockGrid } from './blockGrid';
 
 export {
-  CHAT_TOP_N_STORAGE_KEY,
+  CHAT_TOP_N_STORAGE_ITEM,
   DEFAULT_CHAT_TOP_N,
   getInitialChatTopN,
   parseValidChatTopN,
@@ -26,7 +26,7 @@ export {
 } from './chatTopNStorage';
 
 export {
-  CHAT_QA_MODE_STORAGE_KEY,
+  CHAT_QA_MODE_STORAGE_ITEM,
   DEFAULT_QA_APP_MODE,
   getInitialQaAppMode,
   parseValidQaAppMode,

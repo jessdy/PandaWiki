@@ -65,7 +65,7 @@ type FeishuExportDocData struct {
 
 // FeishuListDocs 获取 Feishu 文档列表
 func (c *Client) FeishuListDocs(ctx context.Context, uuid, appId, appSecret, accessToken, spaceId string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (c *Client) FeishuListDocs(ctx context.Context, uuid, appId, appSecret, acc
 
 // FeishuExportDoc 导出 Feishu 文档
 func (c *Client) FeishuExportDoc(ctx context.Context, uuid, docID, fileType, spaceId, kbId string) (*UrlExportRes, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (c *Client) FeishuExportDoc(ctx context.Context, uuid, docID, fileType, spa
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

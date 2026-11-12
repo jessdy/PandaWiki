@@ -27,8 +27,8 @@ type ExpertProfileListItem struct {
 }
 
 type UpdateExpertProfileReq struct {
-	Name         string `json:"name"`
-	Introduction string `json:"introduction"`
+	Name         string `json:"name" validate:"max=50"`
+	Introduction string `json:"introduction" validate:"max=500"`
 }
 
 type PublicExpertProfile struct {

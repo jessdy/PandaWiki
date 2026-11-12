@@ -12,10 +12,18 @@ import StandardTermsConfig, {
   StandardTermsConfigRef,
 } from './component/StandardTermsConfig';
 import TestEnvConfig from './component/TestEnvConfig';
-import CloudAuthConfig, { CloudAuthConfigRef } from './component/CloudAuthConfig';
+import CloudAuthConfig, {
+  CloudAuthConfigRef,
+} from './component/CloudAuthConfig';
+import ClassificationConfig from './component/ClassificationConfig';
 import { getApiV1SystemTestEnv } from '@/request/TestEnv';
 
-type SystemTab = 'model' | 'standard-terms' | 'test-env' | 'cloud-auth';
+type SystemTab =
+  | 'model'
+  | 'standard-terms'
+  | 'test-env'
+  | 'cloud-auth'
+  | 'classification';
 
 const System = () => {
   const { user, modelList, isCreateWikiModalOpen } = useAppSelector(
@@ -163,6 +171,7 @@ const System = () => {
           <Tab value='standard-terms' label='标准术语' />
           <Tab value='test-env' label='测试环境' />
           <Tab value='cloud-auth' label='平台地址' />
+          <Tab value='classification' label='密级标识' />
         </Tabs>
         {activeTab === 'model' ? (
           <ModelConfig
@@ -182,11 +191,13 @@ const System = () => {
           />
         ) : activeTab === 'test-env' ? (
           <TestEnvConfig onEnabledChange={setTestEnvEnabled} />
-        ) : (
+        ) : activeTab === 'cloud-auth' ? (
           <CloudAuthConfig
             ref={cloudAuthConfigRef}
             onCloseModal={() => setOpen(false)}
           />
+        ) : (
+          <ClassificationConfig />
         )}
       </Modal>
     </>

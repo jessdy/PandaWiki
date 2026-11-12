@@ -66,7 +66,7 @@ export const TYPE_CONFIG: Record<
   [ConstsCrawlerSource.CrawlerSourceFile]: {
     label: '通过离线文件导入',
     okText: '导入文件',
-    accept: '.txt, .md, .xls, .xlsx, .docx, .pdf, .html, .pptx',
+    accept: '.txt, .md, .xls, .xlsx, .docx, .pdf, .pptx',
     usage:
       'https://pandawiki.docs.baizhi.cloud/node/01976929-0e76-77a9-aed9-842e60933464#%E9%80%9A%E8%BF%87%E7%A6%BB%E7%BA%BF%E6%96%87%E4%BB%B6%E5%AF%BC%E5%85%A5',
   },

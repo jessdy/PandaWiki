@@ -1,11 +1,14 @@
 package consts
 
-type SystemSettingKey string
+type SystemSettingName string
 
 const (
-	SystemSettingModelMode     SystemSettingKey = "model_setting_mode"
-	SystemSettingUpload        SystemSettingKey = "upload"
-	SystemSettingStandardTerms SystemSettingKey = "standard_terms"
-	SystemSettingTestEnv       SystemSettingKey = "test_env"
-	SystemSettingCloudAuth     SystemSettingKey = "cloud_auth"
+	SystemSettingModelMode      SystemSettingName = "model_setting_mode"
+	SystemSettingUpload         SystemSettingName = "upload"
+	SystemSettingStandardTerms  SystemSettingName = "standard_terms"
+	SystemSettingTestEnv        SystemSettingName = "test_env"
+	SystemSettingCloudAuth      SystemSettingName = "cloud_auth"
+	SystemSettingClassification SystemSettingName = "classification"
+	SystemSettingBackup         SystemSettingName = "backup"
+	SystemSettingAuditStorage   SystemSettingName = "audit_storage"
 )

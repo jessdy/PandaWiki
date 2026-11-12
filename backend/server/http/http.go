@@ -42,6 +42,7 @@ func NewEcho(
 	config *config.Config,
 	pwMiddleware *PWMiddleware.ReadOnlyMiddleware,
 	sessionMiddleware *PWMiddleware.SessionMiddleware,
+	auditMiddleware *PWMiddleware.AuditMiddleware,
 ) *echo.Echo {
 
 	// Initialize Sentry if enabled
@@ -61,6 +62,7 @@ func NewEcho(
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.IPExtractor = PWMiddleware.ClientIPExtractor(config)
 
 	e.Binder = &MyBinder{}
 
@@ -124,8 +126,10 @@ func NewEcho(
 	}))
 
 	e.Use(PWMiddleware.SecurityHeaders())
+	e.Use(PWMiddleware.RateLimit(config))
 	e.Use(pwMiddleware.ReadOnly)
 	e.Use(sessionMiddleware.Session())
+	e.Use(auditMiddleware.Record())
 
 	return e
 }

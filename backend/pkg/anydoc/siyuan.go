@@ -64,7 +64,7 @@ type SiyuanExportDocData struct {
 
 // SiyuanListDocs 获取 Siyuan 文档列表
 func (c *Client) SiyuanListDocs(ctx context.Context, siyuanURL, filename, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (c *Client) SiyuanListDocs(ctx context.Context, siyuanURL, filename, uuid s
 
 // SiyuanExportDoc 导出 Siyuan 文档
 func (c *Client) SiyuanExportDoc(ctx context.Context, uuid, docID, kbId string) (*SiyuanExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *Client) SiyuanExportDoc(ctx context.Context, uuid, docID, kbId string) 
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

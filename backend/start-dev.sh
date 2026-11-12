@@ -17,7 +17,7 @@ if [ ! -f .env ]; then
     echo "LINUX_SERVER_IP=192.168.1.100"
     echo ""
     echo "# PostgreSQL"
-    echo "export PG_DSN=\"host=\${LINUX_SERVER_IP} user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai\""
+    echo "export PG_DSN=\"host=\${LINUX_SERVER_IP} user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=prefer TimeZone=Asia/Shanghai\""
     echo ""
     echo "# Redis"
     echo "export REDIS_ADDR=\"\${LINUX_SERVER_IP}:6379\""

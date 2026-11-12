@@ -12,6 +12,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	migratePG "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -57,7 +58,8 @@ func NewDB(config *config.Config) (*DB, error) {
 }
 
 func doMigrate(dsn string) error {
-	db, err := sql.Open("postgres", dsn)
+	// lib/pq 不支持 sslmode=prefer，迁移和 GORM 一样走 pgx
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return fmt.Errorf("open db failed: %w", err)
 	}

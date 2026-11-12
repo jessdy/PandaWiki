@@ -3,6 +3,7 @@ import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileRejection, useDropzone } from 'react-dropzone';
 import { IconShangchuan } from '@panda-wiki/icons';
+import { MAX_UPLOAD_SIZE } from '@/utils/uploadCheck';
 
 // 文件扩展名到 MIME 类型的映射
 const FILE_EXTENSION_TO_MIME: Record<string, string> = {
@@ -79,6 +80,7 @@ const Upload = ({
           return acc;
         }, {})
       : undefined,
+    maxSize: MAX_UPLOAD_SIZE,
     multiple,
     noClick: type === 'drag',
     noKeyboard: type === 'drag',

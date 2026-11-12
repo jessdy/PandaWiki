@@ -9,6 +9,7 @@ import (
 var ProviderSet = wire.NewSet(
 	pg.ProviderSet,
 
+	NewFieldCipher,
 	NewNodeRepository,
 	NewAppRepository,
 	NewConversationRepository,
@@ -31,4 +32,6 @@ var ProviderSet = wire.NewSet(
 	NewMCPRepository,
 	NewDocumentFeedbackRepository,
 	NewExpertProfileRepo,
+	NewAuditRepo,
+	NewApprovalRepo,
 )

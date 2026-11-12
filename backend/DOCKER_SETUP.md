@@ -4,9 +4,33 @@
 
 ## 前置要求
 
-- Linux 服务器（Ubuntu/Debian/CentOS 等）
+- Linux 服务器：生产环境须使用国产操作系统（openEuler 22.03/24.03 LTS、银河麒麟 V10、统信 UOS 等）；Ubuntu/Debian 仅用于开发测试，不使用已停止维护的 CentOS
 - Docker 20.x 或更高版本
 - Docker Compose 2.x 或更高版本（如果使用 Compose 方式）
+
+### 运行环境清单
+
+| 组件 | 版本 / 镜像 | 端口 |
+|------|-------------|------|
+| 宿主机操作系统 | openEuler 24.03 LTS（或其他国产 OS） | - |
+| api / consumer 运行镜像 | 基于 `openeuler/openeuler:24.03-lts` | 8000 |
+| PostgreSQL | 17.6（postgres-zhparser） | 5432 |
+| Redis | 7.4.2 | 6379 |
+| NATS | 2.11.3 | 4222 / 8222 |
+| MinIO | RELEASE.2025-04-22T22-12-26Z | 9000 / 9001 |
+| Qdrant | v1.14.1 | 6333 |
+| AnyDoc（crawler） | v0.7.1 | 8080（仅容器网络） |
+| RAGLite | v2.8.5 | 5050 |
+
+以下命令中的口令都从环境变量读取，执行前先设置强随机值，不要使用示例值：
+
+```bash
+export POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+export REDIS_PASSWORD="$(openssl rand -hex 16)"
+export NATS_PASSWORD="$(openssl rand -hex 16)"
+export S3_SECRET_KEY="$(openssl rand -hex 16)"
+export RAG_API_KEY="$(openssl rand -hex 16)"
+```
 
 ### 安装 Docker
 
@@ -66,7 +90,7 @@ docker compose logs -f
 docker exec panda-wiki-postgres pg_isready -U panda-wiki
 
 # 测试 Redis
-docker exec panda-wiki-redis redis-cli -a panda-wiki-redis-password ping
+docker exec panda-wiki-redis redis-cli -a "${REDIS_PASSWORD}" ping
 
 # 测试 NATS
 curl http://localhost:8222/healthz
@@ -97,7 +121,7 @@ docker run -d \
   --name panda-wiki-postgres \
   --restart unless-stopped \
   -e POSTGRES_USER=panda-wiki \
-  -e POSTGRES_PASSWORD=panda-wiki-secret \
+  -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
   -e POSTGRES_DB=panda-wiki \
   -e TZ=Asia/Shanghai \
   -p 5432:5432 \
@@ -119,12 +143,12 @@ docker run -d \
   -p 6379:6379 \
   -v redis_data:/data \
   redis:7-alpine \
-  redis-server --requirepass panda-wiki-redis-password
+  redis-server --requirepass "${REDIS_PASSWORD}"
 ```
 
 **验证:**
 ```bash
-docker exec panda-wiki-redis redis-cli -a panda-wiki-redis-password ping
+docker exec panda-wiki-redis redis-cli -a "${REDIS_PASSWORD}" ping
 ```
 
 ### NATS
@@ -136,7 +160,7 @@ docker run -d \
   -p 4222:4222 \
   -p 8222:8222 \
   nats:2.10-alpine \
-  -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
+  -js -m 8222 --user panda-wiki --pass "${NATS_PASSWORD}"
 ```
 
 **验证:**
@@ -151,18 +175,18 @@ docker run -d \
   --name panda-wiki-minio \
   --restart unless-stopped \
   -e MINIO_ROOT_USER=s3panda-wiki \
-  -e MINIO_ROOT_PASSWORD=panda-wiki-minio-secret \
+  -e MINIO_ROOT_PASSWORD="${S3_SECRET_KEY}" \
   -p 9000:9000 \
   -p 9001:9001 \
   -v minio_data:/data \
-  minio/minio:latest \
+  minio/minio:RELEASE.2025-04-22T22-12-26Z \
   server /data --console-address ":9001"
 ```
 
 **访问控制台:**
 - 浏览器访问: `http://YOUR_LINUX_IP:9001`
 - 用户名: `s3panda-wiki`
-- 密码: `panda-wiki-minio-secret`
+- 密码: 环境变量 `S3_SECRET_KEY` 的值
 
 **验证:**
 ```bash
@@ -181,7 +205,7 @@ curl http://localhost:9000/minio/health/live
 docker run -d \
   --name panda-wiki-ct-rag \
   --restart unless-stopped \
-  -e API_KEY=sk-1234567890 \
+  -e API_KEY="${RAG_API_KEY}" \
   -p 5050:5050 \
   YOUR_RAG_IMAGE:latest
 ```
@@ -211,7 +235,7 @@ sudo ufw allow from YOUR_MAC_IP to any port 4222
 sudo ufw allow from YOUR_MAC_IP to any port 9000
 sudo ufw allow from YOUR_MAC_IP to any port 5050
 
-# CentOS/RHEL (firewalld)
+# openEuler / 麒麟 / 统信 (firewalld)
 sudo firewall-cmd --permanent --add-port=5432/tcp
 sudo firewall-cmd --permanent --add-port=6379/tcp
 sudo firewall-cmd --permanent --add-port=4222/tcp
@@ -222,19 +246,23 @@ sudo firewall-cmd --reload
 
 ## 服务连接信息
 
-使用默认配置，服务的连接信息如下：
+服务的连接信息如下（口令为上文设置的环境变量）：
 
-| 服务 | 地址 | 用户名 | 密码 | 说明 |
+| 服务 | 地址 | 用户名 | 口令 | 说明 |
 |------|------|--------|------|------|
-| PostgreSQL | `YOUR_LINUX_IP:5432` | `panda-wiki` | `panda-wiki-secret` | 数据库服务 |
-| Redis | `YOUR_LINUX_IP:6379` | - | `panda-wiki-redis-password` | 缓存服务 |
-| NATS | `nats://YOUR_LINUX_IP:4222` | `panda-wiki` | `panda-wiki-nats-password` | 消息队列 |
-| MinIO | `YOUR_LINUX_IP:9000` | `s3panda-wiki` | `panda-wiki-minio-secret` | 对象存储 |
-| RAG | `http://YOUR_LINUX_IP:5050` | - | `sk-1234567890` (API Key) | RAG 服务 |
+| PostgreSQL | `YOUR_LINUX_IP:5432` | `panda-wiki` | `POSTGRES_PASSWORD` | 数据库服务 |
+| Redis | `YOUR_LINUX_IP:6379` | - | `REDIS_PASSWORD` | 缓存服务 |
+| NATS | `nats://YOUR_LINUX_IP:4222` | `panda-wiki` | `NATS_PASSWORD` | 消息队列 |
+| MinIO | `YOUR_LINUX_IP:9000` | `s3panda-wiki` | `S3_SECRET_KEY` | 对象存储 |
+| RAG | `http://YOUR_LINUX_IP:5050` | - | `RAG_API_KEY` | RAG 服务 |
 
-## 数据持久化
+## 数据持久化与备份恢复
 
-所有服务的数据都存储在 Docker volumes 中，即使容器删除，数据也不会丢失：
+所有服务的数据都存储在 Docker volumes / 本地目录中，即使容器删除，数据也不会丢失。
+
+应用内置备份（推荐）：系统管理员登录后台「备份」页，可手动备份、配置定时备份、恢复与下载。备份包存放在 `./data/backups`（容器内 `BACKUP_DIR=/app/data/backups`），包含数据库表 JSONL 与可选的 MinIO 文件，并由 HMAC-SM3 签名。
+
+紧急时仍可用卷级备份：
 
 ```bash
 # 查看 volumes
@@ -246,6 +274,16 @@ docker run --rm -v postgres_data:/data -v $(pwd):/backup alpine tar czf /backup/
 # 恢复数据
 docker run --rm -v postgres_data:/data -v $(pwd):/backup alpine tar xzf /backup/postgres_backup.tar.gz -C /
 ```
+
+### 三员分立与加密相关环境变量
+
+| 变量 | 说明 |
+|------|------|
+| `ADMIN_PASSWORD` | 系统管理员 admin 口令 |
+| `SECURITY_ADMIN_PASSWORD` | 安全管理员 secadmin 口令（审批用户增删与权限变更） |
+| `AUDIT_ADMIN_PASSWORD` | 审计管理员 auditadmin 口令（仅审计日志查询/导出） |
+| `DATA_ENCRYPTION_KEY` | 字段加密与审计哈希链密钥；未设置时回退 `JWT_SECRET`，api/consumer 须一致 |
+| `BACKUP_DIR` | 备份目录，默认 `/app/data/backups` |
 
 ## 修改配置
 

@@ -416,7 +416,7 @@ func (u *AppUsecase) updateDisCordBot(app *domain.App) {
 		return
 	}
 
-	u.logger.Info("discord bot is starting", log.String("token", token))
+	u.logger.Info("discord bot is starting", log.String("app_id", app.ID))
 	u.discordBots[app.ID] = discordBots
 }
 

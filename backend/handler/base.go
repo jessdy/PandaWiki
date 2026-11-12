@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -60,6 +61,22 @@ func (h *BaseHandler) NewResponseWithError(c echo.Context, msg string, err error
 	h.baseLogger.LogAttrs(c.Request().Context(), slog.LevelError, msg, slog.String("trace_id", traceID), slog.Any("error", err))
 	return c.JSON(http.StatusOK, domain.PWResponse{
 		Success: false,
-		Message: fmt.Sprintf("%s [trace_id: %s]", msg, traceID),
+		Message: fmt.Sprintf("%s [trace_id: %s]", sanitizeErrorMessage(msg), traceID),
 	})
+}
+
+var internalErrorMarkers = []string{
+	"SQLSTATE", "pq:", "pgx", "gorm", "sql:", "ERROR:", "invalid byte sequence",
+	"duplicate key", "violates", "relation \"", "column \"", "syntax error",
+	"dial tcp", "connection refused", "no such host", "i/o timeout", "/app/", "/root/", "/home/", ".go:",
+}
+
+// sanitizeErrorMessage 避免把数据库/网络/文件路径等内部错误原文返回给客户端，详细信息仅写日志。
+func sanitizeErrorMessage(msg string) string {
+	for _, m := range internalErrorMarkers {
+		if strings.Contains(msg, m) {
+			return "服务器内部错误"
+		}
+	}
+	return msg
 }

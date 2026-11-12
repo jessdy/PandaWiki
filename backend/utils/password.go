@@ -3,7 +3,10 @@ package utils
 import (
 	"crypto/subtle"
 	"fmt"
+	"strings"
 	"unicode"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func ValidatePasswordComplexity(password string) error {
@@ -36,4 +39,27 @@ func ConstantTimeEqual(a, b string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+func HashSecret(plain string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func IsBcryptHash(v string) bool {
+	return strings.HasPrefix(v, "$2a$") || strings.HasPrefix(v, "$2b$") || strings.HasPrefix(v, "$2y$")
+}
+
+// VerifySecret 兼容数据迁移前仍以明文保存的历史值。
+func VerifySecret(stored, input string) bool {
+	if stored == "" || input == "" {
+		return false
+	}
+	if IsBcryptHash(stored) {
+		return bcrypt.CompareHashAndPassword([]byte(stored), []byte(input)) == nil
+	}
+	return ConstantTimeEqual(input, stored)
 }

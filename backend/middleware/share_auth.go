@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo-contrib/session"
@@ -11,6 +13,41 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/usecase"
 )
+
+// rejectCrossSiteRequest 对 Cookie 会话做 Origin/Referer 同源校验，缓解 CSRF。
+// 写操作校验 Origin，缺失时退回 Referer；读操作只校验 Origin（浏览器跨站 fetch/XHR 必带 Origin，顶层导航不带）。
+func rejectCrossSiteRequest(c echo.Context) bool {
+	req := c.Request()
+	allowedHosts := []string{req.Host}
+	for _, h := range strings.Split(req.Header.Get("X-Forwarded-Host"), ",") {
+		if h = strings.TrimSpace(h); h != "" {
+			allowedHosts = append(allowedHosts, h)
+		}
+	}
+	sameHost := func(raw string) bool {
+		u, err := url.Parse(strings.TrimSpace(raw))
+		if err != nil || u.Host == "" {
+			return false
+		}
+		for _, h := range allowedHosts {
+			if strings.EqualFold(u.Host, h) {
+				return true
+			}
+		}
+		return false
+	}
+	if origin := req.Header.Get("Origin"); origin != "" {
+		return !sameHost(origin)
+	}
+	switch req.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		if referer := req.Header.Get("Referer"); referer != "" {
+			return !sameHost(referer)
+		}
+	}
+	// 无 Origin/Referer 的非浏览器客户端（如服务间调用）放行
+	return false
+}
 
 type ShareAuthMiddleware struct {
 	logger    *log.Logger
@@ -59,6 +96,18 @@ func (h *ShareAuthMiddleware) CheckForbidden(next echo.HandlerFunc) echo.Handler
 
 func (h *ShareAuthMiddleware) Authorize(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		if rejectCrossSiteRequest(c) {
+			h.logger.Warn("rejected cross-site share request",
+				log.String("method", c.Request().Method),
+				log.String("path", c.Request().URL.Path),
+				log.String("origin", c.Request().Header.Get("Origin")),
+			)
+			return c.JSON(http.StatusForbidden, domain.PWResponse{
+				Success: false,
+				Message: "forbidden cross-site request",
+			})
+		}
+
 		kbID := c.Request().Header.Get("X-KB-ID")
 		if kbID == "" {
 			h.logger.Error("kb_id is empty")

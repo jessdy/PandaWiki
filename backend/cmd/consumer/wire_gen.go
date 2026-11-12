@@ -50,7 +50,11 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	conversationRepository := pg2.NewConversationRepository(db, logger)
-	modelRepository := pg2.NewModelRepository(db, logger)
+	fieldCipher, err := pg2.NewFieldCipher(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	modelRepository := pg2.NewModelRepository(db, fieldCipher, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
 	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
 	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
@@ -63,7 +67,7 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	ragRepository := mq2.NewRAGRepository(mqProducer)
-	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo)
+	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo, fieldCipher)
 	ragmqHandler, err := mq3.NewRAGMQHandler(mqConsumer, logger, ragService, nodeRepository, knowledgeBaseRepository, minioClient, llmUsecase, modelUsecase)
 	if err != nil {
 		return nil, err
@@ -88,7 +92,11 @@ func createApp() (*App, error) {
 	statUseCase := usecase.NewStatUseCase(statRepository, nodeRepository, conversationRepository, appRepository, ipAddressRepo, geoRepo, authRepo, knowledgeBaseRepository, logger)
 	userRepository := pg2.NewUserRepository(db, logger)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
-	cronHandler, err := mq3.NewStatCronHandler(logger, statRepository, statUseCase, nodeUsecase)
+	backupUsecase, err := usecase.NewBackupUsecase(db, systemSettingRepo, minioClient, configConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	cronHandler, err := mq3.NewStatCronHandler(logger, statRepository, statUseCase, nodeUsecase, backupUsecase)
 	if err != nil {
 		return nil, err
 	}

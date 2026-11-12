@@ -211,8 +211,6 @@ func (c *Client) GetUserInfoByCode(ctx context.Context, code string) (*UserDetai
 
 	userInfoURL := fmt.Sprintf("%s?%s", UserInfoURL, params.Encode())
 
-	c.logger.Debug("GetUserInfoByCode", log.Any("userInfoURL", userInfoURL))
-
 	resp, err := c.httpClient.Get(userInfoURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
@@ -337,7 +335,7 @@ func (c *Client) GetUserList(ctx context.Context, deptID string) (*UserListRespo
 		return nil, fmt.Errorf("failed to decode user list response: %w", err)
 	}
 
-	c.logger.Debug("GetUserList resp:", log.Any("resp", userListResponse))
+	c.logger.Debug("GetUserList resp:", log.Int("errcode", userListResponse.Errcode), log.Int("count", len(userListResponse.Userlist)))
 
 	if userListResponse.Errcode != 0 {
 		return nil, fmt.Errorf("failed to get user info: %s", userListResponse.Errmsg)

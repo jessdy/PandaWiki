@@ -131,7 +131,7 @@ type CreateConsultInquiryReq struct {
 // CreateConsultMessageReq 前台或后台追加消息入参。
 type CreateConsultMessageReq struct {
 	InquiryID   int64              `json:"inquiry_id" validate:"required"`
-	Content     string             `json:"content" validate:"required"`
+	Content     string             `json:"content" validate:"required,max=8000"`
 	Attachments ConsultAttachments `json:"attachments,omitempty"`
 }
 

@@ -30,9 +30,10 @@ type ModelUsecase struct {
 	kbRepo            *pg.KnowledgeBaseRepository
 	systemSettingRepo *pg.SystemSettingRepo
 	modelkit          *modelkit.ModelKit
+	cipher            *utils.FieldCipher
 }
 
-func NewModelUsecase(modelRepo *pg.ModelRepository, nodeRepo *pg.NodeRepository, ragRepo *mq.RAGRepository, ragStore rag.RAGService, logger *log.Logger, config *config.Config, kbRepo *pg.KnowledgeBaseRepository, settingRepo *pg.SystemSettingRepo) *ModelUsecase {
+func NewModelUsecase(modelRepo *pg.ModelRepository, nodeRepo *pg.NodeRepository, ragRepo *mq.RAGRepository, ragStore rag.RAGService, logger *log.Logger, config *config.Config, kbRepo *pg.KnowledgeBaseRepository, settingRepo *pg.SystemSettingRepo, cipher *utils.FieldCipher) *ModelUsecase {
 	modelkit := modelkit.NewModelKit(logger.Logger)
 	u := &ModelUsecase{
 		modelRepo:         modelRepo,
@@ -44,6 +45,7 @@ func NewModelUsecase(modelRepo *pg.ModelRepository, nodeRepo *pg.NodeRepository,
 		kbRepo:            kbRepo,
 		systemSettingRepo: settingRepo,
 		modelkit:          modelkit,
+		cipher:            cipher,
 	}
 	return u
 }
@@ -251,6 +253,9 @@ func (u *ModelUsecase) updateModeSettingConfig(ctx context.Context, mode, apiKey
 	if err := json.Unmarshal(setting.Value, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse current model setting: %w", err)
 	}
+	if config.AutoModeAPIKey, err = u.cipher.Decrypt(config.AutoModeAPIKey); err != nil {
+		return nil, fmt.Errorf("failed to decrypt auto mode api key: %w", err)
+	}
 
 	// 更新设置
 	if apiKey != "" {
@@ -266,7 +271,11 @@ func (u *ModelUsecase) updateModeSettingConfig(ctx context.Context, mode, apiKey
 	config.IsManualEmbeddingUpdated = isManualEmbeddingUpdated
 
 	// 持久化设置
-	updatedValue, err := json.Marshal(config)
+	stored := config
+	if stored.AutoModeAPIKey, err = u.cipher.Encrypt(config.AutoModeAPIKey); err != nil {
+		return nil, fmt.Errorf("failed to encrypt auto mode api key: %w", err)
+	}
+	updatedValue, err := json.Marshal(stored)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal updated model setting: %w", err)
 	}
@@ -284,6 +293,9 @@ func (u *ModelUsecase) GetModelModeSetting(ctx context.Context) (domain.ModelMod
 	var config domain.ModelModeSetting
 	if err := json.Unmarshal(setting.Value, &config); err != nil {
 		return domain.ModelModeSetting{}, fmt.Errorf("failed to parse model mode setting: %w", err)
+	}
+	if config.AutoModeAPIKey, err = u.cipher.Decrypt(config.AutoModeAPIKey); err != nil {
+		return domain.ModelModeSetting{}, fmt.Errorf("failed to decrypt auto mode api key: %w", err)
 	}
 	// 无效设置检查
 	if config == (domain.ModelModeSetting{}) || config.Mode == "" {

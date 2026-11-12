@@ -141,6 +141,33 @@ const MENUS = [
       ConstsUserKBPermission.UserKBPermissionUserManage,
     ],
   },
+  {
+    label: '审批',
+    value: '/approval',
+    pathname: 'approval',
+    icon: IconGroup,
+    show: true,
+    roles: [ConstsUserRole.UserRoleAdmin, ConstsUserRole.UserRoleSecurityAdmin],
+    perms: [],
+  },
+  {
+    label: '审计',
+    value: '/audit',
+    pathname: 'audit',
+    icon: IconWenjian,
+    show: true,
+    roles: [ConstsUserRole.UserRoleAuditAdmin],
+    perms: [],
+  },
+  {
+    label: '备份',
+    value: '/backup',
+    pathname: 'backup',
+    icon: IconPaperFull,
+    show: true,
+    roles: [ConstsUserRole.UserRoleAdmin],
+    perms: [],
+  },
 ];
 
 const Sidebar = () => {
@@ -153,9 +180,16 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const menus = useMemo(() => {
     const isAdmin = user.role === ConstsUserRole.UserRoleAdmin;
+    const isSeparated =
+      user.role === ConstsUserRole.UserRoleSecurityAdmin ||
+      user.role === ConstsUserRole.UserRoleAuditAdmin;
     const userPerms = kbDetail.perms || [];
     return MENUS.filter(it => {
+      if ('roles' in it && Array.isArray(it.roles) && it.roles.length > 0) {
+        return it.roles.includes(user.role as ConstsUserRole);
+      }
       if ('role' in it && it.role && user.role !== it.role) return false;
+      if (isSeparated) return false;
       if (isAdmin) return true;
       return it.perms.some(p => userPerms.includes(p));
     });
@@ -312,6 +346,7 @@ const Sidebar = () => {
           );
         })}
       </Stack>
+      <Version />
     </Stack>
   );
 };

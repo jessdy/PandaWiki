@@ -17,9 +17,12 @@ import MemberAdd from './MemberAdd';
 import MemberDelete from './MemberDelete';
 import MemberUpdate from './MemberUpdate';
 
-const ConstsUserRoleMap = {
-  [ConstsUserRole.UserRoleAdmin]: '超级管理员',
+const ConstsUserRoleMap: Record<string, string> = {
+  [ConstsUserRole.UserRoleAdmin]: '系统管理员',
   [ConstsUserRole.UserRoleUser]: '普通管理员',
+  [ConstsUserRole.UserRoleGuest]: '访客',
+  [ConstsUserRole.UserRoleSecurityAdmin]: '安全管理员',
+  [ConstsUserRole.UserRoleAuditAdmin]: '审计管理员',
 };
 
 const PERM_LABELS: Record<string, string> = {

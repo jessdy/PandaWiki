@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
@@ -61,13 +62,13 @@ func NewOpenapiV1Handler(
 //	@Success		200		{object}	domain.PWResponse{data=v1.GitHubCallbackResp}
 //	@Router			/share/v1/openapi/github/callback [get]
 func (h *OpenapiV1Handler) GitHubCallback(c echo.Context) error {
-	ctx := context.WithValue(c.Request().Context(), consts.ContextKeyEdition, consts.GetLicenseEdition(c))
+	ctx := context.WithValue(c.Request().Context(), consts.CtxEdition, consts.GetLicenseEdition(c))
 
 	var req v1.GitHubCallbackReq
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	if req.Code == "" {
+	if err := c.Validate(&req); err != nil {
 		return h.NewResponseWithError(c, "code is required", nil)
 	}
 
@@ -113,6 +114,10 @@ func (h *OpenapiV1Handler) LarkBot(c echo.Context) error {
 	if appInfo.Settings.LarkBotSettings.IsEnabled == nil || !*appInfo.Settings.LarkBotSettings.IsEnabled {
 		h.logger.Error("lark bot is not enabled")
 		return h.NewResponseWithError(c, "lark bot is not enabled", err)
+	}
+	// 事件的来源校验依赖 Verify Token（以及可选的 Encrypt Key 签名），未配置时拒绝，避免伪造事件
+	if strings.TrimSpace(appInfo.Settings.LarkBotSettings.VerifyToken) == "" {
+		return c.JSON(http.StatusForbidden, domain.PWResponse{Message: "lark bot verify token is not configured"})
 	}
 
 	var eventHandler *dispatcher.EventDispatcher

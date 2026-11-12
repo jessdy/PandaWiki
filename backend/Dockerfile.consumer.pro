@@ -14,14 +14,16 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-s -w -extldflags '-static'" -o /build/panda-wiki-consumer pro/cmd/consumer_pro/main.go pro/cmd/consumer_pro/wire_gen.go
 
-FROM alpine:3.21 AS consumer
+FROM openeuler/openeuler:24.03-lts AS consumer
 
-RUN apk update \
-    && apk upgrade \
-    && apk add --no-cache ca-certificates tzdata \
-    && update-ca-certificates 2>/dev/null || true \
-    && rm -rf /var/cache/apk/* \
-    && adduser -D -H -u 10001 panda
+RUN dnf -y update \
+    && dnf -y install ca-certificates tzdata shadow-utils \
+    && update-ca-trust force-enable || true \
+    && groupadd -g 10001 panda \
+    && useradd -u 10001 -g panda -M -d /home/panda -s /sbin/nologin panda \
+    && mkdir -p /home/panda /app/data/backups \
+    && chown -R panda:panda /home/panda /app/data \
+    && dnf clean all
 
 # runtime 中 pg.go 使用编译时源码路径 /src/store/pg/migration，需在镜像中保留该路径
 RUN mkdir -p /src/store/pg/migration

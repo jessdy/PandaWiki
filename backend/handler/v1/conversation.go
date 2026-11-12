@@ -57,6 +57,9 @@ func (h *ConversationHandler) GetConversationList(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := c.Validate(&request); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
+	}
 
 	ctx := c.Request().Context()
 
@@ -111,6 +114,9 @@ func (h *ConversationHandler) GetMessageFeedBackList(c echo.Context) error {
 	var request domain.MessageListReq
 	if err := c.Bind(&request); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
+	}
+	if err := c.Validate(&request); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
 	}
 	h.logger.Info("GetMessageFeedBackList request", log.Any("request", request))
 	ctx := c.Request().Context()

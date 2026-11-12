@@ -9,7 +9,7 @@ import (
 // table: settings
 type SystemSetting struct {
 	ID          int                     `json:"id" gorm:"primary_key"`
-	Key         consts.SystemSettingKey `json:"key"`
+	Key         consts.SystemSettingName `json:"key"`
 	Value       []byte                  `json:"value" gorm:"type:jsonb"` // JSON string
 	Description string                  `json:"description"`
 	CreatedAt   time.Time               `json:"created_at"`
@@ -30,8 +30,8 @@ type ModelModeSetting struct {
 
 // CloudAuthSetting 平台会话验证地址。登录时拼成 http://IP:端口。
 type CloudAuthSetting struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host string `json:"host" validate:"max=253"`
+	Port int    `json:"port" validate:"min=0,max=65535"`
 }
 
 // TestEnvSetting 测试环境。打开后问答不使用向量模型和重排模型。
@@ -39,8 +39,9 @@ type TestEnvSetting struct {
 	Enabled bool `json:"enabled"`
 }
 
-// UploadDeniedExtensionsSetting 上传禁止扩展名配置
-// INSERT INTO "public"."system_settings" ("key", "value") VALUES ('upload', '{"denied_extensions": ["jsp"]}')
+// UploadDeniedExtensionsSetting 上传扩展名配置，内置白名单之外的类型需在 allowed_extensions 中放行
+// INSERT INTO "public"."system_settings" ("key", "value") VALUES ('upload', '{"denied_extensions": ["rar"], "allowed_extensions": ["dwg"]}')
 type UploadDeniedExtensionsSetting struct {
-	DeniedExtensions []string `json:"denied_extensions"` // 禁止上传的文件扩展名列表，不带点，如 ["jsp", "php", "exe"]
+	DeniedExtensions  []string `json:"denied_extensions"`  // 禁止上传的扩展名，不带点
+	AllowedExtensions []string `json:"allowed_extensions"` // 额外放行的扩展名，不带点；内置禁止的类型无法放行
 }

@@ -58,6 +58,9 @@ func (h *ExpertProfileHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "请求参数无效", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "请求参数无效", err)
+	}
 	profile, err := h.usecase.Update(c.Request().Context(), userID, &req)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)

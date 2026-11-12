@@ -70,6 +70,9 @@ func (h *StandardTermHandler) Replace(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
+	}
 	result, err := h.usecase.Replace(c.Request().Context(), &req)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)

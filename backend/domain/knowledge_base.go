@@ -41,8 +41,11 @@ type AccessSettings struct {
 }
 
 type SimpleAuth struct {
-	Enabled  bool   `json:"enabled"`
+	Enabled bool `json:"enabled"`
+	// 知识库访问口令落库为 bcrypt 哈希，接口不回传；更新时留空表示沿用原口令
 	Password string `json:"password"`
+	// 仅用于接口响应，告诉前端是否已设置口令，不落库
+	PasswordSet bool `json:"password_set,omitempty"`
 }
 
 type EnterpriseAuth struct {

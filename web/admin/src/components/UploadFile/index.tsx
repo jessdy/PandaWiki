@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import CustomImage from '../CustomImage';
 import { IconShangchuan, IconIcon_tool_close } from '@panda-wiki/icons';
 import { getBasePath } from '@/utils/getBasePath';
+import { checkUploadFile } from '@/utils/uploadCheck';
 
 interface UploadFileProps {
   type: 'url' | 'base64';
@@ -47,6 +48,13 @@ const UploadFile = ({
     event.stopPropagation();
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const invalid = checkUploadFile(file, accept);
+    if (invalid) {
+      message.error(invalid);
+      clearInputValue();
+      return;
+    }
 
     // 如果正在上传其他文件，先取消
     if (isUploading && abortControllerRef.current) {

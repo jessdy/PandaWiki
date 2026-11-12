@@ -5,6 +5,7 @@ import {
 } from '@/request/Node';
 import { V1NodeDetailResp } from '@/request/types';
 import { useAppSelector } from '@/store';
+import { getLegacyBearerToken } from '@/utils/auth';
 import { Box } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
@@ -105,13 +106,17 @@ const Edit = () => {
       if (lockedNodeRef.current) {
         const body = JSON.stringify(lockedNodeRef.current);
         const url = (window.__BASENAME__ || '') + '/api/v1/node/unlock';
-        const token = localStorage.getItem('panda_wiki_token') || '';
+        const token = getLegacyBearerToken();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
         fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: 'include',
+          headers,
           body,
           keepalive: true,
         }).catch(() => {});

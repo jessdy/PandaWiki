@@ -2,6 +2,7 @@ import { getApiV1NodeDiff } from '@/request/Node';
 import { V1NodeDiffResp } from '@/request/types';
 import { Modal } from '@ctzhian/ui';
 import { Box, Chip, Divider, Stack, useTheme } from '@mui/material';
+import DOMPurify from 'dompurify';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface NodeDiffModalProps {
@@ -173,7 +174,11 @@ const RichPanel = ({
                 p: 0.5,
               },
             }}
-            dangerouslySetInnerHTML={{ __html: line }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(line, {
+                USE_PROFILES: { html: true },
+              }),
+            }}
           />
         );
       }

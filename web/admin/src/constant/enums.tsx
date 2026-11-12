@@ -401,7 +401,7 @@ export const ModelProvider = {
     analysis: true,
     modelDocumentUrl:
       'https://inference.readthedocs.io/zh-cn/v1.2.0/getting_started/installation.html#installation',
-    defaultBaseUrl: 'http://172.17.0.1:9997',
+    defaultBaseUrl: 'https://127.0.0.1:9997',
   },
   gpustack: {
     label: 'gpustack',
@@ -416,7 +416,7 @@ export const ModelProvider = {
     rerank: true,
     analysis: true,
     modelDocumentUrl: 'https://docs.gpustack.ai/latest/quickstart/',
-    defaultBaseUrl: 'http://172.17.0.1',
+    defaultBaseUrl: 'https://127.0.0.1',
   },
   Yi: {
     label: 'Yi',

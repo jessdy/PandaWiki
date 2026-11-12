@@ -2,6 +2,7 @@ package share
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/labstack/echo/v4"
 
@@ -73,6 +74,17 @@ func (h *ShareCommonHandler) FileUpload(c echo.Context) error {
 
 	if !utils.IsImageFile(file.Filename) {
 		return h.NewResponseWithError(c, "只支持图片文件上传", fmt.Errorf("unsupported file type: %s", file.Filename))
+	}
+	src, err := file.Open()
+	if err != nil {
+		return h.NewResponseWithError(c, "failed to open file", err)
+	}
+	defer src.Close()
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(src, head)
+	head = head[:n]
+	if !utils.IsImageContent(file.Filename, head) {
+		return h.NewResponseWithError(c, "文件内容不是合法图片", fmt.Errorf("content mismatch: %s", file.Filename))
 	}
 
 	// validate captcha token

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/labstack/echo/v4"
@@ -36,6 +37,31 @@ type cloudSessionUser struct {
 	LoginName string
 	TrueName  string
 	UserID    int64
+}
+
+type cloudGeneralArgument struct {
+	IP        string `json:"ip"`
+	LoginName string `json:"loginName,omitempty"`
+	UserID    int64  `json:"userId,omitempty"`
+	ID        int64  `json:"id,omitempty"`
+}
+
+type loginVerifyArg struct {
+	Tgt string `json:"tgt"`
+}
+
+type loginVerifyReq struct {
+	GeneralArgument cloudGeneralArgument `json:"generalArgument"`
+	JSONArg         loginVerifyArg       `json:"jsonArg"`
+}
+
+type checkPermissionsArg struct {
+	Permissions []string `json:"permissions"`
+}
+
+type checkPermissionsReq struct {
+	GeneralArgument cloudGeneralArgument `json:"generalArgument"`
+	JSONArg         checkPermissionsArg  `json:"jsonArg"`
 }
 
 type cloudAuthClient struct {
@@ -75,9 +101,15 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "会话令牌无效", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "会话令牌不能为空", nil)
+	}
 	tgt := strings.TrimSpace(req.Tgt)
 	if tgt == "" {
 		return h.NewResponseWithError(c, "会话令牌不能为空", nil)
+	}
+	if len(tgt) > 1024 || strings.ContainsFunc(tgt, unicode.IsControl) {
+		return h.NewResponseWithError(c, "会话令牌无效", nil)
 	}
 	baseURL, err := h.cloudAuthBaseURL(c)
 	if err != nil {
@@ -128,9 +160,9 @@ func (c *cloudAuthClient) loginVerify(ctx context.Context, tgt, ip string) (clou
 			UserID    int64  `json:"userId"`
 		} `json:"data"`
 	}
-	if err := c.post(ctx, loginVerifyPath, map[string]any{
-		"generalArgument": map[string]any{"ip": ip},
-		"jsonArg":         map[string]any{"tgt": tgt},
+	if err := c.post(ctx, loginVerifyPath, loginVerifyReq{
+		GeneralArgument: cloudGeneralArgument{IP: ip},
+		JSONArg:         loginVerifyArg{Tgt: tgt},
 	}, &resp); err != nil {
 		return cloudSessionUser{}, fmt.Errorf("会话验证失败")
 	}
@@ -180,16 +212,17 @@ func (c *cloudAuthClient) hasKfsUserPermission(ctx context.Context, user cloudSe
 		Message string   `json:"message"`
 		Data    []string `json:"data"`
 	}
-	if err := c.post(ctx, checkPermissionsPath, map[string]any{
-		"generalArgument": map[string]any{
-			"ip":        ip,
-			"loginName": user.LoginName,
-			"userId":    user.UserID,
-			"id":        user.UserID,
+	if err := validateCloudIdentity(user.LoginName); err != nil {
+		return false, err
+	}
+	if err := c.post(ctx, checkPermissionsPath, checkPermissionsReq{
+		GeneralArgument: cloudGeneralArgument{
+			IP:        ip,
+			LoginName: user.LoginName,
+			UserID:    user.UserID,
+			ID:        user.UserID,
 		},
-		"jsonArg": map[string]any{
-			"permissions": []string{kfsUserPermission},
-		},
+		JSONArg: checkPermissionsArg{Permissions: []string{kfsUserPermission}},
 	}, &resp); err != nil {
 		return false, fmt.Errorf("权限验证失败")
 	}

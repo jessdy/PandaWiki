@@ -18,6 +18,8 @@ type GoMigrationFunc interface {
 type MigrationFunc struct {
 	Name string
 	Fn   func(*gorm.DB) error
+	// Always 为 true 时每次启动都执行，Fn 必须幂等
+	Always bool
 }
 
 // Migration represents a migration record in database
@@ -49,17 +51,19 @@ func (m *Manager) Execute() error {
 	for _, migration := range m.MigrationFunc.GetMigrationFuncs() {
 		m.logger.Info("find migration", log.String("name", migration.Name))
 		err := m.db.Transaction(func(tx *gorm.DB) error {
-			// Double check if migration was executed
-			var record Migration
-			if err := tx.Where("name = ?", migration.Name).First(&record).Error; err == nil {
-				// Migration was executed by another instance
-				m.logger.Info("skip migration", log.String("name", migration.Name))
-				return nil
-			}
+			if !migration.Always {
+				// Double check if migration was executed
+				var record Migration
+				if err := tx.Where("name = ?", migration.Name).First(&record).Error; err == nil {
+					// Migration was executed by another instance
+					m.logger.Info("skip migration", log.String("name", migration.Name))
+					return nil
+				}
 
-			// Create migration record
-			if err := tx.Create(&Migration{Name: migration.Name, ExecutedAt: time.Now()}).Error; err != nil {
-				return fmt.Errorf("create migration record failed: %w", err)
+				// Create migration record
+				if err := tx.Create(&Migration{Name: migration.Name, ExecutedAt: time.Now()}).Error; err != nil {
+					return fmt.Errorf("create migration record failed: %w", err)
+				}
 			}
 
 			m.logger.Info("starting migration", log.String("name", migration.Name))

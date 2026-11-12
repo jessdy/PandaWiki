@@ -170,7 +170,7 @@ func (u *AuthUsecase) GetDisplayNameByAuthID(ctx context.Context, authID uint) s
 }
 
 func (u *AuthUsecase) SaveNewSession(c echo.Context, auth *domain.Auth) error {
-	s := c.Get(domain.SessionCacheKey)
+	s := c.Get(domain.SessionStoreName)
 	if s == nil {
 		return fmt.Errorf("failed to get session store")
 	}

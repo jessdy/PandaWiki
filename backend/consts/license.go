@@ -4,9 +4,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type contextKey string
+type ctxValueName string
 
-const ContextKeyEdition contextKey = "edition"
+const CtxEdition ctxValueName = "edition"
 
 type LicenseEdition int32
 

@@ -117,8 +117,8 @@ func (c *Client) Authenticate(username, password string) (*UserInfo, error) {
 
 // searchUser 搜索用户信息
 func (c *Client) searchUser(conn *ldap.Conn, username string) (*UserInfo, error) {
-	// 构建搜索过滤器
-	filter := fmt.Sprintf(c.config.UserFilter, username)
+	// 转义用户输入，防止 LDAP 注入
+	filter := fmt.Sprintf(c.config.UserFilter, ldap.EscapeFilter(username))
 
 	// 构建搜索请求
 	searchRequest := ldap.NewSearchRequest(

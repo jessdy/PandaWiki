@@ -343,9 +343,6 @@ func (c *DingTalkClient) GetUserInfo(userID string) (*UserDetailResponse, error)
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
-	// 获取到用户信息
-	c.logger.Info("Get user info from dingtalk success", log.Any("resp 原始的消息：", resp))
-
 	var result UserDetailResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		c.logger.Error("Failed to unmarshal user info response: %v", log.Error(err))
@@ -356,8 +353,7 @@ func (c *DingTalkClient) GetUserInfo(userID string) (*UserDetailResponse, error)
 		c.logger.Error("Failed to get result info", log.Any("ErrCode", result.ErrCode), log.String("ErrMsg", result.ErrMsg))
 		return nil, fmt.Errorf("result.ErrCode:%d", result.ErrCode)
 	}
-	// success
-	c.logger.Info("Get user info from dingtalk success", log.Any("userinfo:", result))
+	c.logger.Info("Get user info from dingtalk success", log.String("user_id", result.Result.Userid))
 
 	return &result, nil
 }

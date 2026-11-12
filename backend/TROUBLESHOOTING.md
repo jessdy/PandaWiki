@@ -28,10 +28,10 @@ NATS 服务器使用的参数是 `--pass` 而不是 `--password`
 如果使用单独的 `docker run` 命令，请使用：
 ```bash
 # 错误: --password
-nats:2.10-alpine -js -m 8222 --user panda-wiki --password panda-wiki-nats-password
+nats:2.10-alpine -js -m 8222 --user panda-wiki --password "${NATS_PASSWORD}"
 
 # 正确: --pass
-nats:2.10-alpine -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
+nats:2.10-alpine -js -m 8222 --user panda-wiki --pass "${NATS_PASSWORD}"
 ```
 
 ### 3. RAG 服务镜像拉取失败
@@ -208,7 +208,7 @@ failed SASL auth: FATAL: password authentication failed for user "panda-wiki"
    nano .env
    
    # 或者直接设置环境变量
-   export PG_DSN="host=10.10.10.252 user=panda-wiki password=正确的密码 dbname=panda-wiki port=5434 sslmode=disable TimeZone=Asia/Shanghai"
+   export PG_DSN="host=YOUR_LINUX_IP user=panda-wiki password=正确的密码 dbname=panda-wiki port=5434 sslmode=prefer TimeZone=Asia/Shanghai"
    ```
 
 4. **如果使用 Docker Compose，检查密码是否匹配**:
@@ -231,7 +231,7 @@ failed SASL auth: FATAL: password authentication failed for user "panda-wiki"
 6. **验证连接**:
    ```bash
    # 在 Mac 上测试连接
-   psql "host=10.10.10.252 user=panda-wiki password=你的密码 dbname=panda-wiki port=5434 sslmode=disable"
+   psql "host=YOUR_LINUX_IP user=panda-wiki password=你的密码 dbname=panda-wiki port=5434 sslmode=prefer"
    ```
 
 ## 服务特定问题
@@ -257,7 +257,7 @@ docker compose up -d postgres
 **连接失败**:
 ```bash
 # 测试连接
-docker exec panda-wiki-redis redis-cli -a panda-wiki-redis-password ping
+docker exec panda-wiki-redis redis-cli -a "${REDIS_PASSWORD}" ping
 # 应该返回: PONG
 
 # 如果密码错误，检查启动命令
@@ -284,7 +284,7 @@ curl http://localhost:9000/minio/health/live
 
 # 访问控制台: http://YOUR_LINUX_IP:9001
 # 用户名: s3panda-wiki
-# 密码: panda-wiki-minio-secret
+# 密码: 环境变量 S3_SECRET_KEY 的值
 ```
 
 ## 快速诊断命令

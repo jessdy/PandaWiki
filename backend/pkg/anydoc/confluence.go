@@ -45,7 +45,7 @@ type ConfluenceExportDocData struct {
 
 // ConfluenceListDocs 获取 Confluence 文档列表
 func (c *Client) ConfluenceListDocs(ctx context.Context, confluenceURL, filename, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) ConfluenceListDocs(ctx context.Context, confluenceURL, filename
 
 // ConfluenceExportDoc 导出 Confluence 文档
 func (c *Client) ConfluenceExportDoc(ctx context.Context, uuid, docID, kbId string) (*ConfluenceExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (c *Client) ConfluenceExportDoc(ctx context.Context, uuid, docID, kbId stri
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

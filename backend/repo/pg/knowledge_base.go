@@ -110,7 +110,6 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 	}
 	api := fmt.Sprintf("%s.2:8000", subnetPrefix)
 	app := fmt.Sprintf("%s.112:3010", subnetPrefix)
-	staticFile := fmt.Sprintf("%s.12:9000", subnetPrefix) // minio
 	servers := make(map[string]any, 0)
 	for port, hostKBMap := range portHostKBMap {
 		trustProxies := make([]string, 0)
@@ -206,9 +205,10 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 								},
 								"handle": []map[string]any{
 									{
+										// 桶是私有的，由 API 校验知识库访问权限后再读 MinIO
 										"handler": "reverse_proxy",
 										"upstreams": []map[string]any{
-											{"dial": staticFile},
+											{"dial": api},
 										},
 										"flush_interval": -1,
 										"transport": map[string]any{
@@ -226,6 +226,18 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 										"request": map[string]any{
 											"set": map[string][]any{
 												"X-KB-ID": {kb.ID},
+											},
+										},
+										"response": map[string]any{
+											"deferred": true,
+											"delete": []string{
+												"X-Powered-By", "X-Middleware-Rewrite", "X-Middleware-Next",
+												"X-Current-Path", "X-Current-Search", "X-Nextjs-Cache",
+												"X-Nextjs-Prerender", "X-Nextjs-Stale-Time", "Server",
+											},
+											"set": map[string][]any{
+												"X-Content-Type-Options": {"nosniff"},
+												"Referrer-Policy":        {"strict-origin-when-cross-origin"},
 											},
 										},
 									},

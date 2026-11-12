@@ -36,7 +36,7 @@ interface StoreContextType {
   persistClientAuthInfo?: (
     info: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp,
   ) => void;
-  /** 退出或显式登出时清除本地 authInfo（含 localStorage） */
+  /** 退出或显式登出时清除内存中的 authInfo */
   clearClientAuthInfo?: () => void;
 }
 
@@ -67,22 +67,21 @@ export default function StoreProvider({
     tree: initialTree = context.tree || [],
   } = props;
 
-  // 用 lazy initializer 在 client mount 的第一帧就把 localStorage 值拿到，
-  // 避免「useEffect 读 localStorage」造成首帧 authInfo=undefined → 误判未登录的问题。
-  // SSR 阶段 window 不存在，仍走 undefined；client 端 hydrate 时立即同步取值，无可见闪烁。
-  const [localAuthInfo, setLocalAuthInfo] = useState<
+  // 登录身份由服务端按会话下发（layout 调 /share/v1/auth/info），只保存在内存里，
+  // 不写入 localStorage，避免用户名等身份信息持久化在浏览器中。
+  const [authInfo, setAuthInfo] = useState<
     GithubComChaitinPandaWikiProApiShareV1AuthInfoResp | undefined
-  >(() => {
-    if (typeof window === 'undefined') return undefined;
-    try {
-      const raw = window.localStorage.getItem('authInfo');
-      return raw ? JSON.parse(raw) : undefined;
-    } catch {
-      return undefined;
-    }
-  });
+  >(authInfoProp);
 
-  const authInfo = authInfoProp ?? localAuthInfo;
+  useEffect(() => {
+    setAuthInfo(authInfoProp);
+  }, [authInfoProp]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem('authInfo');
+    } catch (_) {}
+  }, []);
 
   const catalogSettings = kbDetail?.settings?.catalog_settings;
 
@@ -100,17 +99,11 @@ export default function StoreProvider({
   const persistClientAuthInfo = (
     info: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp,
   ) => {
-    try {
-      window.localStorage.setItem('authInfo', JSON.stringify(info));
-    } catch (_) {}
-    setLocalAuthInfo(info);
+    setAuthInfo(info);
   };
 
   const clearClientAuthInfo = () => {
-    try {
-      window.localStorage.removeItem('authInfo');
-    } catch (_) {}
-    setLocalAuthInfo(undefined);
+    setAuthInfo(undefined);
   };
 
   const [catalogShow, setCatalogShow] = useState(

@@ -20,6 +20,7 @@ import (
 	"github.com/chaitin/panda-wiki/repo/mq"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/rag"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type KnowledgeBaseUsecase struct {
@@ -134,6 +135,12 @@ func (u *KnowledgeBaseUsecase) GetKnowledgeBaseListByUserId(ctx context.Context)
 }
 
 func (u *KnowledgeBaseUsecase) UpdateKnowledgeBase(ctx context.Context, req *domain.UpdateKnowledgeBaseReq) error {
+	if req.AccessSettings != nil {
+		if err := u.prepareSimpleAuth(ctx, req.ID, &req.AccessSettings.SimpleAuth); err != nil {
+			return err
+		}
+	}
+
 	isChange, err := u.repo.UpdateKnowledgeBase(ctx, req)
 	if err != nil {
 		return err
@@ -149,6 +156,35 @@ func (u *KnowledgeBaseUsecase) UpdateKnowledgeBase(ctx context.Context, req *dom
 		return err
 	}
 
+	return nil
+}
+
+// prepareSimpleAuth 把请求里的明文口令换成 bcrypt 哈希；口令留空时沿用库中已有口令。
+func (u *KnowledgeBaseUsecase) prepareSimpleAuth(ctx context.Context, kbID string, auth *domain.SimpleAuth) error {
+	auth.PasswordSet = false
+	if auth.Password != "" {
+		hash, err := utils.HashSecret(auth.Password)
+		if err != nil {
+			return err
+		}
+		auth.Password = hash
+		return nil
+	}
+
+	current, err := u.repo.GetKnowledgeBaseByID(ctx, kbID)
+	if err != nil {
+		return err
+	}
+	stored := current.AccessSettings.SimpleAuth.Password
+	if stored != "" && !utils.IsBcryptHash(stored) {
+		if stored, err = utils.HashSecret(stored); err != nil {
+			return err
+		}
+	}
+	if stored == "" && auth.Enabled {
+		return domain.ErrSimpleAuthPasswordRequired
+	}
+	auth.Password = stored
 	return nil
 }
 

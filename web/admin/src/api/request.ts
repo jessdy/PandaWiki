@@ -5,6 +5,7 @@ import axios, {
   AxiosResponse,
 } from 'axios';
 import { message } from '@ctzhian/ui';
+import { clearAuth, getLegacyBearerToken } from '@/utils/auth';
 
 type BasicResponse<T> = {
   data: T;
@@ -21,14 +22,16 @@ type ErrorResponse = {
 type Response<T> = BasicResponse<T> | ErrorResponse;
 
 const request = <T>(options: AxiosRequestConfig): Promise<T> => {
-  const token = localStorage.getItem('panda_wiki_token') || '';
+  const token = getLegacyBearerToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   const config = {
     baseURL: window.__BASENAME__ || '/',
     timeout: 0,
     withCredentials: true,
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   };
   const service: AxiosInstance = axios.create(config);
   service.interceptors.response.use(
@@ -48,8 +51,8 @@ const request = <T>(options: AxiosRequestConfig): Promise<T> => {
     },
     (error: AxiosError) => {
       if (error.response?.status === 401) {
+        clearAuth();
         window.location.href = window.__BASENAME__ + '/login';
-        localStorage.removeItem('panda_wiki_token');
       }
       message.error(error.response?.statusText || '网络异常');
       return Promise.reject(error.response);

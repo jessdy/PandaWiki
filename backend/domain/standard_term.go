@@ -13,5 +13,5 @@ type StandardTermsSetting struct {
 }
 
 type ReplaceStandardTermsReq struct {
-	Items []StandardTermItem `json:"items"`
+	Items []StandardTermItem `json:"items" validate:"max=200"`
 }

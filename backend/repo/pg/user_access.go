@@ -17,6 +17,36 @@ type UserAccessRepository struct {
 	db        *pg.DB
 	logger    *log.Logger
 	accessMap sync.Map
+	authUsers sync.Map
+}
+
+type cachedAuthUser struct {
+	user     domain.User
+	loadedAt time.Time
+}
+
+const authUserCacheTTL = 10 * time.Second
+
+// GetAuthUser 鉴权用的账号、角色，短暂缓存以免每个请求都查库；用户被删除后最多 10 秒失效
+func (r *UserAccessRepository) GetAuthUser(userID string) (*domain.User, error) {
+	if v, ok := r.authUsers.Load(userID); ok {
+		cached := v.(cachedAuthUser)
+		if time.Since(cached.loadedAt) < authUserCacheTTL {
+			u := cached.user
+			return &u, nil
+		}
+	}
+	var user domain.User
+	if err := r.db.Model(&domain.User{}).Select("id", "account", "role").Where("id = ?", userID).First(&user).Error; err != nil {
+		r.authUsers.Delete(userID)
+		return nil, err
+	}
+	r.authUsers.Store(userID, cachedAuthUser{user: user, loadedAt: time.Now()})
+	return &user, nil
+}
+
+func (r *UserAccessRepository) ForgetAuthUser(userID string) {
+	r.authUsers.Delete(userID)
 }
 
 func NewUserAccessRepository(db *pg.DB, logger *log.Logger) *UserAccessRepository {

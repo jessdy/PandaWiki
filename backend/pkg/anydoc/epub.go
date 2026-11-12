@@ -64,7 +64,7 @@ type EpubpExportDocData struct {
 
 // EpubpListDocs 获取 Epubp 文档列表
 func (c *Client) EpubpListDocs(ctx context.Context, epubpURL, filename, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (c *Client) EpubpListDocs(ctx context.Context, epubpURL, filename, uuid str
 
 // EpubpExportDoc 导出 Epubp 文档
 func (c *Client) EpubpExportDoc(ctx context.Context, uuid, docID, kbId string) (*EpubpExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *Client) EpubpExportDoc(ctx context.Context, uuid, docID, kbId string) (
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

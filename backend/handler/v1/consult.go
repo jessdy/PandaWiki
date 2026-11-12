@@ -114,8 +114,8 @@ func (h *ConsultHandler) Reply(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
-	if req.InquiryID == 0 {
-		return h.NewResponseWithError(c, "inquiry_id is required", nil)
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "inquiry_id and content are required", err)
 	}
 
 	// 拿到当前 admin 的展示名，落库到 sender_name；frontend 可直接渲染不再回查 users 表。
@@ -149,8 +149,8 @@ func (h *ConsultHandler) SetStatus(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
-	if req.InquiryID == 0 || req.Status == "" {
-		return h.NewResponseWithError(c, "inquiry_id & status are required", nil)
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "inquiry_id & status are required", err)
 	}
 	if err := h.usecase.AdminSetStatus(c.Request().Context(), req.InquiryID, req.Status); err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)

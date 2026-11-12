@@ -100,6 +100,9 @@ func (h *AppHandler) UpdateApp(c echo.Context) error {
 	if err := c.Bind(&appRequest); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := c.Validate(&appRequest); err != nil {
+		return h.NewResponseWithError(c, "validate request failed", err)
+	}
 
 	ctx := c.Request().Context()
 	if err := h.usecase.ValidateUpdateApp(ctx, id, &appRequest); err != nil {

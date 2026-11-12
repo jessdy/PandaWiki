@@ -12,18 +12,20 @@ import (
 )
 
 type CronHandler struct {
-	logger      *log.Logger
-	statRepo    *pg.StatRepository
-	statUseCase *usecase.StatUseCase
-	nodeUseCase *usecase.NodeUsecase
+	logger        *log.Logger
+	statRepo      *pg.StatRepository
+	statUseCase   *usecase.StatUseCase
+	nodeUseCase   *usecase.NodeUsecase
+	backupUseCase *usecase.BackupUsecase
 }
 
-func NewStatCronHandler(logger *log.Logger, statRepo *pg.StatRepository, statUseCase *usecase.StatUseCase, nodeUseCase *usecase.NodeUsecase) (*CronHandler, error) {
+func NewStatCronHandler(logger *log.Logger, statRepo *pg.StatRepository, statUseCase *usecase.StatUseCase, nodeUseCase *usecase.NodeUsecase, backupUseCase *usecase.BackupUsecase) (*CronHandler, error) {
 	h := &CronHandler{
-		statRepo:    statRepo,
-		statUseCase: statUseCase,
-		nodeUseCase: nodeUseCase,
-		logger:      logger.WithModule("handler.mq.cron"),
+		statRepo:      statRepo,
+		statUseCase:   statUseCase,
+		nodeUseCase:   nodeUseCase,
+		backupUseCase: backupUseCase,
+		logger:        logger.WithModule("handler.mq.cron"),
 	}
 	cron := cron.New()
 
@@ -60,9 +62,19 @@ func NewStatCronHandler(logger *log.Logger, statRepo *pg.StatRepository, statUse
 	}
 	h.logger.Info("add cron job", log.String("cron_id", "sync_rag_node_status"))
 
+	if _, err := cron.AddFunc("* * * * *", h.RunScheduledBackup); err != nil {
+		h.logger.Error("failed to add cron job for scheduled backup", log.Error(err))
+		return nil, err
+	}
+	h.logger.Info("add cron job", log.String("cron_id", "scheduled_backup"))
+
 	cron.Start()
 	h.logger.Info("start cron jobs")
 	return h, nil
+}
+
+func (h *CronHandler) RunScheduledBackup() {
+	h.backupUseCase.RunScheduled(context.Background())
 }
 
 func (h *CronHandler) RemoveOldStatData() {

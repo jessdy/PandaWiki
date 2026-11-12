@@ -56,28 +56,50 @@ export const formatByte = (limit: number, decimals = 1) => {
   return `${size.toFixed(decimals)} ${units[unitIndex]}`;
 };
 
-export function generatePassword(length = 8) {
+const randomIndex = (max: number) => {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0] % max;
+};
+
+export function generatePassword(length = 12) {
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const numbers = '0123456789';
+  const symbols = '!@#$%^&*_-+=';
 
   const password: string[] = [
-    lowercase[Math.floor(Math.random() * lowercase.length)],
-    uppercase[Math.floor(Math.random() * uppercase.length)],
-    numbers[Math.floor(Math.random() * numbers.length)],
+    lowercase[randomIndex(lowercase.length)],
+    uppercase[randomIndex(uppercase.length)],
+    numbers[randomIndex(numbers.length)],
+    symbols[randomIndex(symbols.length)],
   ];
 
-  const allChars = lowercase + uppercase + numbers;
+  const allChars = lowercase + uppercase + numbers + symbols;
 
-  for (let i = 3; i < length; i++) {
-    password.push(allChars[Math.floor(Math.random() * allChars.length)]);
+  for (let i = password.length; i < length; i++) {
+    password.push(allChars[randomIndex(allChars.length)]);
   }
 
   for (let i = password.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomIndex(i + 1);
     [password[i], password[j]] = [password[j], password[i]];
   }
   return password.join('');
+}
+
+/** 与后端 utils.ValidatePasswordComplexity 保持一致，供 react-hook-form validate 使用 */
+export function validatePasswordComplexity(value: string): true | string {
+  if (value.length < 8 || value.length > 72) return '长度需为 8 到 72 位';
+  if (
+    !/[A-Z]/.test(value) ||
+    !/[a-z]/.test(value) ||
+    !/[0-9]/.test(value) ||
+    !/[^A-Za-z0-9\s]/.test(value)
+  ) {
+    return '需同时包含大写字母、小写字母、数字和特殊字符';
+  }
+  return true;
 }
 
 export const isMac = () =>

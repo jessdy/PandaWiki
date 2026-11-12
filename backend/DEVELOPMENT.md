@@ -82,7 +82,15 @@ docker compose up -d
 
 ### 方式二：单独使用 Docker 命令
 
-如果不想使用 Docker Compose，也可以单独启动每个服务：
+如果不想使用 Docker Compose，也可以单独启动每个服务。下面命令里的口令取自环境变量，先设置强随机值：
+
+```bash
+export POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+export REDIS_PASSWORD="$(openssl rand -hex 16)"
+export NATS_PASSWORD="$(openssl rand -hex 16)"
+export S3_SECRET_KEY="$(openssl rand -hex 16)"
+export RAG_API_KEY="$(openssl rand -hex 16)"
+```
 
 #### 安装 PostgreSQL
 
@@ -91,7 +99,7 @@ docker run -d \
   --name panda-wiki-postgres \
   --restart unless-stopped \
   -e POSTGRES_USER=panda-wiki \
-  -e POSTGRES_PASSWORD=panda-wiki-secret \
+  -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
   -e POSTGRES_DB=panda-wiki \
   -e TZ=Asia/Shanghai \
   -p 5432:5432 \
@@ -108,7 +116,7 @@ docker run -d \
   -p 6379:6379 \
   -v redis_data:/data \
   redis:7-alpine \
-  redis-server --requirepass panda-wiki-redis-password
+  redis-server --requirepass "${REDIS_PASSWORD}"
 ```
 
 #### 安装 NATS
@@ -120,7 +128,7 @@ docker run -d \
   -p 4222:4222 \
   -p 8222:8222 \
   nats:2.10-alpine \
-  -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
+  -js -m 8222 --user panda-wiki --pass "${NATS_PASSWORD}"
 ```
 
 #### 安装 MinIO
@@ -130,11 +138,11 @@ docker run -d \
   --name panda-wiki-minio \
   --restart unless-stopped \
   -e MINIO_ROOT_USER=s3panda-wiki \
-  -e MINIO_ROOT_PASSWORD=panda-wiki-minio-secret \
+  -e MINIO_ROOT_PASSWORD="${S3_SECRET_KEY}" \
   -p 9000:9000 \
   -p 9001:9001 \
   -v minio_data:/data \
-  minio/minio:latest \
+  minio/minio:RELEASE.2025-04-22T22-12-26Z \
   server /data --console-address ":9001"
 ```
 
@@ -151,7 +159,7 @@ docker run -d \
 docker run -d \
   --name panda-wiki-ct-rag \
   --restart unless-stopped \
-  -e API_KEY=sk-1234567890 \
+  -e API_KEY="${RAG_API_KEY}" \
   -p 5050:5050 \
   YOUR_RAG_IMAGE:latest
 ```
@@ -184,7 +192,7 @@ sudo ufw allow from YOUR_MAC_IP
 docker exec panda-wiki-postgres pg_isready -U panda-wiki
 
 # 检查 Redis
-docker exec panda-wiki-redis redis-cli -a panda-wiki-redis-password ping
+docker exec panda-wiki-redis redis-cli -a "${REDIS_PASSWORD}" ping
 
 # 检查 NATS
 curl http://localhost:8222/healthz
@@ -198,34 +206,34 @@ docker ps | grep panda-wiki
 
 ### 默认服务配置
 
-使用上述 Docker 配置，服务的默认连接信息如下：
+使用上述 Docker 配置，服务的连接信息如下（口令均来自启动前设置的环境变量，没有内置默认值）：
 
 - **PostgreSQL**: 
   - 地址: `YOUR_LINUX_IP:5432`
   - 用户: `panda-wiki`
-  - 密码: `panda-wiki-secret`
+  - 密码: `POSTGRES_PASSWORD`
   - 数据库: `panda-wiki`
 
 - **Redis**: 
   - 地址: `YOUR_LINUX_IP:6379`
-  - 密码: `panda-wiki-redis-password`
+  - 密码: `REDIS_PASSWORD`
 
 - **NATS**: 
   - 地址: `nats://YOUR_LINUX_IP:4222`
   - 用户: `panda-wiki`
-  - 密码: `panda-wiki-nats-password`
+  - 密码: `NATS_PASSWORD`
 
 - **MinIO**: 
   - API 地址: `YOUR_LINUX_IP:9000`
   - 控制台: `http://YOUR_LINUX_IP:9001`
   - Access Key: `s3panda-wiki`
-  - Secret Key: `panda-wiki-minio-secret`
+  - Secret Key: `S3_SECRET_KEY`
 
 - **RAG 服务**: 
   - 地址: `http://YOUR_LINUX_IP:5050`
-  - API Key: `sk-1234567890`
+  - API Key: `RAG_API_KEY`
 
-> **安全提示**: 生产环境请务必修改默认密码！
+> **安全提示**: 所有口令请用 `openssl rand -hex 16` 之类的强随机值生成。
 
 ## 配置步骤
 
@@ -245,7 +253,7 @@ cp config.yml.example config.yml
 ```yaml
 # PostgreSQL 配置
 pg:
-  dsn: "host=YOUR_LINUX_IP user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+  dsn: "host=YOUR_LINUX_IP user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=prefer TimeZone=Asia/Shanghai"
 
 # Redis 配置
 redis:
@@ -280,7 +288,7 @@ s3:
 
 ```bash
 # PostgreSQL
-export PG_DSN="host=YOUR_LINUX_IP user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+export PG_DSN="host=YOUR_LINUX_IP user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=prefer TimeZone=Asia/Shanghai"
 
 # Redis
 export REDIS_ADDR="YOUR_LINUX_IP:6379"

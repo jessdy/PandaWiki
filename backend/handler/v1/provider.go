@@ -27,11 +27,18 @@ type APIHandlers struct {
 	TestEnvHandler          *TestEnvHandler
 	CloudAuthHandler        *CloudAuthHandler
 	ExpertProfileHandler    *ExpertProfileHandler
+	AuditHandler            *AuditHandler
+	ApprovalHandler         *ApprovalHandler
+	BackupHandler           *BackupHandler
+	SystemInfoHandler       *SystemInfoHandler
 }
 
 var ProviderSet = wire.NewSet(
 	middleware.ProviderSet,
 	usecase.ProviderSet,
+
+	wire.Bind(new(middleware.AuditRecorder), new(*usecase.AuditUsecase)),
+	middleware.NewAuditMiddleware,
 
 	handler.NewBaseHandler,
 	NewNodeHandler,
@@ -52,6 +59,10 @@ var ProviderSet = wire.NewSet(
 	NewTestEnvHandler,
 	NewCloudAuthHandler,
 	NewExpertProfileHandler,
+	NewAuditHandler,
+	NewApprovalHandler,
+	NewBackupHandler,
+	NewSystemInfoHandler,
 
 	wire.Struct(new(APIHandlers), "*"),
 )

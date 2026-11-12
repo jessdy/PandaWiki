@@ -18,8 +18,8 @@ type AuthGetResp struct {
 }
 
 type AuthGitHubReq struct {
-	KbID        string `json:"kb_id"`
-	RedirectUrl string `json:"redirect_url"`
+	KbID        string `json:"kb_id" validate:"max=64"`
+	RedirectUrl string `json:"redirect_url" validate:"max=2048"`
 }
 
 type AuthGitHubResp struct {
@@ -27,8 +27,8 @@ type AuthGitHubResp struct {
 }
 
 type GitHubCallbackReq struct {
-	Code  string `json:"code" query:"code"`
-	State string `json:"state" query:"state"`
+	Code  string `json:"code" query:"code" validate:"required,max=512"`
+	State string `json:"state" query:"state" validate:"max=512"`
 }
 
 type GitHubCallbackResp struct {
@@ -52,4 +52,11 @@ type AuthLoginTgtResp struct {
 	Username string `json:"username"`
 	Region   string `json:"region"`
 	Role     string `json:"role"`
+}
+
+type AuthInfoResp struct {
+	ID        uint   `json:"id,omitempty"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	AvatarUrl string `json:"avatar_url"`
 }

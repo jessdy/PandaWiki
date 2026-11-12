@@ -111,6 +111,24 @@ const router = [
           LazyLoadable(lazy(() => import('./pages/expert'))),
         ),
       },
+      {
+        path: '/audit',
+        element: createElement(
+          LazyLoadable(lazy(() => import('./pages/audit'))),
+        ),
+      },
+      {
+        path: '/approval',
+        element: createElement(
+          LazyLoadable(lazy(() => import('./pages/approval'))),
+        ),
+      },
+      {
+        path: '/backup',
+        element: createElement(
+          LazyLoadable(lazy(() => import('./pages/backup'))),
+        ),
+      },
     ],
   },
   {

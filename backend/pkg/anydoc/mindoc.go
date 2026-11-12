@@ -64,7 +64,7 @@ type MindocExportDocData struct {
 
 // MindocListDocs 获取 Mindoc 文档列表
 func (c *Client) MindocListDocs(ctx context.Context, mindocURL, filename, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (c *Client) MindocListDocs(ctx context.Context, mindocURL, filename, uuid s
 
 // MindocExportDoc 导出 Mindoc 文档
 func (c *Client) MindocExportDoc(ctx context.Context, uuid, docID, kbId string) (*MindocExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *Client) MindocExportDoc(ctx context.Context, uuid, docID, kbId string) 
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

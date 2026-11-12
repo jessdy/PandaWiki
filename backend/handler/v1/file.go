@@ -36,7 +36,7 @@ func NewFileHandler(echo *echo.Echo, baseHandler *handler.BaseHandler, logger *l
 	}
 	group := echo.Group("/api/v1/file")
 	group.POST("/upload", h.Upload, h.auth.Authorize)
-	group.POST("/upload/anydoc", h.UploadAnydoc)
+	group.POST("/upload/anydoc/:token", h.UploadAnydoc)
 	return h
 }
 
@@ -77,13 +77,15 @@ func (h *FileHandler) Upload(c echo.Context) error {
 //	@Description	Upload Anydoc File
 //	@Tags			file
 //	@Accept			multipart/form-data
+//	@Param			token	path		string	true	"Upload token"
 //	@Param			file	formData	file	true	"File"
 //	@Param			path	formData	string	true	"File Path"
 //	@Success		200		{object}	domain.AnydocUploadResp
-//	@Router			/api/v1/file/upload/anydoc [post]
+//	@Router			/api/v1/file/upload/anydoc/{token} [post]
 func (h *FileHandler) UploadAnydoc(c echo.Context) error {
 	clientIP := fmt.Sprintf("%s.17", h.config.SubnetPrefix)
-	if utils.GetClientIPFromRemoteAddr(c) != clientIP {
+	if utils.GetClientIPFromRemoteAddr(c) != clientIP ||
+		!utils.ValidAnydocUploadToken(h.config.Auth.JWT.Secret, c.Param("token")) {
 		return c.JSON(http.StatusUnauthorized, domain.AnydocUploadResp{
 			Code: 1,
 			Err:  "invalid required",

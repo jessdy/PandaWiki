@@ -244,7 +244,11 @@ func (c *Client) nextReportDataDelay() time.Duration {
 	return time.Until(nextStart.Add(offset))
 }
 
+// reportingEnabled 遥测默认关闭，需显式 TELEMETRY_ENABLED=true 且配置地址与 SM4 密钥才会对外发送。
 func (c *Client) reportingEnabled() bool {
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv("TELEMETRY_ENABLED")), "true") {
+		return false
+	}
 	return strings.TrimSpace(c.aesKey) != "" && strings.TrimSpace(c.baseURL) != ""
 }
 

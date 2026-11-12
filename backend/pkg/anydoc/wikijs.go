@@ -45,7 +45,7 @@ type WikijsExportDocData struct {
 
 // WikijsListDocs 获取 Wikijs 文档列表
 func (c *Client) WikijsListDocs(ctx context.Context, wikijsURL, filename, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) WikijsListDocs(ctx context.Context, wikijsURL, filename, uuid s
 
 // WikijsExportDoc 导出 Wikijs 文档
 func (c *Client) WikijsExportDoc(ctx context.Context, uuid, docID, kbId string) (*WikijsExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (c *Client) WikijsExportDoc(ctx context.Context, uuid, docID, kbId string) 
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,27 @@ type Config struct {
 	CaddyAPI      string          `mapstructure:"caddy_api"`
 	SubnetPrefix  string          `mapstructure:"subnet_prefix"`
 	CloudAuth     CloudAuthConfig `mapstructure:"cloud_auth"`
+	// 敏感字段落库 SM4 加密密钥，未设置时回退 JWT 密钥
+	DataEncryptionKey string `mapstructure:"data_encryption_key"`
+	// 更换 JWT_SECRET 后填旧值（逗号分隔可多个），只用于解密/校验旧数据，不再签发令牌
+	PreviousJWTSecrets []string `mapstructure:"previous_jwt_secrets"`
+	// 三员分立：安全管理员 secadmin、审计管理员 auditadmin 的口令，未设置则不创建对应账号
+	SecurityAdminPassword string `mapstructure:"security_admin_password"`
+	AuditAdminPassword    string `mapstructure:"audit_admin_password"`
+	BackupDir             string `mapstructure:"backup_dir"`
+}
+
+// FieldEncryptionSecrets 第一个用于加密，其余只用于解密改用 DATA_ENCRYPTION_KEY 或更换 JWT_SECRET 之前写入的数据。
+func (c *Config) FieldEncryptionSecrets() []string {
+	candidates := append([]string{c.DataEncryptionKey, c.Auth.JWT.Secret}, c.PreviousJWTSecrets...)
+	secrets := make([]string, 0, len(candidates))
+	for _, s := range candidates {
+		s = strings.TrimSpace(s)
+		if s != "" && !slices.Contains(secrets, s) {
+			secrets = append(secrets, s)
+		}
+	}
+	return secrets
 }
 
 type CloudAuthConfig struct {
@@ -35,7 +57,10 @@ type LogConfig struct {
 }
 
 type HTTPConfig struct {
-	Port int `mapstructure:"port"`
+	Port           int      `mapstructure:"port"`
+	TrustedProxies []string `mapstructure:"trusted_proxies"`
+	RateLimitRPS   float64  `mapstructure:"rate_limit_rps"`
+	RateLimitBurst int      `mapstructure:"rate_limit_burst"`
 }
 
 type PGConfig struct {
@@ -100,7 +125,9 @@ func NewConfig() (*Config, error) {
 		},
 		// AdminPassword / JWT / Redis / S3 secrets must come from config file or env.
 		HTTP: HTTPConfig{
-			Port: 8000,
+			Port:           8000,
+			RateLimitRPS:   20,
+			RateLimitBurst: 60,
 		},
 		PG: PGConfig{},
 		MQ: MQConfig{
@@ -177,7 +204,13 @@ func validateRequiredSecrets(c *Config) error {
 	if strings.TrimSpace(c.S3.SecretKey) == "" {
 		missing = append(missing, "S3_SECRET_KEY")
 	}
+	if c.MQ.Type == "nats" && strings.TrimSpace(c.MQ.NATS.Password) == "" {
+		missing = append(missing, "NATS_PASSWORD")
+	}
 	if len(missing) == 0 {
+		if len(c.Auth.JWT.Secret) < 32 {
+			fmt.Fprintln(os.Stderr, "WARNING: JWT_SECRET is shorter than 32 characters; use a random value such as `openssl rand -hex 32`")
+		}
 		return nil
 	}
 	return fmt.Errorf("missing required secrets: %s (set via environment or config file)", strings.Join(missing, ", "))
@@ -186,7 +219,7 @@ func validateRequiredSecrets(c *Config) error {
 // overrideWithEnv override sensitive info with env variables
 func overrideWithEnv(c *Config) {
 	if env := os.Getenv("POSTGRES_PASSWORD"); env != "" {
-		c.PG.DSN = fmt.Sprintf("host=panda-wiki-postgres user=panda-wiki password=%s dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai", env)
+		c.PG.DSN = fmt.Sprintf("host=panda-wiki-postgres user=panda-wiki password=%s dbname=panda-wiki port=5432 %s TimeZone=Asia/Shanghai", env, pgSSLParams())
 	}
 	if env := os.Getenv("NATS_PASSWORD"); env != "" {
 		c.MQ.NATS.Password = env
@@ -205,6 +238,24 @@ func overrideWithEnv(c *Config) {
 	}
 	if env := os.Getenv("ADMIN_PASSWORD"); env != "" {
 		c.AdminPassword = env
+	}
+	if env := os.Getenv("DATA_ENCRYPTION_KEY"); env != "" {
+		c.DataEncryptionKey = env
+	}
+	if env := os.Getenv("PREVIOUS_JWT_SECRET"); env != "" {
+		c.PreviousJWTSecrets = strings.Split(env, ",")
+	}
+	if env := os.Getenv("SECURITY_ADMIN_PASSWORD"); env != "" {
+		c.SecurityAdminPassword = env
+	}
+	if env := os.Getenv("AUDIT_ADMIN_PASSWORD"); env != "" {
+		c.AuditAdminPassword = env
+	}
+	if env := os.Getenv("BACKUP_DIR"); env != "" {
+		c.BackupDir = env
+	}
+	if c.BackupDir == "" {
+		c.BackupDir = "/app/data/backups"
 	}
 	if env := os.Getenv("RAG_API_KEY"); env != "" {
 		c.RAG.CTRAG.APIKey = env
@@ -246,6 +297,19 @@ func overrideWithEnv(c *Config) {
 	if env := os.Getenv("CLOUD_AUTH_BASE_URL"); env != "" {
 		c.CloudAuth.BaseURL = env
 	}
+	if env := os.Getenv("TRUSTED_PROXIES"); env != "" {
+		c.HTTP.TrustedProxies = strings.Split(env, ",")
+	}
+	if env := os.Getenv("RATE_LIMIT_RPS"); env != "" {
+		if v, err := strconv.ParseFloat(env, 64); err == nil {
+			c.HTTP.RateLimitRPS = v
+		}
+	}
+	if env := os.Getenv("RATE_LIMIT_BURST"); env != "" {
+		if v, err := strconv.Atoi(env); err == nil {
+			c.HTTP.RateLimitBurst = v
+		}
+	}
 	// log level
 	if env := os.Getenv("LOG_LEVEL"); env != "" {
 		if i, err := strconv.Atoi(env); err == nil {
@@ -258,6 +322,20 @@ func overrideWithEnv(c *Config) {
 			fmt.Fprintln(os.Stderr, "Invalid LOG_LEVEL; using default")
 		}
 	}
+}
+
+// pgSSLParams: prefer 在数据库开启 TLS 时加密、未开启时回退明文；
+// 数据库配好证书后用 PG_SSLMODE=verify-full + PG_SSLROOTCERT 强制校验。
+func pgSSLParams() string {
+	mode := strings.TrimSpace(os.Getenv("PG_SSLMODE"))
+	if mode == "" {
+		mode = "prefer"
+	}
+	params := "sslmode=" + mode
+	if rootCert := strings.TrimSpace(os.Getenv("PG_SSLROOTCERT")); rootCert != "" {
+		params += " sslrootcert=" + rootCert
+	}
+	return params
 }
 
 func (*Config) GetString(key string) string {

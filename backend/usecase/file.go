@@ -9,8 +9,10 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -23,15 +25,32 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/s3"
-	"github.com/chaitin/panda-wiki/utils"
 )
 
-const maxUploadBytes int64 = 100 << 20
+const (
+	maxUploadBytes int64 = 100 << 20
+	sniffLen             = 512
+)
 
+// 无论系统设置如何都禁止上传，可被浏览器当作页面或脚本执行。
 var builtinDeniedExtensions = []string{
 	"html", "htm", "svg", "svgz", "js", "mjs", "xhtml",
 	"php", "jsp", "asp", "aspx", "exe", "sh", "bat", "cmd", "jar",
 }
+
+var imageExtensions = []string{"jpg", "jpeg", "png", "gif", "bmp", "webp", "ico", "tif", "tiff"}
+
+// 白名单之外的扩展名需在系统设置 upload.allowed_extensions 中显式放行。
+var builtinAllowedExtensions = slices.Concat(imageExtensions, []string{
+	"mp4", "webm", "mov", "m4v", "avi", "mkv", "flv", "wmv", "3gp", "ogv",
+	"mp3", "wav", "m4a", "aac", "ogg", "oga", "flac", "amr",
+	"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "wps", "et", "dps", "odt", "ods", "odp", "rtf",
+	"txt", "md", "markdown", "csv", "json", "xml", "yaml", "yml", "epub",
+	"zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "lakebook",
+})
+
+// 以纯文本或附件形式下发，内容里出现 HTML 标记也不会被渲染。
+var textLikeExtensions = []string{"txt", "md", "markdown", "csv", "json", "xml", "yaml", "yml"}
 
 type FileUsecase struct {
 	logger            *log.Logger
@@ -49,14 +68,6 @@ func NewFileUsecase(logger *log.Logger, s3Client *s3.MinioClient, config *config
 	}
 }
 
-func (u *FileUsecase) UploadFileGetUrl(ctx context.Context, kbID string, file *multipart.FileHeader) (string, error) {
-	key, err := u.UploadFile(ctx, kbID, file)
-	if err != nil {
-		return "", err
-	}
-	return utils.StaticFilePublicURL(u.config.S3.Endpoint, key), nil
-}
-
 func (u *FileUsecase) UploadFile(ctx context.Context, kbID string, file *multipart.FileHeader) (string, error) {
 	src, err := file.Open()
 	if err != nil {
@@ -64,22 +75,24 @@ func (u *FileUsecase) UploadFile(ctx context.Context, kbID string, file *multipa
 	}
 	defer src.Close()
 
-	if err := u.checkUpload(ctx, file.Filename, file.Size); err != nil {
+	head, err := readHead(src)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	contentType, err := u.inspectUpload(ctx, file.Filename, file.Size, head)
+	if err != nil {
 		return "", err
 	}
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 
 	filename := fmt.Sprintf("%s/%s%s", kbID, uuid.New().String(), ext)
 
-	size := file.Size
-	contentType := safeContentType(ext)
-
 	resp, err := u.s3Client.PutObject(
 		ctx,
 		domain.Bucket,
 		filename,
 		src,
-		size,
+		file.Size,
 		minio.PutObjectOptions{
 			ContentType: contentType,
 			UserMetadata: map[string]string{
@@ -92,77 +105,6 @@ func (u *FileUsecase) UploadFile(ctx context.Context, kbID string, file *multipa
 	}
 
 	return resp.Key, nil
-}
-
-func (u *FileUsecase) UploadFileFromBytes(ctx context.Context, kbID string, filename string, fileBytes []byte) (string, error) {
-	// Create a reader from the byte slice
-	reader := bytes.NewReader(fileBytes)
-
-	if err := u.checkUpload(ctx, filename, int64(len(fileBytes))); err != nil {
-		return "", err
-	}
-	ext := strings.ToLower(filepath.Ext(filename))
-
-	s3Filename := fmt.Sprintf("%s/%s%s", kbID, uuid.New().String(), ext)
-
-	size := int64(len(fileBytes))
-	contentType := safeContentType(ext)
-
-	resp, err := u.s3Client.PutObject(
-		ctx,
-		domain.Bucket,
-		s3Filename,
-		reader,
-		size,
-		minio.PutObjectOptions{
-			ContentType: contentType,
-			UserMetadata: map[string]string{
-				"originalname": filename,
-			},
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("upload failed: %w", err)
-	}
-
-	return resp.Key, nil
-}
-
-func (u *FileUsecase) UploadFileFromReader(
-	ctx context.Context,
-	kbID string,
-	filename string,
-	reader io.Reader,
-	size int64, // 必须提供对象大小
-) (string, error) {
-	// 生成唯一文件名
-	if err := u.checkUpload(ctx, filename, size); err != nil {
-		return "", err
-	}
-	ext := strings.ToLower(filepath.Ext(filename))
-
-	s3Filename := fmt.Sprintf("%s/%s%s", kbID, uuid.New().String(), ext)
-	contentType := safeContentType(ext)
-
-	// 上传到 S3
-	_, err := u.s3Client.PutObject(
-		ctx,
-		domain.Bucket,
-		s3Filename,
-		reader,
-		size, // 必须提供对象大小
-		minio.PutObjectOptions{
-			ContentType: contentType,
-			UserMetadata: map[string]string{
-				"originalname": filename,
-			},
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("S3 upload failed: %w", err)
-	}
-
-	return s3Filename, nil
 }
 
 func (u *FileUsecase) AnyDocUploadFile(ctx context.Context, file *multipart.FileHeader, path string) (string, error) {
@@ -176,19 +118,21 @@ func (u *FileUsecase) AnyDocUploadFile(ctx context.Context, file *multipart.File
 	if err != nil {
 		return "", err
 	}
-	if err := u.checkUpload(ctx, objectKey, file.Size); err != nil {
+	head, err := readHead(src)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	contentType, err := u.inspectUpload(ctx, objectKey, file.Size, head)
+	if err != nil {
 		return "", err
 	}
-	ext := strings.ToLower(filepath.Ext(objectKey))
-	contentType := safeContentType(ext)
-	size := file.Size
 
 	resp, err := u.s3Client.PutObject(
 		ctx,
 		domain.Bucket,
 		objectKey,
 		src,
-		size,
+		file.Size,
 		minio.PutObjectOptions{
 			ContentType: contentType,
 			UserMetadata: map[string]string{
@@ -203,11 +147,63 @@ func (u *FileUsecase) AnyDocUploadFile(ctx context.Context, file *multipart.File
 	return resp.Key, nil
 }
 
-func (u *FileUsecase) checkUpload(ctx context.Context, filename string, size int64) error {
-	if size < 0 || size > maxUploadBytes {
-		return fmt.Errorf("file size exceeds the %dMB limit", maxUploadBytes>>20)
+func readHead(r io.ReadSeeker) ([]byte, error) {
+	head := make([]byte, sniffLen)
+	n, err := io.ReadFull(r, head)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, err
 	}
-	return u.checkDeniedExtension(ctx, strings.ToLower(filepath.Ext(filename)))
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return head[:n], nil
+}
+
+// inspectUpload 校验大小、扩展名白名单和文件头，返回存储时使用的 Content-Type（不采信客户端声明）。
+func (u *FileUsecase) inspectUpload(ctx context.Context, filename string, size int64, head []byte) (string, error) {
+	if size < 0 || size > maxUploadBytes {
+		return "", fmt.Errorf("file size exceeds the %dMB limit", maxUploadBytes>>20)
+	}
+	setting, err := u.uploadSetting(ctx)
+	if err != nil {
+		return "", err
+	}
+	return inspectContent(setting, filename, head)
+}
+
+func inspectContent(setting *domain.UploadDeniedExtensionsSetting, filename string, head []byte) (string, error) {
+	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), ".")
+	sniffed := http.DetectContentType(head)
+
+	if ext == "" {
+		// 爬虫回传的图片可能不带扩展名，只有文件头确认是位图才放行
+		if strings.HasPrefix(sniffed, "image/") {
+			return sniffed, nil
+		}
+		return "", fmt.Errorf("files without an extension are not allowed for upload")
+	}
+	if !extensionAllowed(setting, ext) {
+		return "", fmt.Errorf("file extension '.%s' is not allowed for upload", ext)
+	}
+	if slices.Contains(imageExtensions, ext) {
+		if !isImageContent(ext, head, sniffed) {
+			return "", fmt.Errorf("file content does not match extension '.%s'", ext)
+		}
+	} else if !slices.Contains(textLikeExtensions, ext) && isMarkupContent(sniffed) {
+		return "", fmt.Errorf("file content does not match extension '.%s'", ext)
+	}
+	return safeContentType("." + ext), nil
+}
+
+func isImageContent(ext string, head []byte, sniffed string) bool {
+	if ext == "tif" || ext == "tiff" {
+		return bytes.HasPrefix(head, []byte("II*\x00")) || bytes.HasPrefix(head, []byte("MM\x00*"))
+	}
+	return strings.HasPrefix(sniffed, "image/")
+}
+
+func isMarkupContent(sniffed string) bool {
+	return strings.HasPrefix(sniffed, "text/html") || strings.HasPrefix(sniffed, "text/xml")
 }
 
 func safeContentType(ext string) string {
@@ -229,38 +225,38 @@ func sanitizeObjectKey(objectKey string) (string, error) {
 	return objectKey, nil
 }
 
-// checkDeniedExtension checks if the file extension is in the denied list
-func (u *FileUsecase) checkDeniedExtension(ctx context.Context, ext string) error {
-	ext = strings.TrimPrefix(strings.ToLower(ext), ".")
-	for _, deniedExt := range builtinDeniedExtensions {
-		if ext == deniedExt {
-			return fmt.Errorf("file extension '.%s' is not allowed for upload", ext)
+// extensionAllowed 先拦截内置和系统设置中的禁用扩展名，再要求命中白名单。
+func extensionAllowed(setting *domain.UploadDeniedExtensionsSetting, ext string) bool {
+	if slices.Contains(builtinDeniedExtensions, ext) || containsExtension(setting.DeniedExtensions, ext) {
+		return false
+	}
+	return slices.Contains(builtinAllowedExtensions, ext) || containsExtension(setting.AllowedExtensions, ext)
+}
+
+func containsExtension(list []string, ext string) bool {
+	for _, v := range list {
+		if strings.EqualFold(strings.TrimPrefix(strings.TrimSpace(v), "."), ext) {
+			return true
 		}
 	}
-	if ext == "" {
-		return nil
-	}
+	return false
+}
 
+func (u *FileUsecase) uploadSetting(ctx context.Context) (*domain.UploadDeniedExtensionsSetting, error) {
 	setting, err := u.systemSettingRepo.GetSystemSetting(ctx, consts.SystemSettingUpload)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &domain.UploadDeniedExtensionsSetting{}, nil
+	}
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		u.logger.Error("failed to get upload denied extensions setting", "error", err)
-		return fmt.Errorf("upload check failed")
+		u.logger.Error("failed to get upload extensions setting", "error", err)
+		return nil, fmt.Errorf("upload check failed")
 	}
-
-	var deniedSetting domain.UploadDeniedExtensionsSetting
-	if err := json.Unmarshal(setting.Value, &deniedSetting); err != nil {
-		u.logger.Error("failed to unmarshal denied extensions setting", "error", err)
-		return fmt.Errorf("upload check failed")
-	}
-
-	for _, deniedExt := range deniedSetting.DeniedExtensions {
-		if strings.EqualFold(ext, deniedExt) {
-			return fmt.Errorf("file extension '.%s' is not allowed for upload", ext)
+	var s domain.UploadDeniedExtensionsSetting
+	if len(setting.Value) > 0 {
+		if err := json.Unmarshal(setting.Value, &s); err != nil {
+			u.logger.Error("failed to unmarshal upload extensions setting", "error", err)
+			return nil, fmt.Errorf("upload check failed")
 		}
 	}
-
-	return nil
+	return &s, nil
 }

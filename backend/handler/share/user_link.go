@@ -121,6 +121,9 @@ func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "用户信息无效", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "用户信息无效", err)
+	}
 	link, err := decodeUserLink(req.User)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)
@@ -163,7 +166,7 @@ func (h *ShareAuthHandler) loginLinkedUser(c echo.Context, kbID string, link dec
 		},
 		LastLoginTime: time.Now(),
 	}
-	ctxWithEdition := context.WithValue(ctx, consts.ContextKeyEdition, consts.GetLicenseEdition(c))
+	ctxWithEdition := context.WithValue(ctx, consts.CtxEdition, consts.GetLicenseEdition(c))
 	auth, err = h.authUsecase.AuthRepo.GetOrCreateAuth(ctxWithEdition, auth, consts.SourceTypeUserPassword)
 	if err != nil {
 		h.logger.Error("failed to get or create auth", log.Error(err))

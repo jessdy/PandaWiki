@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 )
 
-const ContextKeyEditionLimitation contextKey = "edition_limitation"
+const CtxEditionLimitation ctxValueName = "edition_limitation"
 
 type BaseEditionLimitation struct {
 	MaxKb                  int   `json:"max_kb"`                     // 知识库站点数量
@@ -24,24 +24,24 @@ type BaseEditionLimitation struct {
 }
 
 var baseEditionLimitationDefault = BaseEditionLimitation{
-	MaxKb:                  99999999999,   // 0 表示无限制
-	MaxAdmin:               99999999999,   // 0 表示无限制
-	MaxNode:                99999999999,   // 0 表示无限制
-	MaxSSOUser:             99999999999,   // 0 表示无限制
-	AllowAdminPerm:         true, // 支持管理员分权控制
-	AllowCustomCopyright:   true, // 支持自定义版权信息
-	AllowCommentAudit:      true, // 支持评论审核
-	AllowAdvancedBot:       true, // 支持高级机器人配置
-	AllowWatermark:         true, // 支持水印
-	AllowCopyProtection:    true, // 支持内容复制保护
-	AllowOpenAIBotSettings: true, // 支持问答机器人
-	AllowMCPServer:         true, // 支持创建MCP Server
-	AllowNodeStats:         true, // 支持文档统计
+	MaxKb:                  99999999999, // 0 表示无限制
+	MaxAdmin:               99999999999, // 0 表示无限制
+	MaxNode:                99999999999, // 0 表示无限制
+	MaxSSOUser:             99999999999, // 0 表示无限制
+	AllowAdminPerm:         true,        // 支持管理员分权控制
+	AllowCustomCopyright:   true,        // 支持自定义版权信息
+	AllowCommentAudit:      true,        // 支持评论审核
+	AllowAdvancedBot:       true,        // 支持高级机器人配置
+	AllowWatermark:         true,        // 支持水印
+	AllowCopyProtection:    true,        // 支持内容复制保护
+	AllowOpenAIBotSettings: true,        // 支持问答机器人
+	AllowMCPServer:         true,        // 支持创建MCP Server
+	AllowNodeStats:         true,        // 支持文档统计
 }
 
 func GetBaseEditionLimitation(c context.Context) BaseEditionLimitation {
 
-	edition, ok := c.Value(ContextKeyEditionLimitation).([]byte)
+	edition, ok := c.Value(CtxEditionLimitation).([]byte)
 	if !ok {
 		return baseEditionLimitationDefault
 	}

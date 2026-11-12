@@ -1,4 +1,5 @@
 import SSEClient from '@/utils/fetch';
+import { getLegacyBearerToken } from '@/utils/auth';
 import { Editor, useTiptap, UseTiptapReturn } from '@ctzhian/tiptap';
 import { Modal } from '@ctzhian/ui';
 import { Box, Divider, Stack } from '@mui/material';
@@ -68,12 +69,16 @@ const AIGenerate = ({
 
   useEffect(() => {
     if (!open) return;
+    const token = getLegacyBearerToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     sseClientRef.current = new SSEClient<string>({
       url: '/api/v1/creation/text',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('panda_wiki_token')}`,
-      },
+      headers,
       onComplete: () => setLoading(false),
       onError: () => setLoading(false),
     });

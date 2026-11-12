@@ -41,7 +41,7 @@ func NewShareConsultHandler(
 		authUsecase:   authUsecase,
 		expertUsecase: expertUsecase,
 	}
-	g := e.Group("share/pro/v1/consult", shareCORSMiddleware)
+	g := e.Group("share/pro/v1/consult", shareCORSMiddleware, h.ShareAuthMiddleware.Authorize)
 	g.POST("", h.Create)
 	g.GET("/list", h.List)
 	g.GET("/detail", h.Detail)
@@ -112,6 +112,9 @@ func (h *ShareConsultHandler) Create(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "请填写咨询内容", err)
+	}
 	inquiry, err := h.usecase.Create(c.Request().Context(), usecase.CreateInquiryShareInput{
 		UserID:        uid,
 		SubmitterName: h.resolveSubmitterName(c),
@@ -133,6 +136,9 @@ func (h *ShareConsultHandler) List(c echo.Context) error {
 		return h.NewResponseWithError(c, "请先登录", nil)
 	}
 	status := c.QueryParam("status")
+	if status != "" && !domain.IsValidConsultStatus(status) {
+		return h.NewResponseWithError(c, "invalid status", nil)
+	}
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 	items, total, err := h.usecase.ListByUser(c.Request().Context(), uid, status, page, perPage)
@@ -172,6 +178,9 @@ func (h *ShareConsultHandler) Reply(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "请填写追问内容", err)
+	}
 	msg, err := h.usecase.AppendUserMessage(c.Request().Context(), usecase.AppendShareInput{
 		UserID:        uid,
 		SubmitterName: h.resolveSubmitterName(c),
@@ -185,18 +194,22 @@ func (h *ShareConsultHandler) Reply(c echo.Context) error {
 	return h.NewResponseWithData(c, map[string]any{"item": msg})
 }
 
+type closeConsultReq struct {
+	InquiryID int64 `json:"inquiry_id" validate:"required,gt=0"`
+}
+
 // Close POST /share/pro/v1/consult/close — 用户主动关闭自己的咨询单。
 func (h *ShareConsultHandler) Close(c echo.Context) error {
 	uid := h.resolveUserID(c)
 	if uid == "" {
 		return h.NewResponseWithError(c, "请先登录", nil)
 	}
-	req := &domain.UpdateConsultStatusReq{}
+	req := &closeConsultReq{}
 	if err := c.Bind(req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
-	if req.InquiryID <= 0 {
-		return h.NewResponseWithError(c, "inquiry_id is required", nil)
+	if err := c.Validate(req); err != nil {
+		return h.NewResponseWithError(c, "inquiry_id is required", err)
 	}
 	if err := h.usecase.CloseForUser(c.Request().Context(), uid, req.InquiryID); err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)

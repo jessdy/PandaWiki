@@ -1,33 +1,57 @@
 package utils
 
 import (
+	"crypto/hmac"
+	"encoding/hex"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/tjfoc/gmsm/sm3"
 )
 
-// StaticFilePublicURL builds an internal object URL for MinIO/static-file access.
-// Endpoint comes from S3_ENDPOINT (or config-provided host); scheme from S3_USE_SSL.
-func StaticFilePublicURL(endpoint, objectKey string) string {
-	host := strings.TrimSpace(endpoint)
-	if host == "" {
-		host = strings.TrimSpace(os.Getenv("S3_ENDPOINT"))
+// 容器网络内访问 API 的地址；MinIO 桶是私有的，其他服务都经 API 读取文件。
+// 可通过 INTERNAL_API_BASE_URL 覆盖为 https://...（服务间 mTLS/网关场景）。
+func internalAPIBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("INTERNAL_API_BASE_URL")); v != "" {
+		return strings.TrimRight(v, "/")
 	}
-	host = strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://")
-	host = strings.TrimRight(host, "/")
-	if host == "" || strings.TrimSpace(objectKey) == "" {
-		return ""
+	return (&url.URL{Scheme: "http", Host: "panda-wiki-api:8000"}).String()
+}
+
+func escapeObjectKey(key string) string {
+	segments := strings.Split(strings.TrimLeft(key, "/"), "/")
+	for i, s := range segments {
+		segments[i] = url.PathEscape(s)
 	}
-	scheme := "http"
-	if strings.EqualFold(os.Getenv("S3_USE_SSL"), "true") {
-		scheme = "https"
+	return strings.Join(segments, "/")
+}
+
+// SignedStaticFileURL 供 anydoc 等容器内服务下载文件。签名放在路径里而不是查询串，
+// 链接以原始对象 key 结尾，对方仍能按扩展名识别文件类型。
+func SignedStaticFileURL(secret, objectKey string, ttl time.Duration) string {
+	key := strings.TrimLeft(objectKey, "/")
+	exp := strconv.FormatInt(time.Now().Add(ttl).Unix(), 10)
+	return internalAPIBaseURL() + "/static-file-signed/" + exp + "/" + staticFileSignature(secret, key, exp) + "/" + escapeObjectKey(key)
+}
+
+func VerifyStaticFileSignature(secret, objectKey, exp, sig string, now time.Time) bool {
+	if secret == "" {
+		return false
 	}
-	u := url.URL{
-		Scheme: scheme,
-		Host:   host,
-		Path:   "/static-file/" + strings.TrimLeft(objectKey, "/"),
+	expires, err := strconv.ParseInt(exp, 10, 64)
+	if err != nil || now.Unix() > expires {
+		return false
 	}
-	return u.String()
+	return hmac.Equal([]byte(sig), []byte(staticFileSignature(secret, objectKey, exp)))
+}
+
+func staticFileSignature(secret, key, exp string) string {
+	mac := hmac.New(sm3.New, []byte(secret))
+	mac.Write([]byte("panda-wiki/static-file-signed|" + key + "|" + exp))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // ProductDocsURL returns the product documentation link used in bot footers.
@@ -55,19 +79,22 @@ func IsHTTPURL(s string) bool {
 	return u.Scheme == "http" || u.Scheme == "https"
 }
 
-// ResolveObjectURL turns a relative static-file path into an absolute object URL.
+// ResolveObjectURL turns a relative static-file path into an absolute URL served by the API.
 func ResolveObjectURL(pathOrURL string) string {
 	pathOrURL = strings.TrimSpace(pathOrURL)
 	if pathOrURL == "" {
 		return ""
 	}
-	lower := strings.ToLower(pathOrURL)
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+	if IsHTTPURL(pathOrURL) {
 		return pathOrURL
 	}
 	key := pathOrURL
 	if idx := strings.Index(pathOrURL, "/static-file/"); idx >= 0 {
 		key = pathOrURL[idx+len("/static-file/"):]
 	}
-	return StaticFilePublicURL("", strings.TrimLeft(key, "/"))
+	key = strings.TrimLeft(key, "/")
+	if key == "" {
+		return ""
+	}
+	return internalAPIBaseURL() + "/static-file/" + escapeObjectKey(key)
 }

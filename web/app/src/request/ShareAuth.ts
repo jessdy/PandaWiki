@@ -19,6 +19,33 @@ import {
   V1AuthGitHubResp,
   V1AuthLoginSimpleReq,
 } from "./types";
+import { GithubComChaitinPandaWikiProApiShareV1AuthInfoResp } from "./pro/types";
+
+/**
+ * @description 前端据此展示登录状态，不在浏览器存储中保存用户名
+ *
+ * @tags share_auth
+ * @name GetShareV1AuthInfo
+ * @summary AuthInfo
+ * @request GET:/share/v1/auth/info
+ * @response `200` `(DomainPWResponse & {
+    data?: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp,
+
+})` OK
+ */
+
+export const getShareV1AuthInfo = (params: RequestParams = {}) =>
+  httpRequest<
+    DomainPWResponse & {
+      data?: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp;
+    }
+  >({
+    path: `/share/v1/auth/info`,
+    method: "GET",
+    type: ContentType.Json,
+    format: "json",
+    ...params,
+  });
 
 /**
  * @description AuthGet

@@ -10,7 +10,8 @@ services:
       - ./data/caddy/caddy_data:/data
       - ./data/caddy/run:/var/run/caddy
     environment:
-      - CADDY_ADMIN=unix//var/run/caddy/caddy-admin.sock
+      # api 以非 root（uid 10001）连接；Caddy 2.8+ 默认把 admin socket 建为 0200，只有 root 能连
+      - "CADDY_ADMIN=unix//var/run/caddy/caddy-admin.sock|0666"
     network_mode: host
   nginx:
     container_name: panda-wiki-nginx
@@ -51,19 +52,29 @@ services:
     restart: always
     image: chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-api:latest
     volumes:
+      # 雳鉴 IAST 插桩开关：data/conf/iast/iast.conf 中 IAST_ENABLED=true/false，改后重建 api/consumer
+      - ./data/conf/iast:/iast-config:ro
       - ./data/caddy/run:/app/run
       - ./data/nginx/ssl:/app/etc/nginx/ssl
       - ./data/conf/api:/data
+      - ./data/backups:/app/data/backups
     environment:
       - NATS_PASSWORD=${NATS_PASSWORD}
+      - IAST_CONFIG_FILE=/iast-config/api.toml
+      - IAST_AGENT_TAG=panda-wiki-api
       - MQ_NATS_SERVER=nats://panda-wiki-nats:4222
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-s3panda-wiki}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_ENDPOINT=${S3_ENDPOINT:-panda-wiki-minio:9000}
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SECURITY_ADMIN_PASSWORD=${SECURITY_ADMIN_PASSWORD:-}
+      - AUDIT_ADMIN_PASSWORD=${AUDIT_ADMIN_PASSWORD:-}
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-}
+      - PREVIOUS_JWT_SECRET=${PREVIOUS_JWT_SECRET:-}
+      - BACKUP_DIR=/app/data/backups
       - SUBNET_PREFIX=${SUBNET_PREFIX}
       - MODEL_AUTO_BASE_URL=${MODEL_AUTO_BASE_URL:-}
       - PRODUCT_DOCS_URL=${PRODUCT_DOCS_URL:-}
@@ -82,19 +93,27 @@ services:
     image: chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/panda-wiki-consumer:latest
     environment:
       - NATS_PASSWORD=${NATS_PASSWORD}
+      - IAST_CONFIG_FILE=/iast-config/consumer.toml
+      - IAST_AGENT_TAG=panda-wiki-consumer
       - MQ_NATS_SERVER=nats://panda-wiki-nats:4222
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-s3panda-wiki}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_ENDPOINT=${S3_ENDPOINT:-panda-wiki-minio:9000}
       - JWT_SECRET=${JWT_SECRET}
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-}
+      - PREVIOUS_JWT_SECRET=${PREVIOUS_JWT_SECRET:-}
+      - BACKUP_DIR=/app/data/backups
     networks:
       panda-wiki:
         ipv4_address: "${SUBNET_PREFIX:-169.254.15}.3"
     volumes:
+      # 雳鉴 IAST 插桩开关：data/conf/iast/iast.conf 中 IAST_ENABLED=true/false，改后重建 api/consumer
+      - ./data/conf/iast:/iast-config:ro
       - ./backend/store/pg/migration:/app/migration
       - ./backend/store/pg/migration:/src/store/pg/migration
+      - ./data/backups:/app/data/backups
   postgres:
     container_name: panda-wiki-postgres
     image: chaitin-registry.cn-hangzhou.cr.aliyuncs.com/chaitin/postgres-zhparser:17.6-bookworm
@@ -138,7 +157,7 @@ services:
     ports:
       - "9000:9000"
     environment:
-      - MINIO_ACCESS_KEY=s3panda-wiki
+      - MINIO_ACCESS_KEY=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
       - MINIO_SECRET_KEY=${S3_SECRET_KEY}
     networks:
       panda-wiki:
@@ -179,7 +198,7 @@ services:
       - MQ_NATS_URL=nats://panda-wiki-nats:4222
       - MQ_NATS_USER=panda-wiki
       - MQ_NATS_PASSWORD=${NATS_PASSWORD}
-      - OSS_MINIO_ACCESS_KEY=s3panda-wiki
+      - OSS_MINIO_ACCESS_KEY=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
       - OSS_MINIO_SECRET_KEY=${S3_SECRET_KEY}
       - OSS_MINIO_ENDPOINT=panda-wiki-minio:9000
     networks:
@@ -201,7 +220,7 @@ services:
       - DATABASE_QDRANT_HOST=panda-wiki-qdrant
       - DATABASE_QDRANT_API_KEY=${QDRANT_API_KEY}
       - STORAGE_MINIO_ENDPOINT=panda-wiki-minio:9000
-      - STORAGE_MINIO_ACCESS_KEY_ID=s3panda-wiki
+      - STORAGE_MINIO_ACCESS_KEY_ID=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
       - STORAGE_MINIO_SECRET_ACCESS_KEY=${S3_SECRET_KEY}
       - NATS_URL=nats://panda-wiki-nats:4222
       - NATS_USER=panda-wiki

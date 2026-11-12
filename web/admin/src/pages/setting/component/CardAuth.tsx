@@ -36,6 +36,7 @@ import { useAppSelector } from '@/store';
 import { BUSINESS_VERSION_PERMISSION } from '@/constant/version';
 import { VersionCanUse } from '@/components/VersionMask';
 import { SettingCardItem, FormItem } from './Common';
+import { validatePasswordComplexity } from '@/utils';
 
 interface CardAuthProps {
   kb: DomainKnowledgeBaseDetail;
@@ -180,7 +181,7 @@ const CardAuth = ({ kb, refresh }: CardAuthProps) => {
   useEffect(() => {
     if (kb.access_settings?.simple_auth) {
       setValue('enabled', kb.access_settings.simple_auth.enabled ? '2' : '1');
-      setValue('password', kb.access_settings.simple_auth.password ?? '');
+      setValue('password', '');
     }
     if (kb.access_settings?.enterprise_auth?.enabled) {
       setValue('enabled', '2');
@@ -663,20 +664,26 @@ const CardAuth = ({ kb, refresh }: CardAuthProps) => {
     );
   };
 
+  const passwordSet = !!kb.access_settings?.simple_auth?.password_set;
+
   const passwordForm = () => {
     return (
-      <FormItem label='访问口令' required>
+      <FormItem label='访问口令' required={!passwordSet}>
         <Controller
           control={control}
           rules={{
-            required: '访问口令不能为空',
+            required: passwordSet ? false : '访问口令不能为空',
+            validate: value =>
+              (passwordSet && !value) || validatePasswordComplexity(value),
           }}
           name='password'
           render={({ field }) => (
             <TextField
               {...field}
               fullWidth
-              placeholder='请输入'
+              type='password'
+              autoComplete='new-password'
+              placeholder={passwordSet ? '已设置，留空则不修改' : '请输入'}
               error={!!errors.password}
               helperText={errors.password?.message}
               onChange={e => {

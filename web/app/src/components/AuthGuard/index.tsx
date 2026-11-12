@@ -26,7 +26,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  // 等 StoreProvider 从 localStorage 读完 authInfo 后再做跳转判断
+  // 等 StoreProvider 完成 hydrate、拿到服务端下发的 authInfo 后再做跳转判断
   useEffect(() => {
     const t = setTimeout(() => setHasCheckedAuth(true), 50);
     return () => clearTimeout(t);

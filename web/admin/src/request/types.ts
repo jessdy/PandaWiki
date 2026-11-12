@@ -91,10 +91,16 @@ export enum ConstsWatermarkSetting {
 }
 
 export enum ConstsUserRole {
-  /** 管理员 */
+  /** 系统管理员 */
   UserRoleAdmin = "admin",
   /** 普通用户 */
   UserRoleUser = "user",
+  /** 访客 */
+  UserRoleGuest = "guest",
+  /** 安全管理员 */
+  UserRoleSecurityAdmin = "security_admin",
+  /** 审计管理员 */
+  UserRoleAuditAdmin = "audit_admin",
 }
 
 export enum ConstsUserKBPermission {
@@ -1257,7 +1263,10 @@ export interface DomainShareNodeDetailItem {
 
 export interface DomainSimpleAuth {
   enabled?: boolean;
+  /** 知识库访问口令落库为 bcrypt 哈希，接口不回传；更新时留空表示沿用原口令 */
   password?: string;
+  /** 仅用于接口响应，告诉前端是否已设置口令，不落库 */
+  password_set?: boolean;
 }
 
 export interface DomainSimpleDocConfig {

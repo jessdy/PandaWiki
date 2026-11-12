@@ -48,7 +48,11 @@ func createApp() (*App, error) {
 	}
 	knowledgeBaseRepository := pg2.NewKnowledgeBaseRepository(db, configConfig, logger, ragService)
 	conversationRepository := pg2.NewConversationRepository(db, logger)
-	modelRepository := pg2.NewModelRepository(db, logger)
+	fieldCipher, err := pg2.NewFieldCipher(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	modelRepository := pg2.NewModelRepository(db, fieldCipher, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
 	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
 	methodRuleRepo := pg2.NewMethodRuleRepo(db, logger)
@@ -65,7 +69,7 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	authRepo := pg2.NewAuthRepo(db, logger, cacheCache)
-	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo)
+	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo, fieldCipher)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
 	kbRepo := cache2.NewKBRepo(cacheCache)
 	imageDescriptionTemplateRepo := pg2.NewImageDescriptionTemplateRepo(db, logger)
@@ -75,9 +79,11 @@ func createApp() (*App, error) {
 	}
 	migrationNodeVersion := fns.NewMigrationNodeVersion(logger, nodeUsecase, knowledgeBaseUsecase, ragRepository)
 	migrationCreateBotAuth := fns.NewMigrationCreateBotAuth(logger)
+	migrationProtectStoredSecrets := fns.NewMigrationProtectStoredSecrets(logger, modelRepository, fieldCipher, kbRepo)
 	migrationFuncs := &migration.MigrationFuncs{
-		NodeMigration:    migrationNodeVersion,
-		BotAuthMigration: migrationCreateBotAuth,
+		NodeMigration:          migrationNodeVersion,
+		BotAuthMigration:       migrationCreateBotAuth,
+		StoredSecretsMigration: migrationProtectStoredSecrets,
 	}
 	manager, err := migration.NewManager(db, logger, migrationFuncs)
 	if err != nil {

@@ -1,4 +1,5 @@
 import { getApiV1KnowledgeBaseDetail } from '@/request/KnowledgeBase';
+import { postApiV1UserLogout } from '@/request/User';
 import { useAppSelector, useAppDispatch } from '@/store';
 import { setKbDetail } from '@/store/slices/config';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -9,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import System from '../System';
 import Bread from './Bread';
 import { IconDengchu } from '@panda-wiki/icons';
+import { clearAuth } from '@/utils/auth';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -117,11 +119,13 @@ const Header = () => {
         open={logoutConfirmOpen}
         onCancel={() => setLogoutConfirmOpen(false)}
         onOk={() => {
-          message.success('退出登录成功，请重新登录');
-          setTimeout(() => {
-            localStorage.removeItem('panda_wiki_token');
-            navigate('/login');
-          }, 1500);
+          postApiV1UserLogout()
+            .catch(() => undefined)
+            .finally(() => {
+              message.success('退出登录成功，请重新登录');
+              clearAuth();
+              navigate('/login');
+            });
         }}
         cancelButtonProps={{
           variant: 'outlined',

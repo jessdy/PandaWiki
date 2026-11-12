@@ -49,8 +49,10 @@ func (r *UserRepository) UpsertDefaultUser(ctx context.Context, user *domain.Use
 			}
 			return nil
 		}
-		// User exists, update password
-		return tx.Model(&existingUser).Update("password", user.Password).Error
+		return tx.Model(&existingUser).Updates(map[string]any{
+			"password": user.Password,
+			"role":     user.Role,
+		}).Error
 	})
 }
 
@@ -60,9 +62,19 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User, edit
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 	user.Password = string(hashedPassword)
+	return r.CreateUserWithHash(ctx, user, edition)
+}
+
+// CreateUserWithHash user.Password 必须已是 bcrypt 哈希（审批通过后创建账号时使用）
+func (r *UserRepository) CreateUserWithHash(ctx context.Context, user *domain.User, edition consts.LicenseEdition) error {
+	if _, err := bcrypt.Cost([]byte(user.Password)); err != nil {
+		return fmt.Errorf("password is not a bcrypt hash")
+	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var count int64
-		if err := tx.Model(&domain.User{}).Count(&count).Error; err != nil {
+		if err := tx.Model(&domain.User{}).
+			Where("role NOT IN ?", []consts.UserRole{consts.UserRoleSecurityAdmin, consts.UserRoleAuditAdmin}).
+			Count(&count).Error; err != nil {
 			return err
 		}
 		if count >= domain.GetBaseEditionLimitation(ctx).MaxAdmin {
@@ -112,7 +124,7 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]v1.UserListItemResp, 
 	var users []v1.UserListItemResp
 	err := r.db.WithContext(ctx).
 		Model(&domain.User{}).
-		Where("role != ?", consts.UserRoleGuest).
+		Where("role NOT IN ?", []consts.UserRole{consts.UserRoleGuest, consts.UserRoleSecurityAdmin, consts.UserRoleAuditAdmin}).
 		Order("created_at DESC").
 		Find(&users).Error
 	if err != nil {

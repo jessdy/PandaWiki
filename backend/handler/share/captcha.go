@@ -76,6 +76,9 @@ func (h *ShareCaptchaHandler) RedeemCaptcha(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "request is invalid", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "request is invalid", err)
+	}
 	data, err := h.Captcha.RedeemChallenge(c.Request().Context(), req.Token, req.Solutions)
 	if err != nil {
 		sentry.CaptureException(err)

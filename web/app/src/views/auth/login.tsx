@@ -228,9 +228,7 @@ export default function Login() {
           },
         },
       );
-      const auth = { username, email: username, avatar_url: '' };
-      setAuthInfo(auth);
-      localStorage.setItem('authInfo', JSON.stringify(auth));
+      setAuthInfo({ username, email: username, avatar_url: '' });
 
       const res = await getShareV1NodeList();
       setNodeList?.((res as never) ?? []);
@@ -255,25 +253,17 @@ export default function Login() {
       setLinkLoggingIn(true);
       try {
         clearCookie();
-        const result = tgt
-          ? await postShareV1AuthLoginTgt(
-              { tgt },
-              { headers: { 'X-KB-ID': kbId } },
-            )
-          : await postShareV1AuthLoginUserLink(
-              { user: userLink },
-              { headers: { 'X-KB-ID': kbId } },
-            );
-        const username =
-          (result as { username?: string } | undefined)?.username || '';
-        localStorage.setItem(
-          'authInfo',
-          JSON.stringify({
-            username,
-            email: username,
-            avatar_url: '',
-          }),
-        );
+        if (tgt) {
+          await postShareV1AuthLoginTgt(
+            { tgt },
+            { headers: { 'X-KB-ID': kbId } },
+          );
+        } else {
+          await postShareV1AuthLoginUserLink(
+            { user: userLink },
+            { headers: { 'X-KB-ID': kbId } },
+          );
+        }
         const nodes = await getShareV1NodeList();
         setNodeList?.((nodes as never) ?? []);
         window.open(redirectUrl, '_self');

@@ -12,10 +12,7 @@ import (
 	"time"
 )
 
-const (
-	defaultBaseURL = "http://localhost:8080/api/v1"
-	defaultTimeout = 30 * time.Second
-)
+const defaultTimeout = 30 * time.Second
 
 // Client 是所有API的统一客户端
 type Client struct {

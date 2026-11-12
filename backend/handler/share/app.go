@@ -60,7 +60,7 @@ func (h *ShareAppHandler) GetWebAppInfo(c echo.Context) error {
 	if kbID == "" {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
 	}
-	ctx := context.WithValue(c.Request().Context(), consts.ContextKeyEdition, consts.GetLicenseEdition(c))
+	ctx := context.WithValue(c.Request().Context(), consts.CtxEdition, consts.GetLicenseEdition(c))
 	appInfo, err := h.usecase.ShareGetWebAppInfo(ctx, kbID, domain.GetAuthID(c))
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)
@@ -182,14 +182,13 @@ func (h *ShareAppHandler) WechatHandlerOfficialAccount(c echo.Context) error {
 
 	// message handler
 	server.SetMessageHandler(func(msg *message.MixMessage) *message.Reply {
-		h.logger.Info("received message:", log.Any("msgtype", msg.MsgType), log.Any("fromUserName", msg.FromUserName), log.String("content", msg.Content), log.Any("event type", msg.Event))
+		h.logger.Info("received message:", log.Any("msgtype", msg.MsgType), log.Any("event type", msg.Event))
 
 		switch msg.MsgType {
 		case message.MsgTypeText:
 			// text消息
 			userOpenID := msg.FromUserName
 			userContent := msg.Content
-			h.logger.Info("user_open_id user_content", log.Any("user_open_id", userOpenID), log.Any("user content", userContent))
 			// 异步发送
 			go func(openID, content string) {
 				ctx := context.Background()

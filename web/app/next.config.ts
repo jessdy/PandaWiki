@@ -5,8 +5,30 @@ import { fileURLToPath } from 'url';
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
+// 前台页面会被第三方站点以 iframe 嵌入（挂件），且文档内容可引用外部图片/视频，因此不限制 frame-ancestors 与媒体来源。
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  'img-src * data: blob:',
+  'media-src * data: blob:',
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss: ws: blob:",
+  "frame-src 'self' https: http:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join('; ');
+
+const securityHeaders = [
+  { key: 'Content-Security-Policy', value: contentSecurityPolicy },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+];
+
 const nextConfig: NextConfig = {
   distDir: 'dist',
+  poweredByHeader: false,
   reactStrictMode: false,
   allowedDevOrigins: ['10.10.18.71'],
   output: 'standalone',
@@ -40,6 +62,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
       {
         source: '/cap@0.0.6/:path*',
         headers: [

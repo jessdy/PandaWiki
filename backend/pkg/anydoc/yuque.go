@@ -56,7 +56,7 @@ type YuqueExportDocResponse struct {
 
 // YuqueListDocs 获取 Yuque 文档列表
 func (c *Client) YuqueListDocs(ctx context.Context, yuqueURL, filename, uuid string) (*ListDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (c *Client) YuqueListDocs(ctx context.Context, yuqueURL, filename, uuid str
 
 // YuqueExportDoc 导出 Yuque 文档
 func (c *Client) YuqueExportDoc(ctx context.Context, uuid, docID, kbId string) (*YuqueExportDocResponse, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (c *Client) YuqueExportDoc(ctx context.Context, uuid, docID, kbId string) (
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},

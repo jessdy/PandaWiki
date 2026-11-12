@@ -3,6 +3,7 @@ import AuthGuard from '@/components/AuthGuard';
 import StoreProvider from '@/provider';
 import { ThemeStoreProvider } from '@/provider/themeStore';
 import { getShareV1AppWebInfo } from '@/request/ShareApp';
+import { getShareV1AuthInfo } from '@/request/ShareAuth';
 import Script from 'next/script';
 import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
@@ -70,18 +71,15 @@ const Layout = async ({
 
   let error: any = null;
 
-  const [kbDetailResolve] = await Promise.allSettled([
+  const [kbDetailResolve, authInfoResolve] = await Promise.allSettled([
     getShareV1AppWebInfo(),
-    // getShareProV1AuthInfo({}),
+    getShareV1AuthInfo(),
   ]);
 
-  const authInfo: any = undefined;
-  // const authInfo: GithubComChaitinPandaWikiProApiShareV1AuthInfoResp = {
-  //   id: 1,
-  //   username: 'admin',
-  //   email: 'admin@admin.com',
-  //   avatar_url: 'https://test.com/avatar.png',
-  // };
+  const authInfo =
+    authInfoResolve.status === 'fulfilled' && authInfoResolve.value
+      ? (authInfoResolve.value as GithubComChaitinPandaWikiProApiShareV1AuthInfoResp)
+      : undefined;
   const headerKbId =
     headersList.get('x-kb-id')?.trim() || process.env.DEV_KB_ID?.trim() || '';
 

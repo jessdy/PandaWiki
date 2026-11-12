@@ -28,7 +28,7 @@ type CrawlerUsecase struct {
 }
 
 func NewCrawlerUsecase(logger *log.Logger, mqConsumer mq.MQConsumer, cache *cache.Cache, cfg *config.Config) (*CrawlerUsecase, error) {
-	anydocClient, err := anydoc.NewClient(logger, mqConsumer)
+	anydocClient, err := anydoc.NewClient(logger, mqConsumer, utils.AnydocUploadToken(cfg.Auth.JWT.Secret))
 	if err != nil {
 		return nil, err
 	}
@@ -49,13 +49,9 @@ func (u *CrawlerUsecase) ParseUrl(ctx context.Context, req *v1.CrawlerParseReq) 
 		id = uuid.New().String()
 	}
 
-	// 文件类型的解析会先走上传接口
+	// 文件类型的解析会先走上传接口；桶是私有的，给 anydoc 一个限时签名链接下载原文件
 	if req.CrawlerSource.Type() == consts.CrawlerSourceTypeFile {
-		endpoint := ""
-		if u.config != nil {
-			endpoint = u.config.S3.Endpoint
-		}
-		req.Key = utils.StaticFilePublicURL(endpoint, req.Key)
+		req.Key = utils.SignedStaticFileURL(u.config.Auth.JWT.Secret, req.Key, 6*time.Hour)
 	}
 
 	var (

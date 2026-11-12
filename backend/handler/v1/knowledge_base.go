@@ -12,14 +12,21 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/middleware"
 	"github.com/chaitin/panda-wiki/usecase"
+	"github.com/chaitin/panda-wiki/utils"
 )
+
+func maskSimpleAuthPassword(auth *domain.SimpleAuth) {
+	auth.PasswordSet = auth.Password != ""
+	auth.Password = ""
+}
 
 type KnowledgeBaseHandler struct {
 	*handler.BaseHandler
-	usecase    *usecase.KnowledgeBaseUsecase
-	llmUsecase *usecase.LLMUsecase
-	logger     *log.Logger
-	auth       middleware.AuthMiddleware
+	usecase         *usecase.KnowledgeBaseUsecase
+	llmUsecase      *usecase.LLMUsecase
+	approvalUsecase *usecase.ApprovalUsecase
+	logger          *log.Logger
+	auth            middleware.AuthMiddleware
 }
 
 func NewKnowledgeBaseHandler(
@@ -27,15 +34,17 @@ func NewKnowledgeBaseHandler(
 	echo *echo.Echo,
 	usecase *usecase.KnowledgeBaseUsecase,
 	llmUsecase *usecase.LLMUsecase,
+	approvalUsecase *usecase.ApprovalUsecase,
 	auth middleware.AuthMiddleware,
 	logger *log.Logger,
 ) *KnowledgeBaseHandler {
 	h := &KnowledgeBaseHandler{
-		BaseHandler: baseHandler,
-		logger:      logger.WithModule("handler.v1.knowledge_base"),
-		usecase:     usecase,
-		llmUsecase:  llmUsecase,
-		auth:        auth,
+		BaseHandler:     baseHandler,
+		logger:          logger.WithModule("handler.v1.knowledge_base"),
+		usecase:         usecase,
+		llmUsecase:      llmUsecase,
+		approvalUsecase: approvalUsecase,
+		auth:            auth,
 	}
 
 	group := echo.Group("/api/v1/knowledge_base", h.auth.Authorize)
@@ -136,6 +145,10 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBaseList(c echo.Context) error {
 	if err != nil {
 		return h.NewResponseWithError(c, "failed to get knowledge base list", err)
 	}
+	for _, kb := range knowledgeBases {
+		kb.AccessSettings.PrivateKey = ""
+		maskSimpleAuthPassword(&kb.AccessSettings.SimpleAuth)
+	}
 
 	return h.NewResponseWithData(c, knowledgeBases)
 }
@@ -159,11 +172,19 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
+	if req.AccessSettings != nil && req.AccessSettings.SimpleAuth.Password != "" {
+		if err := utils.ValidatePasswordComplexity(req.AccessSettings.SimpleAuth.Password); err != nil {
+			return h.NewResponseWithError(c, "访问口令不符合要求："+err.Error(), nil)
+		}
+	}
 
 	err := h.usecase.UpdateKnowledgeBase(c.Request().Context(), &req)
 	if err != nil {
 		if errors.Is(err, domain.ErrPortHostAlreadyExists) {
 			return h.NewResponseWithError(c, "端口或域名已被其他知识库占用", nil)
+		}
+		if errors.Is(err, domain.ErrSimpleAuthPasswordRequired) {
+			return h.NewResponseWithError(c, "开启口令认证需要设置访问口令", nil)
 		}
 		if errors.Is(err, domain.ErrSyncCaddyConfigFailed) {
 			return h.NewResponseWithError(c, "端口可能已被其他程序占用，请检查", nil)
@@ -204,8 +225,8 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBaseDetail(c echo.Context) error {
 	if !perms.Contains(consts.UserKBPermissionFullControl) {
 		kb.AccessSettings.PrivateKey = ""
 		kb.AccessSettings.PublicKey = ""
-		kb.AccessSettings.SimpleAuth.Password = ""
 	}
+	maskSimpleAuthPassword(&kb.AccessSettings.SimpleAuth)
 
 	return h.NewResponseWithData(c, &domain.KnowledgeBaseDetail{
 		ID:             kb.ID,

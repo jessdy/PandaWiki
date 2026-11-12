@@ -165,6 +165,8 @@ const Wrap = ({
   ) => {
     const formData = new FormData();
     formData.append('file', file);
+    // 文档内文件按知识库归属存储，私有知识库的文件只对已认证访客开放
+    if (defaultDetail.kb_id) formData.append('kb_id', defaultDetail.kb_id);
     const { key } = await uploadFile(formData, {
       onUploadProgress: ({ progress }) => {
         onProgress?.({ progress: progress / 100 });

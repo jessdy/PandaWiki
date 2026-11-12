@@ -1,4 +1,4 @@
-export const CHAT_TOP_N_STORAGE_KEY = 'panda_wiki_chat_top_n';
+export const CHAT_TOP_N_STORAGE_ITEM = 'panda_wiki_chat_top_n';
 
 export const DEFAULT_CHAT_TOP_N = 10;
 
@@ -16,7 +16,7 @@ export function parseValidChatTopN(value: unknown): number | null {
 export function getInitialChatTopN(): number {
   if (typeof window === 'undefined') return DEFAULT_CHAT_TOP_N;
   const parsed = parseValidChatTopN(
-    localStorage.getItem(CHAT_TOP_N_STORAGE_KEY),
+    localStorage.getItem(CHAT_TOP_N_STORAGE_ITEM),
   );
   return parsed ?? DEFAULT_CHAT_TOP_N;
 }
@@ -25,5 +25,5 @@ export function persistChatTopN(n: number): void {
   if (typeof window === 'undefined') return;
   const parsed = parseValidChatTopN(n);
   if (parsed == null) return;
-  localStorage.setItem(CHAT_TOP_N_STORAGE_KEY, String(parsed));
+  localStorage.setItem(CHAT_TOP_N_STORAGE_ITEM, String(parsed));
 }

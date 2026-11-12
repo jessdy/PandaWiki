@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,7 @@ type Client struct {
 	httpClient  *http.Client
 	logger      *log.Logger
 	mqConsumer  mq.MQConsumer
+	uploaderURL string
 	taskWaiters map[string]chan *domain.AnydocTaskExportEvent
 	mutex       sync.RWMutex
 	subscribed  bool
@@ -29,14 +32,26 @@ type Client struct {
 }
 
 const (
-	apiUploaderUrl     = "http://panda-wiki-api:8000/api/v1/file/upload/anydoc"
-	uploaderDir        = "/image"
-	crawlerServiceHost = "http://panda-wiki-crawler:8080"
-	SpaceIdCloud       = "cloud_disk"
-	getUrlPath         = "/api/docs/url/list"
-	UrlExportPath      = "/api/docs/url/export"
-	TaskListPath       = "/api/tasks/list"
+	uploaderDir  = "/image"
+	SpaceIdCloud = "cloud_disk"
+	getUrlPath   = "/api/docs/url/list"
+	UrlExportPath = "/api/docs/url/export"
+	TaskListPath  = "/api/tasks/list"
 )
+
+func apiUploaderBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("ANYDOC_UPLOADER_BASE_URL")); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return "http://panda-wiki-api:8000/api/v1/file/upload/anydoc"
+}
+
+func crawlerServiceHost() string {
+	if v := strings.TrimSpace(os.Getenv("ANYDOC_CRAWLER_BASE_URL")); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return "http://panda-wiki-crawler:8080"
+}
 
 type Status string
 
@@ -54,12 +69,13 @@ const (
 	uploaderTypeHTTP
 )
 
-func NewClient(logger *log.Logger, mqConsumer mq.MQConsumer) (*Client, error) {
+func NewClient(logger *log.Logger, mqConsumer mq.MQConsumer, uploadToken string) (*Client, error) {
 	client := &Client{
 		logger: logger.WithModule("anydoc.client"),
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
+		uploaderURL: apiUploaderBaseURL() + "/" + uploadToken,
 		taskWaiters: make(map[string]chan *domain.AnydocTaskExportEvent),
 		mqConsumer:  mqConsumer,
 	}
@@ -69,7 +85,7 @@ func NewClient(logger *log.Logger, mqConsumer mq.MQConsumer) (*Client, error) {
 
 func (c *Client) GetUrlList(ctx context.Context, targetURL, id string) (*ListDocResponse, error) {
 
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +109,8 @@ func (c *Client) GetUrlList(ctx context.Context, targetURL, id string) (*ListDoc
 	if err != nil {
 		return nil, err
 	}
-	c.logger.Info("scrape url", "requestURL:", requestURL, "resp", string(respBody))
+	// targetURL 可能是带签名的 MinIO 临时链接，不写日志
+	c.logger.Info("scrape url", "uuid", id, "resp", string(respBody))
 	var scrapeResp ListDocResponse
 	err = json.Unmarshal(respBody, &scrapeResp)
 	if err != nil {
@@ -109,7 +126,7 @@ func (c *Client) GetUrlList(ctx context.Context, targetURL, id string) (*ListDoc
 
 func (c *Client) UrlExport(ctx context.Context, id, docID, kbId string) (*UrlExportRes, error) {
 
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +139,7 @@ func (c *Client) UrlExport(ctx context.Context, id, docID, kbId string) (*UrlExp
 		"uploader": map[string]interface{}{
 			"type": uploaderTypeHTTP,
 			"http": map[string]interface{}{
-				"url": apiUploaderUrl,
+				"url": c.uploaderURL,
 			},
 			"dir": fmt.Sprintf("/%s", kbId),
 		},
@@ -265,7 +282,7 @@ func (c *Client) handleTaskExportEvent(ctx context.Context, msg types.Message) e
 }
 
 func (c *Client) TaskList(ctx context.Context, ids []string) (*TaskRes, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +328,7 @@ func (c *Client) TaskList(ctx context.Context, ids []string) (*TaskRes, error) {
 }
 
 func (c *Client) DownloadDoc(ctx context.Context, filepath string) ([]byte, error) {
-	u, err := url.Parse(crawlerServiceHost)
+	u, err := url.Parse(crawlerServiceHost())
 	if err != nil {
 		return nil, err
 	}

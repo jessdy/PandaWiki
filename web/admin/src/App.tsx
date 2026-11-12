@@ -8,6 +8,7 @@ import { useLocation, useRoutes } from 'react-router-dom';
 import { getApiV1License } from './request/pro/License';
 
 import { setLicense } from './store/slices/config';
+import { isAuthed } from './utils/auth';
 
 import '@ctzhian/tiptap/dist/index.css';
 import '@/assets/styles/tiptap-image-caption.css';
@@ -20,17 +21,17 @@ function App() {
   const loginPage = pathname.includes('/login');
   const onlyAllowShareApi = loginPage;
 
-  const token = localStorage.getItem('panda_wiki_token') || '';
+  const authed = isAuthed();
 
   useEffect(() => {
-    if (token) {
+    if (authed) {
       // getApiV1License().then(res => {
       //   dispatch(setLicense(res));
       // });
     }
-  }, [token]);
+  }, [authed]);
 
-  if (!token && !onlyAllowShareApi) {
+  if (!authed && !onlyAllowShareApi) {
     window.location.href = window.__BASENAME__ + '/login';
     return null;
   }

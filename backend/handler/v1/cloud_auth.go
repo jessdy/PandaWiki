@@ -52,6 +52,9 @@ func (h *CloudAuthHandler) Save(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return h.NewResponseWithError(c, "平台地址无效", err)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "平台地址无效", err)
+	}
 	result, err := h.usecase.Save(c.Request().Context(), &req)
 	if err != nil {
 		return h.NewResponseWithError(c, err.Error(), err)

@@ -59,6 +59,7 @@ func NewShareAuthHandler(
 
 	share := e.Group("share/v1/auth", shareAuthMiddleware.CheckForbidden)
 	share.GET("/get", h.AuthGet)
+	share.GET("/info", h.AuthInfo)
 	share.POST("/login/simple", h.AuthLoginSimple)
 	// 已移除 /login/user_password：禁止对外直接校验用户名密码（安全扫描成批分配/凭据暴露）。
 	// 企业用户请走 /login/tgt 或 /login/user_link。
@@ -108,6 +109,43 @@ func (h *ShareAuthHandler) AuthGet(c echo.Context) error {
 	return h.NewResponseWithData(c, resp)
 }
 
+// AuthInfo 当前会话身份；未登录时 data 为空
+//
+//	@Tags			share_auth
+//	@Summary		AuthInfo
+//	@Description	前端据此展示登录状态，不在浏览器存储中保存用户名
+//	@ID				v1-AuthInfo
+//	@Produce		json
+//	@Param			X-KB-ID	header		string	true	"kb_id"
+//	@Success		200		{object}	domain.PWResponse{data=v1.AuthInfoResp}
+//	@Router			/share/v1/auth/info [get]
+func (h *ShareAuthHandler) AuthInfo(c echo.Context) error {
+	kbID := c.Request().Header.Get("X-KB-ID")
+	sess, err := session.Get(domain.SessionName, c)
+	if err != nil {
+		return h.NewResponseWithData(c, nil)
+	}
+	if sessKBID, ok := sessionKbIDString(sess); !ok || sessKBID != kbID {
+		return h.NewResponseWithData(c, nil)
+	}
+	userID, ok := shareAuthUserID(c, kbID)
+	if !ok {
+		// 简单口令会话没有账号身份，与前端 SITE_FEEDBACK_SIMPLE_GATE_USERNAME 保持一致
+		return h.NewResponseWithData(c, v1.AuthInfoResp{Username: "访客"})
+	}
+	auth, err := h.authUsecase.GetAuthInfo(c.Request().Context(), kbID, userID)
+	if err != nil {
+		h.logger.Warn("get auth info failed", log.Error(err))
+		return h.NewResponseWithData(c, nil)
+	}
+	return h.NewResponseWithData(c, v1.AuthInfoResp{
+		ID:        auth.ID,
+		Username:  auth.UserInfo.Username,
+		Email:     auth.UserInfo.Email,
+		AvatarUrl: auth.UserInfo.AvatarUrl,
+	})
+}
+
 // AuthLoginSimple 简单口令登录
 //
 //	@Tags			share_auth
@@ -137,6 +175,9 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 		h.logger.Error("parse request failed", log.Error(err))
 		return h.NewResponseWithError(c, "AuthGet bind failed", nil)
 	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "密码不能为空", nil)
+	}
 
 	kb, err := h.kbUsecase.GetKnowledgeBase(ctx, kbID)
 	if err != nil {
@@ -147,13 +188,13 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 		return h.NewResponseWithError(c, "simple auth is not enabled", nil)
 	}
 
-	if !utils.ConstantTimeEqual(req.Password, kb.AccessSettings.SimpleAuth.Password) {
+	if !utils.VerifySecret(kb.AccessSettings.SimpleAuth.Password, req.Password) {
 		h.rateLimiter.LockAttempt(ctx, c.RealIP())
 		return h.NewResponseWithError(c, "simple auth password is incorrect", nil)
 	}
 	_ = h.rateLimiter.ResetLoginAttempts(ctx, c.RealIP())
 
-	s := c.Get(domain.SessionCacheKey)
+	s := c.Get(domain.SessionStoreName)
 	if s == nil {
 		return h.NewResponseWithError(c, "get session cache key failed", nil)
 	}
@@ -186,11 +227,14 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 //	@Success		200		{object}	domain.PWResponse{data=v1.AuthGitHubResp}
 //	@Router			/share/v1/auth/github [post]
 func (h *ShareAuthHandler) AuthGitHub(c echo.Context) error {
-	ctx := context.WithValue(c.Request().Context(), consts.ContextKeyEdition, consts.GetLicenseEdition(c))
+	ctx := context.WithValue(c.Request().Context(), consts.CtxEdition, consts.GetLicenseEdition(c))
 
 	var req v1.AuthGitHubReq
 	if err := c.Bind(&req); err != nil {
 		return err
+	}
+	if err := c.Validate(&req); err != nil {
+		return h.NewResponseWithError(c, "invalid request", err)
 	}
 
 	kbID := c.Request().Header.Get("X-KB-ID")

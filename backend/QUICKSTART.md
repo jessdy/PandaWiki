@@ -15,7 +15,7 @@ cp config.yml.example config.yml
 
 ```yaml
 pg:
-  dsn: "host=YOUR_LINUX_IP user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+  dsn: "host=YOUR_LINUX_IP user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=prefer TimeZone=Asia/Shanghai"
 
 redis:
   addr: "YOUR_LINUX_IP:6379"
@@ -36,7 +36,7 @@ cat > .env << 'EOF'
 LINUX_SERVER_IP=192.168.1.100
 
 # PostgreSQL
-export PG_DSN="host=${LINUX_SERVER_IP} user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+export PG_DSN="host=${LINUX_SERVER_IP} user=panda-wiki password=your_password dbname=panda-wiki port=5432 sslmode=prefer TimeZone=Asia/Shanghai"
 
 # Redis
 export REDIS_ADDR="${LINUX_SERVER_IP}:6379"
@@ -92,7 +92,15 @@ sudo ufw allow 5050/tcp  # RAG
 
 #### 方式二：单独安装服务
 
-如果不想使用 Docker Compose，可以单独安装：
+如果不想使用 Docker Compose，可以单独安装。下面命令里的口令取自环境变量，先在 Linux 服务器上设置强随机值：
+
+```bash
+export POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+export REDIS_PASSWORD="$(openssl rand -hex 16)"
+export NATS_PASSWORD="$(openssl rand -hex 16)"
+export S3_SECRET_KEY="$(openssl rand -hex 16)"
+export RAG_API_KEY="$(openssl rand -hex 16)"
+```
 
 **PostgreSQL:**
 ```bash
@@ -100,7 +108,7 @@ docker run -d \
   --name panda-wiki-postgres \
   --restart unless-stopped \
   -e POSTGRES_USER=panda-wiki \
-  -e POSTGRES_PASSWORD=panda-wiki-secret \
+  -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
   -e POSTGRES_DB=panda-wiki \
   -p 5432:5432 \
   -v postgres_data:/var/lib/postgresql/data \
@@ -115,7 +123,7 @@ docker run -d \
   -p 6379:6379 \
   -v redis_data:/data \
   redis:7-alpine \
-  redis-server --requirepass panda-wiki-redis-password
+  redis-server --requirepass "${REDIS_PASSWORD}"
 ```
 
 **NATS:**
@@ -126,7 +134,7 @@ docker run -d \
   -p 4222:4222 \
   -p 8222:8222 \
   nats:2.10-alpine \
-  -js -m 8222 --user panda-wiki --pass panda-wiki-nats-password
+  -js -m 8222 --user panda-wiki --pass "${NATS_PASSWORD}"
 ```
 
 **MinIO:**
@@ -135,11 +143,11 @@ docker run -d \
   --name panda-wiki-minio \
   --restart unless-stopped \
   -e MINIO_ROOT_USER=s3panda-wiki \
-  -e MINIO_ROOT_PASSWORD=panda-wiki-minio-secret \
+  -e MINIO_ROOT_PASSWORD="${S3_SECRET_KEY}" \
   -p 9000:9000 \
   -p 9001:9001 \
   -v minio_data:/data \
-  minio/minio:latest \
+  minio/minio:RELEASE.2025-04-22T22-12-26Z \
   server /data --console-address ":9001"
 ```
 
@@ -148,7 +156,7 @@ docker run -d \
 docker run -d \
   --name panda-wiki-ct-rag \
   --restart unless-stopped \
-  -e API_KEY=sk-1234567890 \
+  -e API_KEY="${RAG_API_KEY}" \
   -p 5050:5050 \
   chaitin/ct-rag:latest
 ```
