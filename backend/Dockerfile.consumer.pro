@@ -25,13 +25,9 @@ RUN dnf -y update \
     && chown -R panda:panda /home/panda /app/data \
     && dnf clean all
 
-# runtime 中 pg.go 使用编译时源码路径 /src/store/pg/migration，需在镜像中保留该路径
-RUN mkdir -p /src/store/pg/migration
-
+# migration SQL 已通过 embed.FS 打进二进制，无需再拷到 /src/store/pg/migration
 WORKDIR /app
 COPY --from=builder --chown=panda:panda /build/panda-wiki-consumer /app/panda-wiki-consumer
-COPY --from=builder --chown=panda:panda /src/store/pg/migration /app/migration
-COPY --from=builder --chown=panda:panda /src/store/pg/migration /src/store/pg/migration
 
 USER panda
 

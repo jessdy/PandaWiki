@@ -2,16 +2,15 @@ package pg
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	migratePG "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -19,6 +18,12 @@ import (
 
 	"github.com/chaitin/panda-wiki/config"
 )
+
+// 嵌入迁移 SQL，避免依赖 runtime.Caller 解析出的源码路径。
+// 雳鉴 IAST 插桩后 Caller 会变成 /tmp/moresec-...，file:// 源会找不到目录。
+//
+//go:embed migration/*.sql
+var migrationFS embed.FS
 
 type DB struct {
 	*gorm.DB
@@ -67,15 +72,13 @@ func doMigrate(dsn string) error {
 	if err != nil {
 		return fmt.Errorf("with instance failed: %w", err)
 	}
-	
-	// 获取迁移文件路径（相对于当前文件所在目录）
-	_, currentFile, _, _ := runtime.Caller(0)
-	migrationDir := filepath.Join(filepath.Dir(currentFile), "migration")
-	migrationPath := "file://" + migrationDir
-	
-	m, err := migrate.NewWithDatabaseInstance(
-		migrationPath,
-		"postgres", driver)
+
+	sourceDriver, err := iofs.New(migrationFS, "migration")
+	if err != nil {
+		return fmt.Errorf("create migration source failed: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, "postgres", driver)
 	if err != nil {
 		return fmt.Errorf("new with database instance failed: %w", err)
 	}
