@@ -49,8 +49,11 @@ func NewSessionMiddleware(logger *log.Logger, config *config.Config, cache *cach
 		return nil, err
 	}
 
+	// 服务端会话最长 30 分钟无操作失效（Cookie 仍为会话级 MaxAge=0）
+	store.SetMaxAge(30 * 60)
+
 	store.Options = &sessions.Options{
-		Path:     "/",
+		Path: "/",
 		// 会话级 Cookie（关闭浏览器即失效），避免永久 Cookie 存会话信息
 		MaxAge:   0,
 		SameSite: http.SameSiteLaxMode,

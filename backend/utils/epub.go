@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"path/filepath"
 	"strings"
@@ -199,11 +200,23 @@ func (e *EpubConverter) processFile(ctx context.Context, f *zip.File, kbID strin
 	defer file.Close()
 
 	ext := strings.ToLower(filepath.Ext(f.Name))
+	// 与主上传路径一致：禁止可执行/脚本/内联 SVG 等危险扩展名入库
+	switch strings.TrimPrefix(ext, ".") {
+	case "html", "htm", "svg", "svgz", "js", "mjs", "xhtml",
+		"php", "jsp", "asp", "aspx", "exe", "sh", "bat", "cmd", "jar":
+		e.logger.Warn("skip dangerous epub entry", "name", f.Name)
+		return nil
+	}
+
 	ossPath := fmt.Sprintf("%s/%s%s", kbID, uuid.New().String(), ext)
 
 	e.mu.Lock()
 	e.resources[f.Name] = fmt.Sprintf("/%s/%s", domain.Bucket, ossPath)
 	e.mu.Unlock()
+	contentType := mime.TypeByExtension(ext)
+	if contentType == "" || strings.Contains(contentType, "html") || strings.Contains(contentType, "javascript") || strings.Contains(contentType, "svg") {
+		contentType = "application/octet-stream"
+	}
 	_, err = e.minioClient.PutObject(
 		ctx,
 		domain.Bucket,
@@ -211,7 +224,7 @@ func (e *EpubConverter) processFile(ctx context.Context, f *zip.File, kbID strin
 		file,
 		f.FileInfo().Size(),
 		minio.PutObjectOptions{
-			ContentType:  e.resourcesIdMap[e.relativePath[f.Name]].MediaType,
+			ContentType:  contentType,
 			UserMetadata: map[string]string{"originalname": filepath.Base(f.Name)},
 		},
 	)

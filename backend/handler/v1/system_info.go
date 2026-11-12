@@ -8,6 +8,7 @@ import (
 	"github.com/chaitin/panda-wiki/handler"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/middleware"
+	"github.com/chaitin/panda-wiki/telemetry"
 	"github.com/chaitin/panda-wiki/usecase"
 )
 
@@ -41,6 +42,9 @@ func (h *SystemInfoHandler) PublicInfo(c echo.Context) error {
 	resp, err := h.usecase.PublicInfo(c.Request().Context())
 	if err != nil {
 		return h.NewResponseWithError(c, "get system info failed", err)
+	}
+	if resp != nil {
+		resp.Version = telemetry.Version
 	}
 	return h.NewResponseWithData(c, resp)
 }

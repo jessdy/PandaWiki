@@ -41,7 +41,10 @@ func SessionCookieOptions(c echo.Context) *sessions.Options {
 	}
 }
 
-// SetAuthTokenCookie 写入管理端 JWT（HttpOnly + SameSite=Lax）
+// authTokenCookiePath 管理端 JWT 仅需随 /api 请求发送，收窄 Path 避免整站可读。
+const authTokenCookiePath = "/api"
+
+// SetAuthTokenCookie 写入管理端 JWT（HttpOnly + SameSite=Strict + Path=/api）
 func SetAuthTokenCookie(c echo.Context, token string, maxAge time.Duration) {
 	if maxAge <= 0 {
 		maxAge = 24 * time.Hour
@@ -49,23 +52,23 @@ func SetAuthTokenCookie(c echo.Context, token string, maxAge time.Duration) {
 	c.SetCookie(&http.Cookie{
 		Name:     domain.AuthTokenCookieName,
 		Value:    token,
-		Path:     "/",
+		Path:     authTokenCookiePath,
 		MaxAge:   int(maxAge.Seconds()),
 		HttpOnly: true,
 		Secure:   CookieSecure(c),
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 	})
 }
 
-// ClearAuthTokenCookie 退出登录时清除 JWT Cookie
+// ClearAuthTokenCookie 退出登录时清除 JWT Cookie（Path/SameSite 须与写入一致）
 func ClearAuthTokenCookie(c echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name:     domain.AuthTokenCookieName,
 		Value:    "",
-		Path:     "/",
+		Path:     authTokenCookiePath,
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   CookieSecure(c),
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 	})
 }

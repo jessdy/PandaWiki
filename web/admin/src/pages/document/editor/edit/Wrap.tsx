@@ -5,6 +5,7 @@ import { putApiV1NodeDetail } from '@/request';
 import { V1NodeDetailResp } from '@/request/types';
 import { useAppSelector } from '@/store';
 import { completeIncompleteLinks } from '@/utils';
+import { checkUploadFile } from '@/utils/uploadCheck';
 import {
   EditorMarkdown,
   MarkdownEditorRef,
@@ -163,6 +164,10 @@ const Wrap = ({
     onProgress?: (progress: { progress: number }) => void,
     abortSignal?: AbortSignal,
   ) => {
+    const invalid = checkUploadFile(file, 'image/*');
+    if (invalid) {
+      throw new Error(invalid);
+    }
     const formData = new FormData();
     formData.append('file', file);
     // 文档内文件按知识库归属存储，私有知识库的文件只对已认证访客开放

@@ -28,10 +28,11 @@ type ModelModeSetting struct {
 	IsManualEmbeddingUpdated bool                    `json:"is_manual_embedding_updated"` // 手动模式下嵌入模型是否更新
 }
 
-// CloudAuthSetting 平台会话验证地址。登录时拼成 http://IP:端口。
+// CloudAuthSetting 平台会话验证地址。登录时拼成 Scheme://IP:端口（默认 https）。
 type CloudAuthSetting struct {
-	Host string `json:"host" validate:"max=253"`
-	Port int    `json:"port" validate:"min=0,max=65535"`
+	Host   string `json:"host" validate:"max=253"`
+	Port   int    `json:"port" validate:"min=0,max=65535"`
+	Scheme string `json:"scheme" validate:"omitempty,oneof=http https"` // 空则 https
 }
 
 // TestEnvSetting 测试环境。打开后问答不使用向量模型和重排模型。

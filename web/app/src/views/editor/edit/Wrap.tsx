@@ -65,6 +65,16 @@ const Wrap = ({ detail: defaultDetail = {} }: WrapProps) => {
     onProgress?: (progress: { progress: number }) => void,
     abortSignal?: AbortSignal,
   ) => {
+    const ext = file.name.includes('.')
+      ? file.name.split('.').pop()!.toLowerCase()
+      : '';
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'ico'];
+    if (!imageExts.includes(ext) || !file.type.startsWith('image/')) {
+      throw new Error('仅支持 JPG、PNG、GIF、BMP、WEBP、ICO 格式的图片');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error('图片不能超过 10MB');
+    }
     const { key } = await postShareProV1FileUploadWithProgress(
       { file },
       {

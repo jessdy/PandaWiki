@@ -3,6 +3,7 @@ package share
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -227,6 +228,9 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 //	@Success		200		{object}	domain.PWResponse{data=v1.AuthGitHubResp}
 //	@Router			/share/v1/auth/github [post]
 func (h *ShareAuthHandler) AuthGitHub(c echo.Context) error {
+	if err := h.rejectIfLoginLocked(c); err != nil {
+		return err
+	}
 	ctx := context.WithValue(c.Request().Context(), consts.CtxEdition, consts.GetLicenseEdition(c))
 
 	var req v1.AuthGitHubReq
@@ -269,6 +273,9 @@ func (h *ShareAuthHandler) AuthGitHub(c echo.Context) error {
 //	@Success		200	{object}	domain.Response
 //	@Router			/share/pro/v1/auth/logout [post]
 func (h *ShareAuthHandler) AuthLogout(c echo.Context) error {
+	if middleware.RejectCrossSiteRequest(c) {
+		return c.JSON(http.StatusForbidden, domain.PWResponse{Success: false, Message: "forbidden cross-site request"})
+	}
 	// 使用 echo-contrib/session 获取当前会话
 	sess, err := session.Get(domain.SessionName, c)
 	if err != nil {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -213,10 +212,23 @@ func UploadImage(ctx context.Context, minioClient *s3.MinioClient, imageURL stri
 	}
 
 	ext := strings.ToLower(filepath.Ext(decodedName))
-	if ext == "" {
-		contentType = mime.TypeByExtension(ext)
+	head := data
+	if len(head) > 512 {
+		head = head[:512]
 	}
-	if contentType == "" {
+	sniffed := http.DetectContentType(head)
+	if !strings.HasPrefix(sniffed, "image/") && !IsImageContent(decodedName, head) {
+		return "", fmt.Errorf("content is not a valid image")
+	}
+	allowedImgExt := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+		".bmp": true, ".webp": true, ".ico": true, ".tif": true, ".tiff": true,
+	}
+	if ext != "" && !allowedImgExt[ext] {
+		return "", fmt.Errorf("image extension %s is not allowed", ext)
+	}
+	contentType = sniffed
+	if contentType == "" || strings.Contains(contentType, "html") || strings.Contains(contentType, "svg") {
 		contentType = "application/octet-stream"
 	}
 	imgName := fmt.Sprintf("%s/%s%s", kbID, uuid.New().String(), ext)

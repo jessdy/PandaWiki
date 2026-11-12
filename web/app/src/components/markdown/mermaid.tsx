@@ -1,13 +1,14 @@
 // components/MermaidDiagram.jsx
 'use client'; // 必须在客户端组件中使用
 
+import DOMPurify from 'dompurify';
 import { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
 
 const MERMAID_CONFIG = {
   startOnLoad: false,
   theme: 'default' as const,
-  securityLevel: 'loose' as const,
+  securityLevel: 'strict' as const,
   fontFamily: 'inherit',
   suppressErrorRendering: true,
 };
@@ -33,7 +34,9 @@ const MermaidDiagram = ({ chart }: { chart: string }) => {
         const id = `mermaid-${Date.now()}`;
         const { svg } = await mermaid.render(id, chart);
         if (svg && containerRef.current) {
-          containerRef.current.innerHTML = svg;
+          containerRef.current.innerHTML = DOMPurify.sanitize(svg, {
+            USE_PROFILES: { svg: true, svgFilters: true },
+          });
         }
       } catch (error: any) {
         // 在渲染错误时显示简单文本表示

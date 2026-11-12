@@ -91,7 +91,16 @@ func NormalizeCloudAuthSetting(setting *domain.CloudAuthSetting) (*domain.CloudA
 	if net.ParseIP(host) == nil && !validCloudAuthHost(host) {
 		return nil, fmt.Errorf("IP 格式无效")
 	}
-	return &domain.CloudAuthSetting{Host: host, Port: setting.Port}, nil
+	scheme := strings.ToLower(strings.TrimSpace(setting.Scheme))
+	switch scheme {
+	case "", "https":
+		scheme = "https"
+	case "http":
+		// 仅允许显式配置 http（内网封闭环境）
+	default:
+		return nil, fmt.Errorf("协议只支持 http 或 https")
+	}
+	return &domain.CloudAuthSetting{Host: host, Port: setting.Port, Scheme: scheme}, nil
 }
 
 func CloudAuthBaseURL(setting *domain.CloudAuthSetting) string {
@@ -99,8 +108,12 @@ func CloudAuthBaseURL(setting *domain.CloudAuthSetting) string {
 		return ""
 	}
 	host := strings.Trim(strings.TrimSpace(setting.Host), "[]")
+	scheme := strings.ToLower(strings.TrimSpace(setting.Scheme))
+	if scheme != "http" {
+		scheme = "https"
+	}
 	return (&url.URL{
-		Scheme: "http",
+		Scheme: scheme,
 		Host:   net.JoinHostPort(host, strconv.Itoa(setting.Port)),
 	}).String()
 }

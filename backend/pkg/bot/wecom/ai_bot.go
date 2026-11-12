@@ -99,7 +99,7 @@ func (c *AIBotClient) DecryptUserReq(signature, timestamp, nonce, msg string) (*
 	}
 	var data UserReq
 
-	c.logger.Info("decrypt user req:", log.Any("reqMsg", reqMsg))
+	c.logger.Info("decrypt user req:", log.String("reqMsg", reqMsg))
 	err = json.Unmarshal([]byte(reqMsg), &data)
 	if err != nil {
 		return nil, err

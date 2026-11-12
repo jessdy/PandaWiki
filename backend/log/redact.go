@@ -55,6 +55,9 @@ func classifyKey(key string) keyClass {
 	return keyPlain
 }
 
+// RedactString 对外暴露脱敏，供 GORM 等绕过 slog 的日志通路复用。
+func RedactString(s string) string { return redactString(s) }
+
 func redactString(s string) string {
 	s = sensitiveQueryParam.ReplaceAllString(s, "${1}"+masked)
 	s = sensitiveJSONField.ReplaceAllString(s, "${1}${3}"+masked+"${2}${4}")

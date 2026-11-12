@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   CircularProgress,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -24,7 +25,11 @@ interface CloudAuthConfigProps {
   onCloseModal: () => void;
 }
 
-const emptySetting = (): CloudAuthSetting => ({ host: '', port: 0 });
+const emptySetting = (): CloudAuthSetting => ({
+  host: '',
+  port: 0,
+  scheme: 'https',
+});
 
 const CloudAuthConfig = forwardRef<CloudAuthConfigRef, CloudAuthConfigProps>(
   ({ onCloseModal }, ref) => {
@@ -33,16 +38,21 @@ const CloudAuthConfig = forwardRef<CloudAuthConfigRef, CloudAuthConfigProps>(
     const [loadError, setLoadError] = useState(false);
     const [host, setHost] = useState('');
     const [port, setPort] = useState('');
+    const [scheme, setScheme] = useState<'http' | 'https'>('https');
     const [saved, setSaved] = useState<CloudAuthSetting>(emptySetting());
 
     const applySetting = (setting: CloudAuthSetting) => {
       const next = {
         host: setting.host || '',
         port: setting.port || 0,
+        scheme: (setting.scheme === 'http' ? 'http' : 'https') as
+          | 'http'
+          | 'https',
       };
       setSaved(next);
       setHost(next.host);
       setPort(next.port ? String(next.port) : '');
+      setScheme(next.scheme);
     };
 
     const load = () => {
@@ -59,7 +69,10 @@ const CloudAuthConfig = forwardRef<CloudAuthConfigRef, CloudAuthConfigProps>(
     }, []);
 
     const currentPort = port.trim() === '' ? 0 : Number(port);
-    const dirty = host.trim() !== saved.host || currentPort !== saved.port;
+    const dirty =
+      host.trim() !== saved.host ||
+      currentPort !== saved.port ||
+      scheme !== (saved.scheme === 'http' ? 'http' : 'https');
 
     const handleClose = () => {
       if (!dirty) {
@@ -90,6 +103,7 @@ const CloudAuthConfig = forwardRef<CloudAuthConfigRef, CloudAuthConfigProps>(
         const result = await putApiV1SystemCloudAuth({
           host: host.trim(),
           port: currentPort,
+          scheme,
         });
         applySetting(result || emptySetting());
         message.success('平台地址已保存');
@@ -136,10 +150,23 @@ const CloudAuthConfig = forwardRef<CloudAuthConfigRef, CloudAuthConfigProps>(
           </Typography>
           <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
             用于 `/auth/login?tgt=` 的会话验证和权限验证。系统会请求
-            http://IP:端口 下的 loginVerify 和 checkPermissions。
+            协议://IP:端口 下的 loginVerify 和 checkPermissions。默认
+            HTTPS，仅内网封闭环境可改 HTTP。
           </Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
+          <TextField
+            select
+            label='协议'
+            value={scheme}
+            onChange={event =>
+              setScheme(event.target.value === 'http' ? 'http' : 'https')
+            }
+            sx={{ width: { sm: 140 } }}
+          >
+            <MenuItem value='https'>https</MenuItem>
+            <MenuItem value='http'>http</MenuItem>
+          </TextField>
           <TextField
             label='平台 IP'
             value={host}
@@ -150,7 +177,9 @@ const CloudAuthConfig = forwardRef<CloudAuthConfigRef, CloudAuthConfigProps>(
           <TextField
             label='端口'
             value={port}
-            onChange={event => setPort(event.target.value.replace(/[^\d]/g, ''))}
+            onChange={event =>
+              setPort(event.target.value.replace(/[^\d]/g, ''))
+            }
             placeholder='8080'
             sx={{ width: { sm: 180 } }}
           />

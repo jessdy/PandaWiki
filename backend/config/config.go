@@ -209,7 +209,7 @@ func validateRequiredSecrets(c *Config) error {
 	}
 	if len(missing) == 0 {
 		if len(c.Auth.JWT.Secret) < 32 {
-			fmt.Fprintln(os.Stderr, "WARNING: JWT_SECRET is shorter than 32 characters; use a random value such as `openssl rand -hex 32`")
+			return fmt.Errorf("JWT_SECRET must be at least 32 characters (e.g. `openssl rand -hex 32`)")
 		}
 		return nil
 	}

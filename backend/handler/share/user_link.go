@@ -112,6 +112,9 @@ func decodeUserLinkBase64(raw string) ([]byte, error) {
 }
 
 func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
+	if err := h.rejectIfLoginLocked(c); err != nil {
+		return err
+	}
 	kbID := c.Request().Header.Get("X-KB-ID")
 	if kbID == "" {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
@@ -126,13 +129,16 @@ func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
 	}
 	link, err := decodeUserLink(req.User)
 	if err != nil {
+		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
 
 	user, err := h.loginLinkedUser(c, kbID, link)
 	if err != nil {
+		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
+	_ = h.rateLimiter.ResetLoginAttempts(c.Request().Context(), c.RealIP())
 	return h.NewResponseWithData(c, v1.AuthLoginUserLinkResp{
 		Username: user.Account,
 		Region:   user.Region,

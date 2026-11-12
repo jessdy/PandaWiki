@@ -120,7 +120,7 @@ func (c *Client) GetGithubPrimaryEmail(token *oauth2.Token) (string, error) {
 		return "", err
 	}
 
-	c.logger.Info("GetGithubPrimaryEmail:", log.Any("buf", string(buf)))
+	c.logger.Info("GetGithubPrimaryEmail:", log.String("buf", string(buf)))
 
 	var emails []Email
 	if err := json.Unmarshal(buf, &emails); err != nil {

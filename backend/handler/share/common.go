@@ -87,10 +87,9 @@ func (h *ShareCommonHandler) FileUpload(c echo.Context) error {
 		return h.NewResponseWithError(c, "文件内容不是合法图片", fmt.Errorf("content mismatch: %s", file.Filename))
 	}
 
-	// validate captcha token
-	// if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
-	// 	return h.NewResponseWithError(c, "failed to validate captcha token", nil)
-	// }
+	if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
+		return h.NewResponseWithError(c, "failed to validate captcha token", nil)
+	}
 
 	key, err := h.fileUsecase.UploadFile(ctx, req.KbId, file)
 	if err != nil {

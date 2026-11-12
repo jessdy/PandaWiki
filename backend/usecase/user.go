@@ -14,6 +14,7 @@ import (
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/repo/pg"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type UserUsecase struct {
@@ -49,6 +50,9 @@ func (u *UserUsecase) ensureBuiltinUsers() error {
 		if item.password == "" {
 			continue
 		}
+		if err := utils.ValidatePasswordComplexity(item.password); err != nil {
+			return fmt.Errorf("内置账号 %s 口令不符合复杂度要求: %w", item.account, err)
+		}
 		if err := u.repo.UpsertDefaultUser(context.Background(), &domain.User{
 			ID:       uuid.New().String(),
 			Account:  item.account,
@@ -75,8 +79,9 @@ func (u *UserUsecase) VerifyUserAndGenerateToken(ctx context.Context, req v1.Log
 		return "", err
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":  user.ID,
-		"exp": time.Now().Add(time.Hour * 24).Unix(),
+		"id":   user.ID,
+		"role": string(user.Role),
+		"exp":  time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	return token.SignedString([]byte(u.config.Auth.JWT.Secret))

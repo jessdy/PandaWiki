@@ -3,6 +3,8 @@ import httpRequest, { ContentType, RequestParams } from './httpClient';
 export interface CloudAuthSetting {
   host: string;
   port: number;
+  /** http | https，默认 https */
+  scheme?: 'http' | 'https' | '';
 }
 
 export const getApiV1SystemCloudAuth = (params: RequestParams = {}) =>

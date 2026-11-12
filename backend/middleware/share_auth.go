@@ -14,9 +14,9 @@ import (
 	"github.com/chaitin/panda-wiki/usecase"
 )
 
-// rejectCrossSiteRequest 对 Cookie 会话做 Origin/Referer 同源校验，缓解 CSRF。
+// RejectCrossSiteRequest 对 Cookie 会话做 Origin/Referer 同源校验，缓解 CSRF。
 // 写操作校验 Origin，缺失时退回 Referer；读操作只校验 Origin（浏览器跨站 fetch/XHR 必带 Origin，顶层导航不带）。
-func rejectCrossSiteRequest(c echo.Context) bool {
+func RejectCrossSiteRequest(c echo.Context) bool {
 	req := c.Request()
 	allowedHosts := []string{req.Host}
 	for _, h := range strings.Split(req.Header.Get("X-Forwarded-Host"), ",") {
@@ -96,7 +96,7 @@ func (h *ShareAuthMiddleware) CheckForbidden(next echo.HandlerFunc) echo.Handler
 
 func (h *ShareAuthMiddleware) Authorize(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if rejectCrossSiteRequest(c) {
+		if RejectCrossSiteRequest(c) {
 			h.logger.Warn("rejected cross-site share request",
 				log.String("method", c.Request().Method),
 				log.String("path", c.Request().URL.Path),

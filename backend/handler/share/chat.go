@@ -116,10 +116,9 @@ func (h *ShareChatHandler) ChatMessage(c echo.Context) error {
 		return h.sendErrMsg(c, "invalid app type")
 	}
 	ctx := c.Request().Context()
-	// validate captcha token
-	// if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
-	// 	return h.sendErrMsg(c, "failed to validate captcha")
-	// }
+	if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
+		return h.sendErrMsg(c, "failed to validate captcha")
+	}
 
 	req.RemoteIP = c.RealIP()
 
@@ -474,10 +473,9 @@ func (h *ShareChatHandler) ChatSearch(c echo.Context) error {
 		return h.NewResponseWithError(c, "validate request failed", err)
 	}
 	ctx := c.Request().Context()
-	// validate captcha token
-	// if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
-	// 	return h.NewResponseWithError(c, "invalid captcha token", nil)
-	// }
+	if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
+		return h.NewResponseWithError(c, "invalid captcha token", nil)
+	}
 
 	req.RemoteIP = c.RealIP()
 

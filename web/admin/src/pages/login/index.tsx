@@ -14,6 +14,7 @@ import {
   IconKejian,
   IconBukejian,
 } from '@panda-wiki/icons';
+import ClassificationBanner from '@/components/ClassificationBanner';
 import { markAuthed } from '@/utils/auth';
 
 const Login = () => {
@@ -53,6 +54,7 @@ const Login = () => {
         backgroundRepeat: 'no-repeat',
       }}
     >
+      <ClassificationBanner />
       <Stack
         direction='row'
         alignItems={'center'}

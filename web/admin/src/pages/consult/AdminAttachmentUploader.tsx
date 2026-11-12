@@ -20,6 +20,14 @@ const LIMITS = {
   video: { maxSize: 200 * 1024 * 1024, maxCount: 3 },
 };
 
+const ALLOWED_EXTENSIONS = {
+  image: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
+  video: ['mp4', 'webm', 'mov', 'm4v'],
+};
+
+const extOf = (name: string) =>
+  name.includes('.') ? name.split('.').pop()!.toLowerCase() : '';
+
 export interface AdminAttachmentUploaderProps {
   value: ConsultAttachment[];
   onChange: (next: ConsultAttachment[]) => void;
@@ -54,12 +62,13 @@ const AdminAttachmentUploader = ({
     }
     const toUpload: File[] = [];
     for (const f of Array.from(files).slice(0, remaining)) {
-      if (type === 'image' && !f.type.startsWith('image/')) {
-        message.error(`${f.name}：仅支持图片格式`);
+      const allowedExt = ALLOWED_EXTENSIONS[type].includes(extOf(f.name));
+      if (type === 'image' && (!f.type.startsWith('image/') || !allowedExt)) {
+        message.error(`${f.name}：仅支持 JPG、PNG、GIF、BMP、WEBP 图片`);
         continue;
       }
-      if (type === 'video' && !f.type.startsWith('video/')) {
-        message.error(`${f.name}：仅支持视频格式`);
+      if (type === 'video' && (!f.type.startsWith('video/') || !allowedExt)) {
+        message.error(`${f.name}：仅支持 MP4、WEBM、MOV 视频`);
         continue;
       }
       if (f.size > LIMITS[type].maxSize) {

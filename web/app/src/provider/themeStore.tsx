@@ -27,7 +27,12 @@ export const ThemeStoreProvider = ({
   const theme = useMemo(() => createTheme(lightTheme), []);
 
   useEffect(() => {
-    Cookies.set('theme_mode', 'light', { expires: 365 * 10 });
+    Cookies.set('theme_mode', 'light', {
+      expires: 365 * 10,
+      sameSite: 'lax',
+      secure:
+        typeof window !== 'undefined' && window.location.protocol === 'https:',
+    });
   }, []);
 
   return (

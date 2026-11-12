@@ -110,4 +110,5 @@ type SystemAlert struct {
 
 type SystemPublicInfo struct {
 	Classification ClassificationSetting `json:"classification"`
+	Version        string                `json:"version"`
 }

@@ -126,6 +126,11 @@ func (m *JWTMiddleware) Authorize(next echo.HandlerFunc) echo.HandlerFunc {
 				m.logger.Warn("jwt user not found", log.String("user_id", userID), log.Error(err))
 				return unauthorized(c)
 			}
+			// 令牌级角色声明与库中角色比对，防止角色变更后旧令牌越权（兼容无 role 的旧 JWT）
+			if claimRole, hasRole := jwtClaimRole(c); hasRole && claimRole != string(user.Role) {
+				m.logger.Warn("jwt role mismatch", log.String("user_id", userID), log.String("claim", claimRole), log.String("db", string(user.Role)))
+				return unauthorized(c)
+			}
 			c.Set(domain.AuthUserKey, user)
 			if !roleAllowsRequest(user.Role, c.Request().Method, c.Request().URL.Path) {
 				return c.JSON(http.StatusForbidden, domain.PWResponse{
@@ -410,6 +415,22 @@ func (m *JWTMiddleware) MustGetUserID(c echo.Context) (string, bool) {
 	}
 	id, ok := claims["id"].(string)
 	return id, ok
+}
+
+func jwtClaimRole(c echo.Context) (string, bool) {
+	user, ok := c.Get("user").(*jwt.Token)
+	if !ok || user == nil {
+		return "", false
+	}
+	claims, ok := user.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", false
+	}
+	role, ok := claims["role"].(string)
+	if !ok || role == "" {
+		return "", false
+	}
+	return role, true
 }
 
 func GetKbID(c echo.Context) (string, error) {

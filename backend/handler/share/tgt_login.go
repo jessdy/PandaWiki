@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -20,9 +19,6 @@ import (
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/log"
 )
-
-// cloudLoginNamePattern limits remote identity fields before they enter JSON request bodies.
-var cloudLoginNamePattern = regexp.MustCompile(`^[\p{L}\p{N}_.\-@]{1,64}$`)
 
 const (
 	kfsUserPermission = "100000:function:kfsuser"
@@ -92,6 +88,9 @@ func newCloudAuthClient(baseURL string) *cloudAuthClient {
 }
 
 func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
+	if err := h.rejectIfLoginLocked(c); err != nil {
+		return err
+	}
 	kbID := c.Request().Header.Get("X-KB-ID")
 	if kbID == "" {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
@@ -122,6 +121,7 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 	}
 	sessionUser, err := client.loginVerify(c.Request().Context(), tgt, ip)
 	if err != nil {
+		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
 		h.logger.Error("tgt login verify failed", log.Error(err))
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
@@ -131,8 +131,10 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 		return h.NewResponseWithError(c, err.Error(), err)
 	}
 	if !allowed {
+		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
 		return h.NewResponseWithError(c, "权限验证失败", nil)
 	}
+	_ = h.rateLimiter.ResetLoginAttempts(c.Request().Context(), c.RealIP())
 
 	user, err := h.loginLinkedUser(c, kbID, decodedUserLink{
 		Username: sessionUser.LoginName,
@@ -172,9 +174,6 @@ func (c *cloudAuthClient) loginVerify(ctx context.Context, tgt, ip string) (clou
 	if loginName == "" || resp.Data.UserID == 0 {
 		return cloudSessionUser{}, fmt.Errorf("会话验证未返回用户信息")
 	}
-	if err := validateCloudIdentity(loginName); err != nil {
-		return cloudSessionUser{}, err
-	}
 	trueName := strings.TrimSpace(resp.Data.TrueName)
 	if trueName != "" {
 		if err := validateCloudDisplayName(trueName); err != nil {
@@ -186,13 +185,6 @@ func (c *cloudAuthClient) loginVerify(ctx context.Context, tgt, ip string) (clou
 		TrueName:  trueName,
 		UserID:    resp.Data.UserID,
 	}, nil
-}
-
-func validateCloudIdentity(loginName string) error {
-	if !cloudLoginNamePattern.MatchString(loginName) {
-		return fmt.Errorf("会话验证返回的用户名非法")
-	}
-	return nil
 }
 
 func validateCloudDisplayName(name string) error {
@@ -210,9 +202,6 @@ func (c *cloudAuthClient) hasKfsUserPermission(ctx context.Context, user cloudSe
 		Code    int      `json:"code"`
 		Message string   `json:"message"`
 		Data    []string `json:"data"`
-	}
-	if err := validateCloudIdentity(user.LoginName); err != nil {
-		return false, err
 	}
 	if err := c.post(ctx, checkPermissionsPath, checkPermissionsReq{
 		GeneralArgument: cloudGeneralArgument{

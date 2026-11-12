@@ -67,6 +67,10 @@ function isWeComByUA() {
 }
 
 export default function Login() {
+  const [classificationLevel, setClassificationLevel] = useState('');
+  const [appVersion, setAppVersion] = useState(
+    process.env.NEXT_PUBLIC_APP_VERSION || '',
+  );
   const searchParams = useSearchParams();
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -92,6 +96,21 @@ export default function Login() {
       : '';
   const userLink = searchParams.get('user') || '';
   const tgt = searchParams.get('tgt') || '';
+
+  useEffect(() => {
+    fetch('/api/v1/system/info')
+      .then(r => r.json())
+      .then(body => {
+        const data = body?.data ?? body;
+        if (data?.classification?.enabled && data.classification.level) {
+          setClassificationLevel(data.classification.level);
+        }
+        if (data?.version) {
+          setAppVersion(data.version);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   const resolveKbId = () =>
     searchParams.get('kb_id') ||
@@ -571,9 +590,41 @@ export default function Login() {
             >
               需要认证以后才能访问
             </Box>
+            {appVersion ? (
+              <Box
+                sx={{
+                  textAlign: 'center',
+                  color: 'text.disabled',
+                  fontSize: 12,
+                  mt: 1,
+                }}
+              >
+                版本 {appVersion}
+              </Box>
+            ) : null}
           </Stack>
         </Box>
       </Box>
+      {classificationLevel ? (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2000,
+            bgcolor: '#b71c1c',
+            color: '#fff',
+            textAlign: 'center',
+            py: 0.5,
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: 2,
+          }}
+        >
+          {classificationLevel}
+        </Box>
+      ) : null}
       <FooterProvider showBrand={false} />
     </>
   );

@@ -284,7 +284,7 @@ func (c *Client) GetDepartmentList(ctx context.Context) (*DepartmentListResponse
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
-	c.logger.Debug("GetDepartmentList raw resp:", log.Any("raw", string(rawBody)))
+	c.logger.Debug("GetDepartmentList raw resp:", log.String("raw", string(rawBody)))
 	defer resp.Body.Close()
 
 	resp.Body = io.NopCloser(bytes.NewReader(rawBody))

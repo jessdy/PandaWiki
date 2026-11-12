@@ -22,6 +22,12 @@ func SecurityHeaders() echo.MiddlewareFunc {
 			if h.Get("Content-Security-Policy") == "" {
 				h.Set("Content-Security-Policy", "object-src 'none'; base-uri 'self'; frame-ancestors 'self'")
 			}
+			// HSTS：仅在 HTTPS 请求上下发，nginx 已配置时不重复覆盖
+			if c.IsTLS() || c.Request().Header.Get("X-Forwarded-Proto") == "https" {
+				if h.Get("Strict-Transport-Security") == "" {
+					h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+				}
+			}
 			return next(c)
 		}
 	}

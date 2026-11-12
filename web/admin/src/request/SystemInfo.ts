@@ -7,6 +7,7 @@ export interface ClassificationSetting {
 
 export interface SystemPublicInfo {
   classification: ClassificationSetting;
+  version?: string;
 }
 
 export interface SystemAlert {
