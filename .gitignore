@@ -47,3 +47,7 @@ web/admin/ssl/
 /arm/*
 # 雳鉴 iast_go 二进制（构建脚本从 arm/iast 复制到 backend/iast）
 backend/iast/go-active-linux-arm64
+
+# 安装包与交付物（含镜像、数据库导出与密钥，禁止入库）
+/packages/
+/panda-wiki-iast-deploy/
