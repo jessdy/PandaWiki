@@ -43,7 +43,6 @@ type cloudGeneralArgument struct {
 	IP        string `json:"ip"`
 	LoginName string `json:"loginName,omitempty"`
 	UserID    int64  `json:"userId,omitempty"`
-	ID        int64  `json:"id,omitempty"`
 }
 
 type loginVerifyArg struct {
@@ -220,7 +219,6 @@ func (c *cloudAuthClient) hasKfsUserPermission(ctx context.Context, user cloudSe
 			IP:        ip,
 			LoginName: user.LoginName,
 			UserID:    user.UserID,
-			ID:        user.UserID,
 		},
 		JSONArg: checkPermissionsArg{Permissions: []string{kfsUserPermission}},
 	}, &resp); err != nil {

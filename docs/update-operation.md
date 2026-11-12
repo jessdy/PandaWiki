@@ -1,5 +1,7 @@
 # PandaWiki 现场部署说明（含雳鉴 IAST 插桩开关）
 
+> 从旧版本升级需要改哪些镜像、compose、.env，见 **[升级说明-20261112](./升级说明-20261112.md)**。
+
 从本版本起只有**一个版本**的 api / consumer 镜像（`panda-wiki-api:prod`、`panda-wiki-consumer:prod`），不再单独提供 `prod-iast` 镜像和 `docker-compose.iast.yml`。
 
 | 项 | 说明 |
