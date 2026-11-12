@@ -8,7 +8,7 @@
 #   scripts/build-images.sh --deploy /opt/panda-wiki
 #   scripts/build-images.sh --save /opt/packages/panda-wiki-images.tar.gz
 #
-# 可用环境变量：TAG VERSION GOPROXY NPM_REGISTRY APK_MIRROR
+# 可用环境变量：TAG VERSION GOPROXY NPM_REGISTRY APK_MIRROR NODE_HEAP_MB
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,6 +17,8 @@ VERSION="${VERSION:-$(git -C "$ROOT" describe --always --dirty 2>/dev/null || da
 GOPROXY="${GOPROXY:-https://goproxy.cn,direct}"
 NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 APK_MIRROR="${APK_MIRROR:-mirrors.aliyun.com}"
+# Next.js 前台编译约需 3G 以上堆内存；8G 内存的机器建议同时配置 swap
+NODE_HEAP_MB="${NODE_HEAP_MB:-4096}"
 ONLY="api,consumer,app,nginx"
 DEPLOY=""
 SAVE=""
@@ -75,6 +77,7 @@ if want app || want nginx; then
     -w /src \
     -e "VITE_APP_VERSION=${VERSION}" \
     -e "NEXT_TELEMETRY_DISABLED=1" \
+    -e "NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}" \
     -e "NPM_CONFIG_REGISTRY=${NPM_REGISTRY}" \
     -e "WEB_TARGETS=${WEB_TARGETS}" \
     node:22-alpine sh -ec "
