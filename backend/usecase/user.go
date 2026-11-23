@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -76,10 +77,13 @@ func (u *UserUsecase) VerifyUser(ctx context.Context, account string, password s
 	return u.repo.VerifyUser(ctx, account, password)
 }
 
-func (u *UserUsecase) VerifyUserAndGenerateToken(ctx context.Context, req v1.LoginReq) (string, error) {
+func (u *UserUsecase) VerifyUserAndGenerateToken(ctx context.Context, req v1.LoginReq) (string, *domain.User, error) {
 	user, err := u.VerifyUser(ctx, req.Account, req.Password)
 	if err != nil {
-		return "", err
+		return "", nil, err
+	}
+	if err := ensureLoginPortal(user.Role, req.Portal); err != nil {
+		return "", nil, err
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":   user.ID,
@@ -87,7 +91,38 @@ func (u *UserUsecase) VerifyUserAndGenerateToken(ctx context.Context, req v1.Log
 		"exp":  time.Now().Add(time.Hour * 24).Unix(),
 	})
 
-	return token.SignedString([]byte(u.config.Auth.JWT.Secret))
+	signed, err := token.SignedString([]byte(u.config.Auth.JWT.Secret))
+	if err != nil {
+		return "", nil, err
+	}
+	return signed, user, nil
+}
+
+// ensureLoginPortal 三员登录入口互斥：各角色只能从对应门户登录。
+func ensureLoginPortal(role consts.UserRole, portal string) error {
+	portal = strings.TrimSpace(portal)
+	if portal == "" {
+		portal = v1.LoginPortalAdmin
+	}
+	switch portal {
+	case v1.LoginPortalAdmin:
+		if role == consts.UserRoleAdmin || role == consts.UserRoleUser {
+			return nil
+		}
+		return fmt.Errorf("该账号请使用对应的安全员或审计员登录入口")
+	case v1.LoginPortalSecurity:
+		if role == consts.UserRoleSecurityAdmin {
+			return nil
+		}
+		return fmt.Errorf("安全管理员入口仅允许安全管理员账号登录")
+	case v1.LoginPortalAudit:
+		if role == consts.UserRoleAuditAdmin {
+			return nil
+		}
+		return fmt.Errorf("审计管理员入口仅允许审计管理员账号登录")
+	default:
+		return fmt.Errorf("无效的登录入口")
+	}
 }
 
 func (u *UserUsecase) GetUser(ctx context.Context, userID string) (*domain.User, error) {

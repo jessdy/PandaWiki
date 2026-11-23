@@ -78,7 +78,7 @@ var auditRules = []auditRule{
 	{method: http.MethodPost, exact: "/share/v1/auth/logout", category: "auth", action: "logout", event: "前台用户登出", object: "user"},
 	{method: http.MethodPost, exact: "/api/v1/user/create", category: "user", action: "create", event: "创建用户", object: "user"},
 	{method: http.MethodDelete, exact: "/api/v1/user/delete", category: "user", action: "delete", event: "删除用户", object: "user"},
-	{method: http.MethodPut, exact: "/api/v1/user/reset_password", category: "user", action: "reset_password", event: "重置密码", object: "user"},
+	{method: http.MethodPut, exact: "/api/v1/user/reset_password", category: "user", action: "reset_password", event: "修改密码", object: "user"},
 	{method: http.MethodPost, exact: "/api/v1/user/guest/create", category: "user", action: "guest_create", event: "创建访客", object: "user"},
 	{method: http.MethodDelete, prefix: "/api/v1/user/guest/", category: "user", action: "guest_delete", event: "删除访客", object: "user"},
 	{method: http.MethodPut, prefix: "/api/v1/user/guest/", category: "user", action: "guest_update", event: "更新访客", object: "user"},
@@ -97,7 +97,6 @@ var auditRules = []auditRule{
 	{method: http.MethodPost, exact: "/api/v1/backup/restore", category: "backup", action: "restore", event: "恢复备份", object: "backup"},
 	{method: http.MethodDelete, prefix: "/api/v1/backup/", category: "backup", action: "delete", event: "删除备份", object: "backup"},
 	{method: http.MethodPost, prefix: "/api/v1/approval/", category: "approval", action: "review", event: "审批申请", object: "approval"},
-	// ---- 2026-11-12 扫描补充：敏感写操作审计 ----
 	{method: http.MethodPut, exact: "/api/v1/audit/storage", category: "config", action: "audit_storage_save", event: "修改审计存储配置", object: "audit"},
 	{method: http.MethodPatch, exact: "/api/v1/node/permission/edit", category: "permission", action: "node_permission_edit", event: "更新文档授权", object: "node"},
 	{method: http.MethodPut, exact: "/api/v1/system/classification", category: "config", action: "classification_save", event: "保存密级分类", object: "system"},
@@ -131,6 +130,11 @@ var auditRules = []auditRule{
 	{method: http.MethodDelete, exact: "/api/v1/consult", category: "kb", action: "consult_delete", event: "删除咨询", object: "consult"},
 }
 
+// 不记审计的高频/无业务意义路径
+var auditSkipExact = map[string]struct{}{
+	"/api/v1/creation/tab-complete": {},
+}
+
 func matchAuditRule(method, path string) *auditRule {
 	for i := range auditRules {
 		r := &auditRules[i]
@@ -147,13 +151,69 @@ func matchAuditRule(method, path string) *auditRule {
 	return nil
 }
 
+func shouldAuditRequest(method, path string) (*auditRule, bool) {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+	default:
+		return nil, false
+	}
+	if !strings.HasPrefix(path, "/api/") && !strings.HasPrefix(path, "/share/") {
+		return nil, false
+	}
+	if _, skip := auditSkipExact[path]; skip {
+		return nil, false
+	}
+	// anydoc 上传带 token 路径按前缀跳过精确表外再单独匹配
+	if strings.HasPrefix(path, "/api/v1/file/upload/anydoc/") {
+		return &auditRule{
+			method: method, category: "file", action: "upload_anydoc",
+			event: "anydoc 回传文件", object: "file",
+		}, true
+	}
+	if rule := matchAuditRule(method, path); rule != nil {
+		return rule, true
+	}
+	// 兜底：所有未显式配置的写操作也记审计
+	return defaultAuditRule(method, path), true
+}
+
+func defaultAuditRule(method, path string) *auditRule {
+	category := "api"
+	object := "resource"
+	switch {
+	case strings.HasPrefix(path, "/api/v1/"):
+		rest := strings.TrimPrefix(path, "/api/v1/")
+		if i := strings.IndexByte(rest, '/'); i > 0 {
+			category = rest[:i]
+			object = rest[:i]
+		} else if rest != "" {
+			category = rest
+			object = rest
+		}
+	case strings.HasPrefix(path, "/share/"):
+		category = "share"
+		object = "share"
+	}
+	action := strings.ToLower(method) + "_" + strings.ReplaceAll(strings.Trim(path, "/"), "/", "_")
+	if len(action) > 80 {
+		action = action[:80]
+	}
+	return &auditRule{
+		method:   method,
+		category: category,
+		action:   action,
+		event:    method + " " + path,
+		object:   object,
+	}
+}
+
 var bodyPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
 func (m *AuditMiddleware) Record() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			rule := matchAuditRule(c.Request().Method, c.Request().URL.Path)
-			if rule == nil || m.recorder == nil {
+			rule, ok := shouldAuditRequest(c.Request().Method, c.Request().URL.Path)
+			if !ok || m.recorder == nil {
 				return next(c)
 			}
 
@@ -184,6 +244,15 @@ func (m *AuditMiddleware) Record() echo.MiddlewareFunc {
 				result = domain.AuditResultFailure
 			}
 			objectID, detail := extractAuditObject(rule, c, reqBody)
+			// 登录入口标记
+			if rule.action == "login" {
+				if portal, _ := reqBody["portal"].(string); strings.TrimSpace(portal) != "" {
+					if detail != "" {
+						detail += ","
+					}
+					detail += "portal=" + strings.TrimSpace(portal)
+				}
+			}
 			m.recorder.AppendFromEcho(c, rule.category, rule.action, rule.event, rule.object, objectID, detail, result, status, message)
 
 			bodyPool.Put(buf)
@@ -267,7 +336,6 @@ func extractAuditObject(rule *auditRule, c echo.Context, body map[string]any) (o
 				objectID = account
 			}
 		}
-		// 勿从 body 取 tgt；由 handler 写入 AuditSubjectAccountSlot
 		if subject, ok := c.Get(domain.AuditSubjectAccountSlot).(string); ok && strings.TrimSpace(subject) != "" {
 			objectID = strings.TrimSpace(subject)
 		}

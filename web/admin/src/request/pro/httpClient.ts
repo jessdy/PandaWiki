@@ -18,7 +18,7 @@ import type {
   ResponseType,
 } from "axios";
 import axios from "axios";
-import { clearAuth, getLegacyBearerToken } from "@/utils/auth";
+import { clearAuth, getLegacyBearerToken, loginPathForPortal } from "@/utils/auth";
 
 export type QueryParamsType = Record<string | number, any>;
 
@@ -62,7 +62,7 @@ export enum ContentType {
 const redirectToLogin = () => {
   const pathname = location.pathname.startsWith("/user")
     ? "/user/login"
-    : "/login";
+    : loginPathForPortal();
   window.location.href = pathname;
 };
 
@@ -105,7 +105,7 @@ export class HttpClient<SecurityDataType = unknown> {
       (error) => {
         if (error.response?.status === 401) {
           clearAuth();
-          window.location.href = window.__BASENAME__ + "/login";
+          window.location.href = window.__BASENAME__ + loginPathForPortal();
         }
         if (error.code !== "ERR_CANCELED") {
           message.error(error.response?.statusText || "网络异常");

@@ -3,10 +3,10 @@ import Bgi from '@/assets/images/login-bgi.png';
 import Avatar from '@/components/Avatar';
 import Card from '@/components/Card';
 import { Box, Button, IconButton, Stack, TextField } from '@mui/material';
-import { Icon, message } from '@ctzhian/ui';
+import { message } from '@ctzhian/ui';
 import { useMemo, useState } from 'react';
 import { useAdminSiteBranding } from '@/hooks/useAdminSiteBranding';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   IconZhanghao,
   IconIcon_tool_close,
@@ -15,10 +15,31 @@ import {
   IconBukejian,
 } from '@panda-wiki/icons';
 import ClassificationBanner from '@/components/ClassificationBanner';
-import { markAuthed } from '@/utils/auth';
+import { markAuthed, setLoginPortal, type LoginPortal } from '@/utils/auth';
+import { ConstsUserRole } from '@/request/types';
+
+const PORTAL_TITLE: Record<LoginPortal, string> = {
+  admin: '',
+  security: '安全管理员登录',
+  audit: '审计管理员登录',
+};
+
+const portalFromPath = (pathname: string): LoginPortal => {
+  if (pathname.includes('/login/security')) return 'security';
+  if (pathname.includes('/login/audit')) return 'audit';
+  return 'admin';
+};
+
+const homeForRole = (role?: string) => {
+  if (role === ConstsUserRole.UserRoleSecurityAdmin) return '/approval';
+  if (role === ConstsUserRole.UserRoleAuditAdmin) return '/audit';
+  return '/';
+};
 
 const Login = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const portal = portalFromPath(pathname);
   const kbId = useMemo(
     () =>
       typeof window !== 'undefined' ? localStorage.getItem('kb_id') : null,
@@ -30,12 +51,15 @@ const Login = () => {
   const [see, setSee] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const title = PORTAL_TITLE[portal] || displayTitle;
+
   const submit = () => {
-    postApiV1UserLogin({ account, password })
-      .then(() => {
+    postApiV1UserLogin({ account, password, portal })
+      .then(res => {
         // JWT 由服务端写入 HttpOnly Cookie，前端只保留登录态标记
+        setLoginPortal(portal);
         markAuthed();
-        navigate('/');
+        navigate(homeForRole(res?.role));
         message.success('登录成功');
       })
       .finally(() => {
@@ -91,7 +115,7 @@ const Login = () => {
                 mb: 4,
               }}
             >
-              {displayTitle}
+              {title || displayTitle}
             </Stack>
             <TextField
               value={account}

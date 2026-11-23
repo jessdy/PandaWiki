@@ -171,15 +171,19 @@ func (h *UserHandler) Login(c echo.Context) error {
 		return h.NewResponseWithError(c, fmt.Sprintf("账号已被锁定，请 %s 后重试", remaining.String()), nil)
 	}
 
-	token, err := h.usecase.VerifyUserAndGenerateToken(ctx, req)
+	token, user, err := h.usecase.VerifyUserAndGenerateToken(ctx, req)
 	if err != nil {
 		h.rateLimiter.LockAttempt(ctx, ip)
-		return h.NewResponseWithError(c, "用户名或密码错误", err)
+		// 入口不匹配时返回明确文案；口令错误仍统一模糊提示
+		msg := "用户名或密码错误"
+		if strings.Contains(err.Error(), "登录入口") || strings.Contains(err.Error(), "仅允许") {
+			msg = err.Error()
+		}
+		return h.NewResponseWithError(c, msg, err)
 	}
 
-	if user, lookupErr := h.usecase.GetUserByAccount(ctx, req.Account); lookupErr == nil {
-		c.Set(domain.AuthUserSlot, user)
-	}
+	c.Set(domain.AuthUserSlot, user)
+	c.Set(domain.AuditSubjectAccountSlot, user.Account)
 
 	go func() {
 		if err := h.rateLimiter.ResetLoginAttempts(context.Background(), ip); err != nil {
@@ -188,7 +192,11 @@ func (h *UserHandler) Login(c echo.Context) error {
 	}()
 
 	utils.SetAuthTokenCookie(c, token, 24*time.Hour)
-	return h.NewResponseWithData(c, v1.LoginResp{Token: token})
+	return h.NewResponseWithData(c, v1.LoginResp{
+		Token:   token,
+		Role:    user.Role,
+		Account: user.Account,
+	})
 }
 
 // Logout

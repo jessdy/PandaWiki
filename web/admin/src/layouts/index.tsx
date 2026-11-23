@@ -95,7 +95,7 @@ const useAuth = (hasAuth: boolean) => {
           user.role !== ConstsUserRole.UserRoleAdmin &&
           user.role !== ConstsUserRole.UserRoleUser &&
           kbList.length === 0 &&
-          pathname !== '/login'
+          !pathname.includes('/login')
         ) {
           navigate('401');
         }

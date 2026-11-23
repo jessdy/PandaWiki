@@ -219,6 +219,30 @@ func (r *KnowledgeBaseRepository) SyncKBAccessSettingsToCaddy(ctx context.Contex
 									},
 								},
 							},
+							// 所有 /share/*（含 TGT 登录）直连 API，避免经 Next proxy 转发时丢失 Set-Cookie
+							{
+								"match": []map[string]any{
+									{
+										"path": []string{"/share/*"},
+									},
+								},
+								"handle": []map[string]any{
+									{
+										"handler": "headers",
+										"request": map[string]any{
+											"set": map[string][]any{
+												"X-KB-ID": {kb.ID},
+											},
+										},
+									},
+									{
+										"handler": "reverse_proxy",
+										"upstreams": []map[string]any{
+											{"dial": api},
+										},
+									},
+								},
+							},
 							{
 								"handle": []map[string]any{
 									{

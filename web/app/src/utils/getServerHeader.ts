@@ -5,13 +5,10 @@ export async function getServerHeader(): Promise<Record<string, string>> {
   const kb_id = headersList.get('x-kb-id') || process.env.DEV_KB_ID || '';
   const cookieStore = await cookies();
 
-  // 手动构建 cookie header，避免转义问题
+  // 原样转发 Cookie；勿 encodeURI，否则 gorilla 会话值可能被改写导致鉴权失败
   const allCookies = cookieStore.getAll();
   const cookieHeader = allCookies
-    .map(cookie => {
-      const safeValue = encodeURI(cookie.value);
-      return `${cookie.name}=${safeValue}`;
-    })
+    .map(cookie => `${cookie.name}=${cookie.value}`)
     .join('; ');
 
   return {

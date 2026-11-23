@@ -51,13 +51,24 @@ type UserKBPermItem struct {
 	Perms  []string `json:"perms"`
 }
 
+// LoginPortal 三员分立登录入口标识
+const (
+	LoginPortalAdmin    = "admin"    // 系统管理员入口（仅 admin / user）
+	LoginPortalSecurity = "security" // 安全管理员入口（仅 security_admin）
+	LoginPortalAudit    = "audit"    // 审计管理员入口（仅 audit_admin）
+)
+
 type LoginReq struct {
 	Account  string `json:"account" validate:"required"`
 	Password string `json:"password" validate:"required"`
+	// Portal 登录入口：admin / security / audit；空则按 admin 入口处理
+	Portal string `json:"portal" validate:"omitempty,oneof=admin security audit"`
 }
 
 type LoginResp struct {
-	Token string `json:"token"`
+	Token   string          `json:"token"`
+	Role    consts.UserRole `json:"role"`
+	Account string          `json:"account"`
 }
 
 type UserListResp struct {

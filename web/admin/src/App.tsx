@@ -8,7 +8,7 @@ import { useLocation, useRoutes } from 'react-router-dom';
 import { getApiV1License } from './request/pro/License';
 
 import { setLicense } from './store/slices/config';
-import { isAuthed } from './utils/auth';
+import { isAuthed, loginPathForPortal } from './utils/auth';
 
 import '@ctzhian/tiptap/dist/index.css';
 import '@/assets/styles/tiptap-image-caption.css';
@@ -32,7 +32,7 @@ function App() {
   }, [authed]);
 
   if (!authed && !onlyAllowShareApi) {
-    window.location.href = window.__BASENAME__ + '/login';
+    window.location.href = window.__BASENAME__ + loginPathForPortal();
     return null;
   }
 

@@ -5,7 +5,11 @@ import axios, {
   AxiosResponse,
 } from 'axios';
 import { message } from '@ctzhian/ui';
-import { clearAuth, getLegacyBearerToken } from '@/utils/auth';
+import {
+  clearAuth,
+  getLegacyBearerToken,
+  loginPathForPortal,
+} from '@/utils/auth';
 
 type BasicResponse<T> = {
   data: T;
@@ -52,7 +56,7 @@ const request = <T>(options: AxiosRequestConfig): Promise<T> => {
     (error: AxiosError) => {
       if (error.response?.status === 401) {
         clearAuth();
-        window.location.href = window.__BASENAME__ + '/login';
+        window.location.href = window.__BASENAME__ + loginPathForPortal();
       }
       message.error(error.response?.statusText || '网络异常');
       return Promise.reject(error.response);

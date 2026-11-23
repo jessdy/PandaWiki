@@ -93,6 +93,8 @@ export function getBasename(pathname: string): string {
     '/release',
     '/stat',
     '/conversation',
+    '/login/security',
+    '/login/audit',
     '/login',
     '/401',
     '/',

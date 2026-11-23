@@ -123,7 +123,8 @@ export default function Login() {
     (typeof window !== 'undefined'
       ? (window as { __KB_ID__?: string }).__KB_ID__
       : '') ||
-    (process.env.DEV_KB_ID ?? 'ef07559f-88ee-45c9-a4f5-44db295144e4');
+    process.env.DEV_KB_ID ||
+    '';
 
   const handleLogin = async () => {
     if (!password.trim()) {

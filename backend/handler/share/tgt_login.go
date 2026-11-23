@@ -19,6 +19,7 @@ import (
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/log"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 const (
@@ -205,6 +206,9 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 		log.String("account", user.Account),
 		log.String("role", string(user.Role)),
 		log.String("region", user.Region),
+		log.Any("cookie_secure", utils.CookieSecure(c)),
+		log.String("proto", c.Request().Header.Get("X-Forwarded-Proto")),
+		log.String("host", c.Request().Host),
 	)
 	return h.NewResponseWithData(c, v1.AuthLoginTgtResp{
 		Username: user.Account,

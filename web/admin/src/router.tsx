@@ -176,6 +176,18 @@ const router = [
         ),
       },
       {
+        path: 'login/security',
+        element: createElement(
+          LazyLoadable(lazy(() => import('./pages/login'))),
+        ),
+      },
+      {
+        path: 'login/audit',
+        element: createElement(
+          LazyLoadable(lazy(() => import('./pages/login'))),
+        ),
+      },
+      {
         path: '401',
         element: createElement(LazyLoadable(lazy(() => import('./pages/401')))),
       },

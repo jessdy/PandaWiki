@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import System from '../System';
 import Bread from './Bread';
 import { IconDengchu } from '@panda-wiki/icons';
-import { clearAuth } from '@/utils/auth';
+import { clearAuth, loginPathForPortal } from '@/utils/auth';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -123,8 +123,9 @@ const Header = () => {
             .catch(() => undefined)
             .finally(() => {
               message.success('退出登录成功，请重新登录');
+              const loginPath = loginPathForPortal();
               clearAuth();
-              navigate('/login');
+              navigate(loginPath);
             });
         }}
         cancelButtonProps={{

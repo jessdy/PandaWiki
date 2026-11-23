@@ -116,13 +116,42 @@ const proxyShare = async (request: NextRequest) => {
     ...(hasBody && { duplex: 'half' as const }),
   };
   const proxyRes = await fetch(targetUrl.toString(), fetchOptions);
+  // Fetch Headers 合并多条 Set-Cookie 时会丢/并坏；登录会话 Cookie 必须逐条转发
+  const headers = new Headers();
+  proxyRes.headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'set-cookie') return;
+    headers.set(key, value);
+  });
   const nextRes = new NextResponse(proxyRes.body, {
     status: proxyRes.status,
-    headers: proxyRes.headers,
     statusText: proxyRes.statusText,
+    headers,
   });
+  const setCookies = collectSetCookies(proxyRes.headers);
+  // 页面为 HTTP 时去掉 Secure，避免浏览器静默丢弃会话 Cookie
+  const pageIsHTTPS = request.nextUrl.protocol === 'https:';
+  for (const cookie of setCookies) {
+    nextRes.headers.append(
+      'Set-Cookie',
+      pageIsHTTPS ? cookie : stripCookieSecure(cookie),
+    );
+  }
   return nextRes;
 };
+
+/** 收集上游全部 Set-Cookie（兼容 getSetCookie / 原始 header） */
+function collectSetCookies(h: Headers): string[] {
+  if (typeof h.getSetCookie === 'function') {
+    const list = h.getSetCookie();
+    if (list.length > 0) return list;
+  }
+  const single = h.get('set-cookie');
+  return single ? [single] : [];
+}
+
+function stripCookieSecure(raw: string): string {
+  return raw.replace(/;\s*Secure/gi, '');
+}
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -161,9 +190,10 @@ export async function proxy(request: NextRequest) {
   if (needSetSessionId) {
     response.cookies.set('x-pw-session-id', sessionId, {
       httpOnly: true,
-      secure:
-        process.env.NODE_ENV === 'production' || url.protocol === 'https:',
+      // 必须与页面协议一致；生产环境若仍是 HTTP，强行 Secure 会被浏览器丢弃
+      secure: url.protocol === 'https:',
       sameSite: 'lax',
+      path: '/',
     });
   }
   return response;

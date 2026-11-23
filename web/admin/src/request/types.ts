@@ -1721,10 +1721,14 @@ export interface V1KBUserUpdateReq {
 export interface V1LoginReq {
   account: string;
   password: string;
+  /** 登录入口：admin / security / audit */
+  portal?: 'admin' | 'security' | 'audit';
 }
 
 export interface V1LoginResp {
   token?: string;
+  role?: ConstsUserRole;
+  account?: string;
 }
 
 export interface V1NodeDetailResp {
