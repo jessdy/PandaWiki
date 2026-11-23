@@ -88,13 +88,15 @@ scripts/pack-source.sh --out /opt/packages
 | --- | --- |
 | 构建产物 | `node_modules`、`.next`、`web/*/dist`、`.turbo`、`*.tsbuildinfo`、`.DS_Store`、`.git` |
 | 密钥 | `*.key`、`ssl/*.crt` |
-| **Dockerfile** | 所有 `Dockerfile` / `Dockerfile.*` / `*.Dockerfile`（交付源码不带镜像构建文件） |
+| **Docker 文件** | `Dockerfile`、`Dockerfile.*`、`*.Dockerfile`、`docker-compose.yml`、`docker-compose.yaml`、`docker-compose.*.yml/yaml`、`compose.yml`、`compose.yaml`、`.dockerignore` |
 | **SQL** | 所有 `*.sql`（交付源码不含迁移/脚本） |
 | 发布产物 | `packages/`、`images/`、`*.7z`、`*.tar`、`*.tar.gz`、`*.dump`、`panda-wiki-*-deploy/` |
+| **arm 目录** | 仓库根目录 `arm/`（交付源码不带 ARM 部署目录） |
+| **.env** | 任意目录下名为 `.env` 的文件（`.env.example` 保留） |
 
-**应保留：** `backend/iast/go-active-linux-arm64`、`arm/iast/go-active-linux-arm64`（插桩构建需要，不在 git 内时需事先拷入）。
+**应保留：** `backend/iast/go-active-linux-arm64`（插桩构建需要，不在 git 内时需事先拷入 `backend/iast/`）。
 
-打包后脚本会抽检：若包内仍出现 Dockerfile 或 `.sql` 则失败退出。
+打包后脚本会抽检：若包内仍出现 Docker 文件、`.sql`、`arm/` 或 `.env` 则失败退出。
 
 ---
 

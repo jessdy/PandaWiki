@@ -174,7 +174,7 @@ curl http://localhost:8222/healthz
 docker run -d \
   --name panda-wiki-minio \
   --restart unless-stopped \
-  -e MINIO_ROOT_USER=s3panda-wiki \
+  -e MINIO_ROOT_USER=<S3_ACCESS_KEY> \
   -e MINIO_ROOT_PASSWORD="${S3_SECRET_KEY}" \
   -p 9000:9000 \
   -p 9001:9001 \
@@ -185,7 +185,7 @@ docker run -d \
 
 **访问控制台:**
 - 浏览器访问: `http://YOUR_LINUX_IP:9001`
-- 用户名: `s3panda-wiki`
+- 用户名: `<S3_ACCESS_KEY>`
 - 密码: 环境变量 `S3_SECRET_KEY` 的值
 
 **验证:**
@@ -253,7 +253,7 @@ sudo firewall-cmd --reload
 | PostgreSQL | `YOUR_LINUX_IP:5432` | `panda-wiki` | `POSTGRES_PASSWORD` | 数据库服务 |
 | Redis | `YOUR_LINUX_IP:6379` | - | `REDIS_PASSWORD` | 缓存服务 |
 | NATS | `nats://YOUR_LINUX_IP:4222` | `panda-wiki` | `NATS_PASSWORD` | 消息队列 |
-| MinIO | `YOUR_LINUX_IP:9000` | `s3panda-wiki` | `S3_SECRET_KEY` | 对象存储 |
+| MinIO | `YOUR_LINUX_IP:9000` | `<S3_ACCESS_KEY>` | `S3_SECRET_KEY` | 对象存储 |
 | RAG | `http://YOUR_LINUX_IP:5050` | - | `RAG_API_KEY` | RAG 服务 |
 
 ## 数据持久化与备份恢复

@@ -1,5 +1,6 @@
 'use client';
 import twemoji from '@twemoji/api';
+import DOMPurify from 'isomorphic-dompurify';
 import React, { useMemo } from 'react';
 
 interface TwemojiProps {
@@ -36,7 +37,7 @@ const Twemoji: React.FC<TwemojiProps> = ({
   const html = useMemo(() => {
     const value = typeof text === 'string' ? text : '';
     if (!value) return '';
-    return twemoji.parse(value, {
+    const parsed = twemoji.parse(value, {
       base: '/twemoji/',
       folder: 'svg',
       ext: '.svg',
@@ -45,6 +46,10 @@ const Twemoji: React.FC<TwemojiProps> = ({
         // vertical-align 让 emoji 跟同行文字基线对齐
         style: `height:${size}px;width:${size}px;vertical-align:-0.15em;display:inline-block;`,
       }),
+    });
+    return DOMPurify.sanitize(parsed, {
+      ALLOWED_TAGS: ['img'],
+      ALLOWED_ATTR: ['src', 'alt', 'class', 'style', 'loading', 'draggable'],
     });
   }, [text, size]);
 

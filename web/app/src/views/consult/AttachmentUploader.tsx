@@ -18,12 +18,12 @@ import { useRef, useState } from 'react';
 /**
  * 上传规格（宽松档）：
  *   - 图片：≤ 20MB / 张，≤ 10 张
- *   - 视频：≤ 200MB / 个，≤ 3 个
+ *   - 视频：≤ 100MB / 个，≤ 3 个
  * 与后端 validateAttachments 闸门一致；后端会再次校验数量。
  */
 const LIMITS = {
   image: { maxSize: 20 * 1024 * 1024, maxCount: 10 },
-  video: { maxSize: 200 * 1024 * 1024, maxCount: 3 },
+  video: { maxSize: 100 * 1024 * 1024, maxCount: 3 },
 };
 
 // MIME 由浏览器按扩展名推断、可被伪造，扩展名再过一遍白名单；后端会按文件头复核

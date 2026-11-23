@@ -15,7 +15,8 @@ const (
 	ApprovalAuthGroupCreate  ApprovalType = "auth_group_create"
 	ApprovalAuthGroupUpdate  ApprovalType = "auth_group_update"
 	ApprovalAuthGroupDelete  ApprovalType = "auth_group_delete"
-	ApprovalUserGroupsUpdate ApprovalType = "user_groups_update"
+	ApprovalUserGroupsUpdate    ApprovalType = "user_groups_update"
+	ApprovalNodePermissionEdit  ApprovalType = "node_permission_edit"
 )
 
 type ApprovalStatus string

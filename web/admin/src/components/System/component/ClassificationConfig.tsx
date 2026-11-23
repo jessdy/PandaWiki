@@ -16,21 +16,21 @@ import { useEffect, useState } from 'react';
 
 const ClassificationConfig = () => {
   const [setting, setSetting] = useState<ClassificationSetting>({
-    enabled: false,
-    level: '',
+    enabled: true,
+    level: '内部',
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     getApiV1SystemClassification()
-      .then(res => setSetting(res || { enabled: false, level: '' }))
+      .then(res => setSetting(res || { enabled: true, level: '内部' }))
       .catch(() => undefined);
   }, []);
 
   return (
     <Box>
       <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-        默认不显示密级标识。开启后，登录页与后台首页顶部会展示配置的密级文字。
+        未单独配置时默认显示「内部」。关闭后，登录页与后台首页不再展示密级文字。
       </Typography>
       <Stack direction='row' alignItems='center' gap={2} mb={2}>
         <Typography>显示密级</Typography>

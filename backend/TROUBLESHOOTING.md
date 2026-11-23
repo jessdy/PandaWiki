@@ -283,7 +283,7 @@ docker logs panda-wiki-nats
 curl http://localhost:9000/minio/health/live
 
 # 访问控制台: http://YOUR_LINUX_IP:9001
-# 用户名: s3panda-wiki
+# 用户名: <S3_ACCESS_KEY>
 # 密码: 环境变量 S3_SECRET_KEY 的值
 ```
 

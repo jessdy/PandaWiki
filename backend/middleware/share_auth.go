@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -29,8 +30,9 @@ func RejectCrossSiteRequest(c echo.Context) bool {
 		if err != nil || u.Host == "" {
 			return false
 		}
+		originHost := hostnameOnly(u.Host)
 		for _, h := range allowedHosts {
-			if strings.EqualFold(u.Host, h) {
+			if strings.EqualFold(originHost, hostnameOnly(h)) {
 				return true
 			}
 		}
@@ -47,6 +49,33 @@ func RejectCrossSiteRequest(c echo.Context) bool {
 	}
 	// 无 Origin/Referer 的非浏览器客户端（如服务间调用）放行
 	return false
+}
+
+func hostnameOnly(hostport string) string {
+	hostport = strings.TrimSpace(hostport)
+	if host, _, err := net.SplitHostPort(hostport); err == nil {
+		return host
+	}
+	return hostport
+}
+
+// AdminCSRF 管理端写接口同源校验（登录口与 anydoc 回传除外）。
+func AdminCSRF() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			path := c.Request().URL.Path
+			method := c.Request().Method
+			if strings.HasPrefix(path, "/api/") &&
+				path != "/api/v1/user/login" &&
+				!strings.HasPrefix(path, "/api/v1/file/upload/anydoc") &&
+				(method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete) {
+				if RejectCrossSiteRequest(c) {
+					return c.JSON(http.StatusForbidden, domain.PWResponse{Success: false, Message: "forbidden cross-site request"})
+				}
+			}
+			return next(c)
+		}
+	}
 }
 
 type ShareAuthMiddleware struct {

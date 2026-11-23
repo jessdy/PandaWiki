@@ -21,8 +21,11 @@
 go.work
 go.work.sum
 
-# env file
+# env files（含子目录；允许提交 *.env.example）
 .env
+**/.env
+!**/.env.example
+!**/env.example
 
 **/.DS_Store
 

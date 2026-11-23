@@ -17,7 +17,7 @@ import { useRef, useState } from 'react';
 // 与前台 ConsultAttachmentUploader 保持一致的限制（宽松档）
 const LIMITS = {
   image: { maxSize: 20 * 1024 * 1024, maxCount: 10 },
-  video: { maxSize: 200 * 1024 * 1024, maxCount: 3 },
+  video: { maxSize: 100 * 1024 * 1024, maxCount: 3 },
 };
 
 const ALLOWED_EXTENSIONS = {

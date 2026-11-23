@@ -59,8 +59,8 @@ const (
 )
 
 type LoginReq struct {
-	Account  string `json:"account" validate:"required"`
-	Password string `json:"password" validate:"required"`
+	Account  string `json:"account" validate:"required,max=64"`
+	Password string `json:"password" validate:"required,max=72"`
 	// Portal 登录入口：admin / security / audit；空则按 admin 入口处理
 	Portal string `json:"portal" validate:"omitempty,oneof=admin security audit"`
 }

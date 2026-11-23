@@ -141,7 +141,7 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 	)
 	sessionUser, err := client.loginVerify(c.Request().Context(), tgt, ip)
 	if err != nil {
-		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
+		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP(), "")
 		h.logger.Error("tgt login verify failed",
 			log.String("kb_id", kbID),
 			log.String("ip", ip),
@@ -169,7 +169,7 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 		return h.NewResponseWithError(c, publicCloudAuthMessage(err, "权限验证失败"), err)
 	}
 	if !allowed {
-		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
+		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP(), sessionUser.LoginName)
 		h.logger.Warn("tgt login permission denied",
 			log.String("kb_id", kbID),
 			log.String("ip", ip),
@@ -183,7 +183,7 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 		log.String("kb_id", kbID),
 		log.String("login_name", sessionUser.LoginName),
 	)
-	_ = h.rateLimiter.ResetLoginAttempts(c.Request().Context(), c.RealIP())
+	_ = h.rateLimiter.ResetLoginAttempts(c.Request().Context(), c.RealIP(), sessionUser.LoginName)
 
 	user, err := h.loginLinkedUser(c, kbID, linkedLoginUser{
 		Username: sessionUser.LoginName,

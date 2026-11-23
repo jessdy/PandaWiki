@@ -25,7 +25,7 @@ type FeishuBotLogger struct {
 }
 
 func (l *FeishuBotLogger) Info(ctx context.Context, args ...interface{}) {
-	l.logger.Info("feishu bot", log.Any("args", args))
+	l.logger.Debug("feishu bot", log.Any("args", args))
 }
 
 func (l *FeishuBotLogger) Error(ctx context.Context, args ...interface{}) {
@@ -132,7 +132,7 @@ func (c *FeishuClient) sendQACard(ctx context.Context, receiveIdType string, rec
 		return
 	}
 	// 打印日志
-	c.logger.Info("send QA card to user or group", log.String("receive_id_type", receiveIdType), log.String("receive_id", receiveId), log.String("question", question), log.String("additional_info(chat:user_openid/p2p:chat_id)", additionalInfo))
+	c.logger.Debug("send QA card", log.String("receive_id_type", receiveIdType), log.Int("question_len", len(question)))
 
 	// start processing QA
 	convInfo := domain.ConversationInfo{
@@ -155,7 +155,7 @@ func (c *FeishuClient) sendQACard(ctx context.Context, receiveIdType string, rec
 			if userinfo.Avatar != nil && userinfo.Avatar.AvatarOrigin != nil {
 				convInfo.UserInfo.Avatar = *userinfo.Avatar.AvatarOrigin
 			}
-			c.logger.Info("get user info success", log.Any("user_info", userinfo))
+			c.logger.Debug("get user info success")
 		}
 		convInfo.UserInfo.From = domain.MessageFromPrivate // 私聊
 	} else { // chat_id 中的userid
@@ -173,7 +173,7 @@ func (c *FeishuClient) sendQACard(ctx context.Context, receiveIdType string, rec
 			if userinfo.Avatar != nil && userinfo.Avatar.AvatarOrigin != nil {
 				convInfo.UserInfo.Avatar = *userinfo.Avatar.AvatarOrigin
 			}
-			c.logger.Info("get chat user info success", log.Any("user_info", userinfo))
+			c.logger.Debug("get chat user info success")
 		}
 		convInfo.UserInfo.From = domain.MessageFromGroup // 群聊
 	}

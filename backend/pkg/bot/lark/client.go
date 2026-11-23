@@ -26,7 +26,7 @@ type LarkBotLogger struct {
 }
 
 func (l *LarkBotLogger) Info(ctx context.Context, args ...interface{}) {
-	l.logger.Info("lark bot", log.Any("args", args))
+	l.logger.Debug("lark bot", log.Any("args", args))
 }
 
 func (l *LarkBotLogger) Error(ctx context.Context, args ...interface{}) {
@@ -196,7 +196,7 @@ func (c *LarkClient) sendQACard(ctx context.Context, receiveIdType string, recei
 		c.logger.Error("failed to create message", log.Int("code", res.Code), log.String("msg", res.Msg), log.String("request_id", res.RequestId()))
 		return
 	}
-	c.logger.Info("send QA card to user or group", log.String("receive_id_type", receiveIdType), log.String("receive_id", receiveId), log.String("question", question), log.String("additional_info", additionalInfo))
+	c.logger.Debug("send QA card", log.String("receive_id_type", receiveIdType), log.Int("question_len", len(question)))
 
 	// start processing QA
 	convInfo := domain.ConversationInfo{
@@ -218,7 +218,7 @@ func (c *LarkClient) sendQACard(ctx context.Context, receiveIdType string, recei
 			if userinfo.Avatar != nil && userinfo.Avatar.AvatarOrigin != nil {
 				convInfo.UserInfo.Avatar = *userinfo.Avatar.AvatarOrigin
 			}
-			c.logger.Info("get user info success", log.Any("user_info", userinfo))
+			c.logger.Debug("get user info success")
 		}
 		convInfo.UserInfo.From = domain.MessageFromPrivate
 	} else {
@@ -235,7 +235,7 @@ func (c *LarkClient) sendQACard(ctx context.Context, receiveIdType string, recei
 			if userinfo.Avatar != nil && userinfo.Avatar.AvatarOrigin != nil {
 				convInfo.UserInfo.Avatar = *userinfo.Avatar.AvatarOrigin
 			}
-			c.logger.Info("get chat user info success", log.Any("user_info", userinfo))
+			c.logger.Debug("get chat user info success")
 		}
 		convInfo.UserInfo.From = domain.MessageFromGroup
 	}

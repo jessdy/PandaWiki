@@ -100,8 +100,6 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	approvalRepo := pg2.NewApprovalRepo(db, logger)
-	approvalUsecase := usecase.NewApprovalUsecase(approvalRepo, userRepository, knowledgeBaseRepository, authRepo, userAccessRepository, logger)
-	userHandler := v1.NewUserHandler(echo, baseHandler, logger, userUsecase, authUsecase, approvalUsecase, authMiddleware, configConfig, cacheCache)
 	conversationRepository := pg2.NewConversationRepository(db, logger)
 	fieldCipher, err := pg2.NewFieldCipher(configConfig)
 	if err != nil {
@@ -112,7 +110,6 @@ func createApp() (*App, error) {
 	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
 	testEnvUsecase := usecase.NewTestEnvUsecase(systemSettingRepo)
 	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, testEnvUsecase, logger)
-	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, approvalUsecase, authMiddleware, logger)
 	appRepository := pg2.NewAppRepository(db, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
 	if err != nil {
@@ -120,7 +117,10 @@ func createApp() (*App, error) {
 	}
 	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo, fieldCipher)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
-	nodeHandler := v1.NewNodeHandler(baseHandler, echo, nodeUsecase, authMiddleware, logger)
+	approvalUsecase := usecase.NewApprovalUsecase(approvalRepo, userRepository, knowledgeBaseRepository, authRepo, userAccessRepository, nodeUsecase, logger)
+	userHandler := v1.NewUserHandler(echo, baseHandler, logger, userUsecase, authUsecase, approvalUsecase, authMiddleware, configConfig, cacheCache)
+	knowledgeBaseHandler := v1.NewKnowledgeBaseHandler(baseHandler, echo, knowledgeBaseUsecase, llmUsecase, approvalUsecase, authMiddleware, logger)
+	nodeHandler := v1.NewNodeHandler(baseHandler, echo, nodeUsecase, approvalUsecase, authMiddleware, logger)
 	geoRepo := cache2.NewGeoCache(cacheCache, db, logger)
 	ipdbIPDB, err := ipdb.NewIPDB(configConfig, logger)
 	if err != nil {

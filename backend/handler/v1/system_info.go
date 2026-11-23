@@ -32,7 +32,7 @@ func NewSystemInfoHandler(
 	}
 	echo.GET("/api/v1/system/info", h.PublicInfo)
 	group := echo.Group("/api/v1/system", auth.Authorize)
-	group.GET("/alerts", h.Alerts)
+	group.GET("/alerts", h.Alerts, auth.ValidateExactRole(consts.UserRoleAdmin, consts.UserRoleAuditAdmin))
 	group.GET("/classification", h.GetClassification, auth.ValidateUserRole(consts.UserRoleAdmin))
 	group.PUT("/classification", h.SaveClassification, auth.ValidateUserRole(consts.UserRoleAdmin))
 	return h

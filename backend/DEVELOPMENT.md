@@ -137,7 +137,7 @@ docker run -d \
 docker run -d \
   --name panda-wiki-minio \
   --restart unless-stopped \
-  -e MINIO_ROOT_USER=s3panda-wiki \
+  -e MINIO_ROOT_USER=<S3_ACCESS_KEY> \
   -e MINIO_ROOT_PASSWORD="${S3_SECRET_KEY}" \
   -p 9000:9000 \
   -p 9001:9001 \
@@ -226,7 +226,7 @@ docker ps | grep panda-wiki
 - **MinIO**: 
   - API 地址: `YOUR_LINUX_IP:9000`
   - 控制台: `http://YOUR_LINUX_IP:9001`
-  - Access Key: `s3panda-wiki`
+  - Access Key: `<S3_ACCESS_KEY>`
   - Secret Key: `S3_SECRET_KEY`
 
 - **RAG 服务**: 

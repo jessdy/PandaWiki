@@ -28,6 +28,7 @@ var separatedRoleRoutes = map[consts.UserRole][]roleRoute{
 	},
 	consts.UserRoleAuditAdmin: {
 		{path: "/api/v1/audit", prefix: true},
+		{method: http.MethodGet, path: "/api/v1/system/alerts"},
 	},
 }
 

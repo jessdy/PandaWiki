@@ -41,7 +41,11 @@ const MermaidDiagram = ({ chart }: { chart: string }) => {
       } catch (error: any) {
         // 在渲染错误时显示简单文本表示
         if (containerRef.current) {
-          containerRef.current.innerHTML = `<div>流程图渲染错误: ${error?.message}</div>`;
+          const message = String(error?.message || '未知错误')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          containerRef.current.innerHTML = `<div>流程图渲染错误: ${message}</div>`;
         }
       }
     };

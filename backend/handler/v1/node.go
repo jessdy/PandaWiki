@@ -17,23 +17,26 @@ import (
 
 type NodeHandler struct {
 	*handler.BaseHandler
-	logger  *log.Logger
-	usecase *usecase.NodeUsecase
-	auth    middleware.AuthMiddleware
+	logger          *log.Logger
+	usecase         *usecase.NodeUsecase
+	approvalUsecase *usecase.ApprovalUsecase
+	auth            middleware.AuthMiddleware
 }
 
 func NewNodeHandler(
 	baseHandler *handler.BaseHandler,
 	echo *echo.Echo,
 	usecase *usecase.NodeUsecase,
+	approvalUsecase *usecase.ApprovalUsecase,
 	auth middleware.AuthMiddleware,
 	logger *log.Logger,
 ) *NodeHandler {
 	h := &NodeHandler{
-		BaseHandler: baseHandler,
-		logger:      logger.WithModule("handler.v1.node"),
-		usecase:     usecase,
-		auth:        auth,
+		BaseHandler:     baseHandler,
+		logger:          logger.WithModule("handler.v1.node"),
+		usecase:         usecase,
+		approvalUsecase: approvalUsecase,
+		auth:            auth,
 	}
 
 	readGroup := echo.Group("/api/v1/node", h.auth.Authorize, h.auth.ValidateKBUserPermAny(consts.UserKBPermissionDocManage, consts.UserKBPermissionAuditManage))
@@ -422,12 +425,25 @@ func (h *NodeHandler) NodePermissionEdit(c echo.Context) error {
 		return h.NewResponseWithError(c, "validate node permission failed", err)
 	}
 
-	ctx := c.Request().Context()
-	err := h.usecase.NodePermissionsEdit(ctx, req)
+	actor, err := h.approvalActor(c)
 	if err != nil {
-		return h.NewResponseWithError(c, "update node permission failed", err)
+		return h.NewResponseWithError(c, "unauthorized", err)
 	}
-	return h.NewResponseWithData(c, nil)
+	resp, err := h.approvalUsecase.Submit(c.Request().Context(), actor, domain.ApprovalNodePermissionEdit,
+		fmt.Sprintf("更新文档授权 kb=%s", req.KbId),
+		"", "", req.KbId, req)
+	if err != nil {
+		return h.NewResponseWithError(c, "submit approval failed", err)
+	}
+	return h.NewResponseWithData(c, resp)
+}
+
+func (h *NodeHandler) approvalActor(c echo.Context) (usecase.ApprovalActor, error) {
+	user, ok := c.Get(domain.AuthUserSlot).(*domain.User)
+	if !ok || user == nil {
+		return usecase.ApprovalActor{}, fmt.Errorf("auth user not found")
+	}
+	return usecase.ApprovalActor{ID: user.ID, Account: user.Account, Role: user.Role}, nil
 }
 
 // NodeRestudy 文档重新学习

@@ -96,7 +96,7 @@ type BackupRestoreReq struct {
 	Confirm string `json:"confirm" validate:"required"`
 }
 
-// ClassificationSetting 密级标识，默认不显示
+// ClassificationSetting 密级标识。未单独配置时默认显示「内部」。
 type ClassificationSetting struct {
 	Enabled bool   `json:"enabled"`
 	Level   string `json:"level" validate:"max=20"`

@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -109,15 +110,25 @@ var auditRules = []auditRule{
 	{method: http.MethodPut, exact: "/api/v1/knowledge_base/method_rules", category: "kb", action: "method_rules_save", event: "更新方法规则", object: "kb"},
 	{method: http.MethodPost, exact: "/api/v1/node", category: "node", action: "create", event: "创建文档", object: "node"},
 	{method: http.MethodPut, exact: "/api/v1/node/detail", category: "node", action: "update", event: "更新文档", object: "node"},
+	{method: http.MethodPost, exact: "/api/v1/node/action", category: "node", action: "action", event: "文档批量操作", object: "node"},
+	{method: http.MethodPost, exact: "/api/v1/node/summary", category: "node", action: "ai_summary", event: "文档AI摘要", object: "node"},
+	{method: http.MethodPost, exact: "/api/v1/node/image_summary", category: "node", action: "ai_image_summary", event: "文档图片AI摘要", object: "node"},
+	{method: http.MethodPost, exact: "/api/v1/node/restudy", category: "node", action: "restudy", event: "文档重新学习", object: "node"},
 	{method: http.MethodPost, exact: "/api/v1/node/move", category: "node", action: "move", event: "移动文档", object: "node"},
 	{method: http.MethodPost, exact: "/api/v1/node/batch_move", category: "node", action: "batch_move", event: "批量移动文档", object: "node"},
 	{method: http.MethodPost, exact: "/api/v1/node/lock", category: "node", action: "lock", event: "锁定文档", object: "node"},
 	{method: http.MethodPost, exact: "/api/v1/node/unlock", category: "node", action: "unlock", event: "解锁文档", object: "node"},
 	{method: http.MethodPost, exact: "/api/v1/node/force_unlock", category: "node", action: "force_unlock", event: "强制解锁文档", object: "node"},
+	{method: http.MethodPut, exact: "/api/v1/app", category: "app", action: "update", event: "更新应用配置", object: "app"},
+	{method: http.MethodDelete, exact: "/api/v1/app", category: "app", action: "delete", event: "删除应用配置", object: "app"},
+	{method: http.MethodGet, exact: "/api/v1/audit/logs", category: "audit", action: "list", event: "查询审计日志", object: "audit"},
+	{method: http.MethodGet, exact: "/api/v1/audit/verify", category: "audit", action: "verify", event: "校验审计哈希链", object: "audit"},
+	{method: http.MethodPost, exact: "/api/v1/audit/export/verify", category: "audit", action: "export_verify", event: "校验审计导出包", object: "audit"},
 	{method: http.MethodPost, exact: "/api/v1/model", category: "config", action: "model_create", event: "创建AI模型", object: "model"},
 	{method: http.MethodPut, exact: "/api/v1/model", category: "config", action: "model_update", event: "更新AI模型", object: "model"},
 	{method: http.MethodPost, exact: "/api/v1/model/switch-mode", category: "config", action: "model_switch_mode", event: "切换AI模型模式", object: "model"},
-	{method: http.MethodPut, exact: "/api/v1/cloud_auth", category: "config", action: "cloud_auth_save", event: "保存平台鉴权配置", object: "cloud_auth"},
+	{method: http.MethodPut, exact: "/api/v1/system/cloud-auth", category: "config", action: "cloud_auth_save", event: "保存平台鉴权配置", object: "cloud_auth"},
+	{method: http.MethodPost, exact: "/share/pro/v1/consult/reply", category: "kb", action: "share_consult_reply", event: "前台咨询回复", object: "consult"},
 	{method: http.MethodPost, exact: "/api/v1/auth/set", category: "config", action: "open_auth_set", event: "设置开放鉴权", object: "auth"},
 	{method: http.MethodDelete, exact: "/api/v1/auth/delete", category: "config", action: "open_auth_delete", event: "删除开放鉴权", object: "auth"},
 	{method: http.MethodPut, exact: "/api/v1/standard_term", category: "kb", action: "standard_term_replace", event: "替换标准术语", object: "standard_term"},
@@ -152,15 +163,28 @@ func matchAuditRule(method, path string) *auditRule {
 }
 
 func shouldAuditRequest(method, path string) (*auditRule, bool) {
-	switch method {
-	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-	default:
-		return nil, false
-	}
 	if !strings.HasPrefix(path, "/api/") && !strings.HasPrefix(path, "/share/") {
 		return nil, false
 	}
 	if _, skip := auditSkipExact[path]; skip {
+		return nil, false
+	}
+	// 审计员自查等敏感读操作：仅当规则表显式配置 GET 时记录
+	if method == http.MethodGet {
+		if strings.HasPrefix(path, "/api/v1/backup/") && strings.HasSuffix(path, "/download") {
+			return &auditRule{
+				method: method, category: "backup", action: "download",
+				event: "下载备份", object: "backup",
+			}, true
+		}
+		if rule := matchAuditRule(method, path); rule != nil {
+			return rule, true
+		}
+		return nil, false
+	}
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+	default:
 		return nil, false
 	}
 	// anydoc 上传带 token 路径按前缀跳过精确表外再单独匹配
@@ -347,6 +371,31 @@ func extractAuditObject(rule *auditRule, c echo.Context, body map[string]any) (o
 				detail += ","
 			}
 			detail += "kb_id=" + kbID
+		}
+	}
+	// 移动类：补充目标父节点，满足源/目标路径审计要求
+	if (rule.action == "move" || rule.action == "batch_move") && body != nil {
+		for _, key := range []string{"parent_id", "id", "ids", "kb_id"} {
+			if v, ok := body[key]; ok {
+				switch t := v.(type) {
+				case string:
+					if t == "" {
+						continue
+					}
+					if detail != "" {
+						detail += ","
+					}
+					detail += key + "=" + t
+					if objectID == "" && key == "id" {
+						objectID = t
+					}
+				case []any:
+					if detail != "" {
+						detail += ","
+					}
+					detail += fmt.Sprintf("%s_count=%d", key, len(t))
+				}
+			}
 		}
 	}
 	return objectID, detail

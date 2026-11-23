@@ -142,7 +142,7 @@ docker run -d \
 docker run -d \
   --name panda-wiki-minio \
   --restart unless-stopped \
-  -e MINIO_ROOT_USER=s3panda-wiki \
+  -e MINIO_ROOT_USER=<S3_ACCESS_KEY> \
   -e MINIO_ROOT_PASSWORD="${S3_SECRET_KEY}" \
   -p 9000:9000 \
   -p 9001:9001 \

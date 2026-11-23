@@ -232,11 +232,14 @@ const MarkDown2: React.FC<MarkDown2Props> = ({
         const token = tokens[idx];
         const hrefIndex = token.attrIndex('href');
         const href = hrefIndex >= 0 ? token.attrs![hrefIndex][1] : '';
+        const safeHref = /^\s*(javascript|data|vbscript):/i.test(href)
+          ? '#'
+          : md.utils.escapeHtml(href);
 
         token.attrSet('target', '_blank');
         token.attrSet('rel', 'noopener noreferrer');
 
-        return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color: ${theme.palette.primary.main}; text-decoration: underline;">`;
+        return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color: ${theme.palette.primary.main}; text-decoration: underline;">`;
       };
 
       // 处理自定义 HTML 标签

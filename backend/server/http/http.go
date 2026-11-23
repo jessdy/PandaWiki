@@ -126,6 +126,7 @@ func NewEcho(
 	}))
 
 	e.Use(PWMiddleware.SecurityHeaders())
+	e.Use(PWMiddleware.AdminCSRF())
 	e.Use(PWMiddleware.RateLimit(config))
 	e.Use(pwMiddleware.ReadOnly)
 	e.Use(sessionMiddleware.Session())

@@ -13,13 +13,11 @@ import (
 )
 
 // CookieSecure 决定会话 Cookie 是否带 Secure。
-// 优先级：COOKIE_SECURE 显式开关 > 当前请求是否 HTTPS（TLS / X-Forwarded-Proto）>
-// 无请求上下文时默认 false（避免中间件初始化阶段把 Secure 写死，导致 HTTP 站点浏览器丢弃 Cookie）。
+// 默认跟随请求是否 HTTPS（TLS / X-Forwarded-Proto）；无上下文时 false（避免中间件初始化写死 Secure）。
+// 仅允许 COOKIE_SECURE=true 强制开启；禁止用环境变量强制关闭（防误配导致明文会话劫持）。
+// 本地 HTTP 联调请勿伪造 X-Forwarded-Proto=https，或走真实明文请求让本函数自然返回 false。
 func CookieSecure(c echo.Context) bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("COOKIE_SECURE"))) {
-	case "false", "0", "off":
-		return false
-	case "true", "1", "on":
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("COOKIE_SECURE"))); v == "true" || v == "1" || v == "on" {
 		return true
 	}
 	if c != nil && c.Request() != nil {
@@ -39,11 +37,15 @@ func CookieSecure(c echo.Context) bool {
 	return false
 }
 
+// SessionCookieMaxAge 前台会话 Cookie / Redis TTL（秒）。
+// 注意：boj/redistore 把 MaxAge<=0 当成“删除会话并写空 Cookie”，
+// 不能用 gorilla 文档里的 MaxAge=0（浏览器会话级）语义。
+const SessionCookieMaxAge = 30 * 60
+
 func SessionCookieOptions(c echo.Context) *sessions.Options {
 	return &sessions.Options{
-		Path: "/",
-		// 会话级 Cookie，避免永久 Cookie 存储敏感会话信息
-		MaxAge:   0,
+		Path:     "/",
+		MaxAge:   SessionCookieMaxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   CookieSecure(c),
@@ -56,7 +58,7 @@ const authTokenCookiePath = "/api"
 // SetAuthTokenCookie 写入管理端 JWT（HttpOnly + SameSite=Strict + Path=/api）
 func SetAuthTokenCookie(c echo.Context, token string, maxAge time.Duration) {
 	if maxAge <= 0 {
-		maxAge = 24 * time.Hour
+		maxAge = 8 * time.Hour
 	}
 	c.SetCookie(&http.Cookie{
 		Name:     domain.AuthTokenCookieName,

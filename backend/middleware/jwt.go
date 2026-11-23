@@ -45,7 +45,7 @@ func (m *JWTMiddleware) RevokeToken(ctx context.Context, c echo.Context) error {
 	if token == "" || !ok || jwtToken == nil {
 		return nil
 	}
-	ttl := 24 * time.Hour
+	ttl := 8 * time.Hour
 	if exp, err := jwtToken.Claims.GetExpirationTime(); err == nil && exp != nil {
 		ttl = time.Until(exp.Time)
 	}

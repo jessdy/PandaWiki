@@ -189,10 +189,10 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 	}
 
 	if !utils.VerifySecret(kb.AccessSettings.SimpleAuth.Password, req.Password) {
-		h.rateLimiter.LockAttempt(ctx, c.RealIP())
+		h.rateLimiter.LockAttempt(ctx, c.RealIP(), "")
 		return h.NewResponseWithError(c, "simple auth password is incorrect", nil)
 	}
-	_ = h.rateLimiter.ResetLoginAttempts(ctx, c.RealIP())
+	_ = h.rateLimiter.ResetLoginAttempts(ctx, c.RealIP(), "")
 
 	s := c.Get(domain.SessionStoreName)
 	if s == nil {

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
@@ -20,12 +21,18 @@ func NewSystemInfoUsecase(setting *pg.SystemSettingRepo, audit *AuditUsecase, ba
 }
 
 func (u *SystemInfoUsecase) GetClassification(ctx context.Context) (domain.ClassificationSetting, error) {
-	setting := domain.ClassificationSetting{}
+	fallback := domain.ClassificationSetting{Enabled: true, Level: "内部"}
 	raw, err := u.setting.GetSystemSetting(ctx, consts.SystemSettingClassification)
-	if err != nil {
-		return setting, nil
+	if err != nil || raw == nil || len(strings.TrimSpace(string(raw.Value))) == 0 {
+		return fallback, nil
 	}
-	_ = json.Unmarshal(raw.Value, &setting)
+	setting := domain.ClassificationSetting{}
+	if err := json.Unmarshal(raw.Value, &setting); err != nil {
+		return fallback, nil
+	}
+	if setting.Enabled && strings.TrimSpace(setting.Level) == "" {
+		setting.Level = "内部"
+	}
 	return setting, nil
 }
 

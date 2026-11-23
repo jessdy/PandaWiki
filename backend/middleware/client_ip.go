@@ -57,13 +57,19 @@ func TrustedProxyNets(cfg *config.Config) []*net.IPNet {
 
 // RateLimit 按来源 IP 做全局限流；容器网段内的调用（前台 SSR、爬虫回传）不计入。
 func RateLimit(cfg *config.Config) echo.MiddlewareFunc {
-	if cfg.HTTP.RateLimitRPS <= 0 {
-		return func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+	rps := cfg.HTTP.RateLimitRPS
+	if rps <= 0 {
+		// 禁止用 0 静默关闭全局限流
+		rps = 20
+	}
+	burst := cfg.HTTP.RateLimitBurst
+	if burst <= 0 {
+		burst = 40
 	}
 	internal := TrustedProxyNets(cfg)
 	store := middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
-		Rate:      rate.Limit(cfg.HTTP.RateLimitRPS),
-		Burst:     cfg.HTTP.RateLimitBurst,
+		Rate:      rate.Limit(rps),
+		Burst:     burst,
 		ExpiresIn: 3 * time.Minute,
 	})
 	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{

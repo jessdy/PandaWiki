@@ -18,6 +18,10 @@ func SecurityHeaders() echo.MiddlewareFunc {
 			if h.Get("X-Frame-Options") == "" {
 				h.Set("X-Frame-Options", "SAMEORIGIN")
 			}
+			// 兼容旧扫描项；现代浏览器以 CSP 为准
+			if h.Get("X-XSS-Protection") == "" {
+				h.Set("X-XSS-Protection", "1; mode=block")
+			}
 			// 保守 CSP：不打断现有前端资源加载；禁止默认对象插件
 			if h.Get("Content-Security-Policy") == "" {
 				h.Set("Content-Security-Policy", "object-src 'none'; base-uri 'self'; frame-ancestors 'self'")

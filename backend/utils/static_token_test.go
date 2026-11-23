@@ -13,6 +13,9 @@ func TestStaticAccessToken(t *testing.T) {
 	if uid, ok := VerifyStaticAccessToken("secret", token, now); !ok || uid != "user-1" {
 		t.Fatalf("verify = %q, %v", uid, ok)
 	}
+	if strings.Contains(token, "user-1") {
+		t.Fatal("cookie token must not contain the user id in the clear")
+	}
 	if _, ok := VerifyStaticAccessToken("other", token, now); ok {
 		t.Fatal("token signed with another secret must fail")
 	}

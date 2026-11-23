@@ -51,7 +51,8 @@ func NewUserHandler(e *echo.Echo, baseHandler *handler.BaseHandler, logger *log.
 
 	group.GET("", h.GetUserInfo, h.auth.Authorize)
 	group.POST("/logout", h.Logout, h.auth.Authorize)
-	group.GET("/list", h.ListUsers, h.auth.Authorize)
+	// 用户枚举：仅系统管理员 / 安全管理员（审批场景）
+	group.GET("/list", h.ListUsers, h.auth.Authorize, h.auth.ValidateExactRole(consts.UserRoleAdmin, consts.UserRoleSecurityAdmin))
 	userManagePerm := h.auth.ValidateUserRoleOrAnyKBPerm(consts.UserRoleAdmin, consts.UserKBPermissionUserManage)
 	group.GET("/guest/list", h.ListGuestUsers, h.auth.Authorize, userManagePerm)
 	group.POST("/create", h.CreateUser, h.auth.Authorize, userManagePerm)
@@ -165,15 +166,18 @@ func (h *UserHandler) Login(c echo.Context) error {
 
 	ctx := c.Request().Context()
 	ip := c.RealIP()
-	locked, remaining := h.rateLimiter.CheckIPLocked(ctx, ip)
+	locked, remaining := h.rateLimiter.CheckLocked(ctx, ip, req.Account)
 	if locked {
-		h.logger.Warn("IP is locked", "ip", ip, "remaining", remaining)
+		h.logger.Warn("login locked", "ip", ip, "account", req.Account, "remaining", remaining)
 		return h.NewResponseWithError(c, fmt.Sprintf("账号已被锁定，请 %s 后重试", remaining.String()), nil)
 	}
 
+	// 失败路径也写入尝试账号，供审计中间件填充主体（#48）
+	c.Set(domain.AuditSubjectAccountSlot, strings.TrimSpace(req.Account))
+
 	token, user, err := h.usecase.VerifyUserAndGenerateToken(ctx, req)
 	if err != nil {
-		h.rateLimiter.LockAttempt(ctx, ip)
+		h.rateLimiter.LockAttempt(ctx, ip, req.Account)
 		// 入口不匹配时返回明确文案；口令错误仍统一模糊提示
 		msg := "用户名或密码错误"
 		if strings.Contains(err.Error(), "登录入口") || strings.Contains(err.Error(), "仅允许") {
@@ -186,12 +190,12 @@ func (h *UserHandler) Login(c echo.Context) error {
 	c.Set(domain.AuditSubjectAccountSlot, user.Account)
 
 	go func() {
-		if err := h.rateLimiter.ResetLoginAttempts(context.Background(), ip); err != nil {
+		if err := h.rateLimiter.ResetLoginAttempts(context.Background(), ip, req.Account); err != nil {
 			h.logger.Error("failed to reset login attempts", "error", err, "ip", ip)
 		}
 	}()
 
-	utils.SetAuthTokenCookie(c, token, 24*time.Hour)
+	utils.SetAuthTokenCookie(c, token, 8*time.Hour)
 	return h.NewResponseWithData(c, v1.LoginResp{
 		Token:   token,
 		Role:    user.Role,

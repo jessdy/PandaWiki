@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	nodev1 "github.com/chaitin/panda-wiki/api/node/v1"
 	v1 "github.com/chaitin/panda-wiki/api/user/v1"
 	kbv1 "github.com/chaitin/panda-wiki/api/kb/v1"
 	"github.com/chaitin/panda-wiki/consts"
@@ -23,6 +24,7 @@ type ApprovalUsecase struct {
 	kbRepo     *pg.KnowledgeBaseRepository
 	authRepo   *pg.AuthRepo
 	userAccess *pg.UserAccessRepository
+	nodeUC     *NodeUsecase
 	logger     *log.Logger
 }
 
@@ -32,6 +34,7 @@ func NewApprovalUsecase(
 	kbRepo *pg.KnowledgeBaseRepository,
 	authRepo *pg.AuthRepo,
 	userAccess *pg.UserAccessRepository,
+	nodeUC *NodeUsecase,
 	logger *log.Logger,
 ) *ApprovalUsecase {
 	return &ApprovalUsecase{
@@ -40,6 +43,7 @@ func NewApprovalUsecase(
 		kbRepo:     kbRepo,
 		authRepo:   authRepo,
 		userAccess: userAccess,
+		nodeUC:     nodeUC,
 		logger:     logger.WithModule("usecase.approval"),
 	}
 }
@@ -270,6 +274,16 @@ func (u *ApprovalUsecase) apply(ctx context.Context, a *domain.UserApproval) err
 			return err
 		}
 		return u.authRepo.UpdateUserGroups(ctx, req.UserID, req.GroupIDs)
+
+	case domain.ApprovalNodePermissionEdit:
+		var req nodev1.NodePermissionEditReq
+		if err := json.Unmarshal(a.Payload, &req); err != nil {
+			return err
+		}
+		if u.nodeUC == nil {
+			return fmt.Errorf("node usecase not configured")
+		}
+		return u.nodeUC.NodePermissionsEdit(ctx, req)
 	default:
 		return fmt.Errorf("unknown approval type: %s", a.Type)
 	}

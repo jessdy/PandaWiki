@@ -88,7 +88,7 @@ func (u *UserUsecase) VerifyUserAndGenerateToken(ctx context.Context, req v1.Log
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":   user.ID,
 		"role": string(user.Role),
-		"exp":  time.Now().Add(time.Hour * 24).Unix(),
+		"exp":  time.Now().Add(8 * time.Hour).Unix(),
 	})
 
 	signed, err := token.SignedString([]byte(u.config.Auth.JWT.Secret))

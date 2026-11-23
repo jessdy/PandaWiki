@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
@@ -18,11 +19,20 @@ import (
 const (
 	StaticAccessCookie = "pw_static_token"
 	StaticAccessTTL    = 12 * time.Hour
+	staticNonceLen     = 8
 )
 
+// SignStaticAccessToken 把用户标识和过期时间密封进令牌。
+// Cookie 值是随机 nonce + 流加密密文，不能从中直接读出用户 ID。
 func SignStaticAccessToken(secret, userID string, expires time.Time) string {
-	payload := userID + "." + strconv.FormatInt(expires.Unix(), 10)
-	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + staticTokenMAC(secret, payload)
+	nonce := make([]byte, staticNonceLen)
+	if _, err := rand.Read(nonce); err != nil {
+		return ""
+	}
+	plain := []byte(userID + "|" + strconv.FormatInt(expires.Unix(), 10))
+	blob := append(append([]byte{}, nonce...), xorStream(secret, nonce, plain)...)
+	enc := base64.RawURLEncoding.EncodeToString(blob)
+	return enc + "." + staticTokenMAC(secret, enc)
 }
 
 func VerifyStaticAccessToken(secret, token string, now time.Time) (string, bool) {
@@ -30,18 +40,20 @@ func VerifyStaticAccessToken(secret, token string, now time.Time) (string, bool)
 		return "", false
 	}
 	encoded, mac, ok := strings.Cut(token, ".")
-	if !ok {
+	if !ok || encoded == "" || mac == "" {
 		return "", false
 	}
-	raw, err := base64.RawURLEncoding.DecodeString(encoded)
-	if err != nil {
+	if !hmac.Equal([]byte(mac), []byte(staticTokenMAC(secret, encoded))) {
 		return "", false
 	}
-	payload := string(raw)
-	if !hmac.Equal([]byte(mac), []byte(staticTokenMAC(secret, payload))) {
+	blob, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil || len(blob) <= staticNonceLen {
 		return "", false
 	}
-	i := strings.LastIndex(payload, ".")
+	nonce, ct := blob[:staticNonceLen], blob[staticNonceLen:]
+	plain := xorStream(secret, nonce, ct)
+	payload := string(plain)
+	i := strings.LastIndex(payload, "|")
 	if i <= 0 {
 		return "", false
 	}
@@ -50,6 +62,19 @@ func VerifyStaticAccessToken(secret, token string, now time.Time) (string, bool)
 		return "", false
 	}
 	return payload[:i], true
+}
+
+func xorStream(secret string, nonce, data []byte) []byte {
+	out := make([]byte, len(data))
+	filled := 0
+	for counter := 0; filled < len(data); counter++ {
+		block := staticTokenMAC(secret, "seal|"+hex.EncodeToString(nonce)+"|"+strconv.Itoa(counter))
+		for i := 0; i < len(block) && filled < len(data); i++ {
+			out[filled] = data[filled] ^ block[i]
+			filled++
+		}
+	}
+	return out
 }
 
 func staticTokenMAC(secret, payload string) string {

@@ -1,6 +1,7 @@
 'use client';
 
 import { addOpacityToColor } from '@/utils';
+import { sanitizeMarkdownHtml } from './sanitizeHtml';
 import { IconButton, useTheme } from '@mui/material';
 import { IconXiajiantou } from '@panda-wiki/icons';
 import React, { useCallback, useRef } from 'react';
@@ -50,7 +51,7 @@ const ThinkingComponent: React.FC<ThinkingComponentProps> = ({
           overflow: 'hidden',
           height: showThink ? 'auto' : '60px',
         }}
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: sanitizeMarkdownHtml(content) }}
       />
       {!loading && (
         <IconButton

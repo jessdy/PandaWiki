@@ -73,6 +73,14 @@ func (u *AuditUsecase) AppendFromEcho(c echo.Context, category, action, event, o
 			entry.Role = "api_token"
 		}
 	}
+	// 登录失败等路径未写入 AuthUserSlot：用请求账号 / 审计主体槽补齐主体，满足 #48
+	if strings.TrimSpace(entry.Account) == "" {
+		if subject, ok := c.Get(domain.AuditSubjectAccountSlot).(string); ok && strings.TrimSpace(subject) != "" {
+			entry.Account = strings.TrimSpace(subject)
+		} else if objectID != "" && (action == "login" || strings.Contains(action, "login")) {
+			entry.Account = objectID
+		}
+	}
 	u.Append(c.Request().Context(), entry)
 }
 
