@@ -62,9 +62,8 @@ func NewShareAuthHandler(
 	share.GET("/get", h.AuthGet)
 	share.GET("/info", h.AuthInfo)
 	share.POST("/login/simple", h.AuthLoginSimple)
-	// 已移除 /login/user_password：禁止对外直接校验用户名密码（安全扫描成批分配/凭据暴露）。
-	// 企业用户请走 /login/tgt 或 /login/user_link。
-	share.POST("/login/user_link", h.AuthLoginUserLink)
+	// 已移除 /login/user_password、/login/user_link（Base64 直登不安全）。
+	// 企业用户请走 /login/tgt（平台会话校验）。
 	share.POST("/login/tgt", h.AuthLoginTgt)
 	share.POST("/github", h.AuthGitHub)
 

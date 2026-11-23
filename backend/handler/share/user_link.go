@@ -3,156 +3,43 @@ package share
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	kbv1 "github.com/chaitin/panda-wiki/api/kb/v1"
-	v1 "github.com/chaitin/panda-wiki/api/share/v1"
 	"github.com/chaitin/panda-wiki/consts"
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/log"
 )
 
-const (
-	maxUserLinkUsernameRunes = 100
-	maxUserLinkRegionRunes   = 100
-)
-
-type userLinkPayload struct {
-	Username   string `json:"username"`
-	UserName   string `json:"user_name"`
-	UsernameCN string `json:"用户名"`
-	Region     string `json:"region"`
-	RegionCN   string `json:"地区"`
-	Role       string `json:"role"`
-	RoleCN     string `json:"角色"`
-}
-
-type decodedUserLink struct {
+// linkedLoginUser TGT 校验通过后用于本系统建号/建会话的身份（不再支持 Base64 user_link 直登）。
+type linkedLoginUser struct {
 	Username string
 	Region   string
 	Role     consts.UserRole
 }
 
-func decodeUserLink(raw string) (decodedUserLink, error) {
-	payload, err := decodeUserLinkBase64(raw)
-	if err != nil {
-		return decodedUserLink{}, fmt.Errorf("用户信息无法解析")
-	}
-
-	var data userLinkPayload
-	if err := json.Unmarshal(payload, &data); err != nil {
-		return decodedUserLink{}, fmt.Errorf("用户信息格式无效")
-	}
-
-	username := strings.TrimSpace(firstNonEmpty(data.Username, data.UserName, data.UsernameCN))
-	region := strings.TrimSpace(firstNonEmpty(data.Region, data.RegionCN))
-	role, err := parseUserLinkRole(firstNonEmpty(data.Role, data.RoleCN))
-	if err != nil {
-		return decodedUserLink{}, err
-	}
-	if username == "" {
-		return decodedUserLink{}, fmt.Errorf("用户名不能为空")
-	}
-	if utf8.RuneCountInString(username) > maxUserLinkUsernameRunes {
-		return decodedUserLink{}, fmt.Errorf("用户名不能超过 %d 个字符", maxUserLinkUsernameRunes)
-	}
-	if utf8.RuneCountInString(region) > maxUserLinkRegionRunes {
-		return decodedUserLink{}, fmt.Errorf("地区不能超过 %d 个字符", maxUserLinkRegionRunes)
-	}
-	return decodedUserLink{Username: username, Region: region, Role: role}, nil
-}
-
-func parseUserLinkRole(raw string) (consts.UserRole, error) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "", "user", "guest":
-		return consts.UserRoleGuest, nil
-	case "admin", "管理员":
-		return consts.UserRoleUser, nil
-	default:
-		return "", fmt.Errorf("角色只能是 user 或 admin")
-	}
-}
-
-func userLinkRoleName(role consts.UserRole) string {
+func linkedRoleName(role consts.UserRole) string {
 	if role == consts.UserRoleUser {
 		return "admin"
 	}
 	return "user"
 }
 
-func decodeUserLinkBase64(raw string) ([]byte, error) {
-	value := strings.TrimSpace(raw)
-	value = strings.ReplaceAll(value, " ", "+")
-	encodings := []*base64.Encoding{
-		base64.StdEncoding,
-		base64.URLEncoding,
-		base64.RawStdEncoding,
-		base64.RawURLEncoding,
-	}
-	var lastErr error
-	for _, encoding := range encodings {
-		decoded, err := encoding.DecodeString(value)
-		if err == nil {
-			return decoded, nil
-		}
-		lastErr = err
-	}
-	return nil, lastErr
-}
-
-func (h *ShareAuthHandler) AuthLoginUserLink(c echo.Context) error {
-	if err := h.rejectIfLoginLocked(c); err != nil {
-		return err
-	}
-	kbID := c.Request().Header.Get("X-KB-ID")
-	if kbID == "" {
-		return h.NewResponseWithError(c, "kb_id is required", nil)
-	}
-
-	var req v1.AuthLoginUserLinkReq
-	if err := c.Bind(&req); err != nil {
-		return h.NewResponseWithError(c, "用户信息无效", err)
-	}
-	if err := c.Validate(&req); err != nil {
-		return h.NewResponseWithError(c, "用户信息无效", err)
-	}
-	link, err := decodeUserLink(req.User)
-	if err != nil {
-		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
-		return h.NewResponseWithError(c, err.Error(), err)
-	}
-
-	user, err := h.loginLinkedUser(c, kbID, link)
-	if err != nil {
-		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP())
-		return h.NewResponseWithError(c, err.Error(), err)
-	}
-	_ = h.rateLimiter.ResetLoginAttempts(c.Request().Context(), c.RealIP())
-	return h.NewResponseWithData(c, v1.AuthLoginUserLinkResp{
-		Username: user.Account,
-		Region:   user.Region,
-		Role:     userLinkRoleName(user.Role),
-	})
-}
-
-func (h *ShareAuthHandler) loginLinkedUser(c echo.Context, kbID string, link decodedUserLink) (*domain.User, error) {
+func (h *ShareAuthHandler) loginLinkedUser(c echo.Context, kbID string, link linkedLoginUser) (*domain.User, error) {
 	ctx := c.Request().Context()
 	user, created, err := h.findOrCreateLinkUser(ctx, c, link)
 	if err != nil {
 		return nil, err
 	}
-	if err := matchUserLinkRole(user.Role, link.Role); err != nil {
+	if err := matchLinkedUserRole(user.Role, link.Role); err != nil {
 		return nil, err
 	}
 	if created {
@@ -185,12 +72,12 @@ func (h *ShareAuthHandler) loginLinkedUser(c echo.Context, kbID string, link dec
 	return user, nil
 }
 
-func matchUserLinkRole(actual, requested consts.UserRole) error {
+func matchLinkedUserRole(actual, requested consts.UserRole) error {
 	if requested == consts.UserRoleGuest && actual != consts.UserRoleGuest {
 		return fmt.Errorf("该用户名对应的不是普通用户")
 	}
 	if requested == consts.UserRoleUser && actual == consts.UserRoleAdmin {
-		return fmt.Errorf("超级管理员不能通过此链接登录")
+		return fmt.Errorf("超级管理员不能通过此方式登录")
 	}
 	if requested == consts.UserRoleUser && actual != consts.UserRoleUser {
 		return fmt.Errorf("该用户名对应的不是管理员")
@@ -201,7 +88,7 @@ func matchUserLinkRole(actual, requested consts.UserRole) error {
 func (h *ShareAuthHandler) findOrCreateLinkUser(
 	ctx context.Context,
 	c echo.Context,
-	link decodedUserLink,
+	link linkedLoginUser,
 ) (*domain.User, bool, error) {
 	user, err := h.userUsecase.GetUserByAccount(ctx, link.Username)
 	if err == nil {
@@ -272,13 +159,4 @@ func randomLinkPassword() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(buf), nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }

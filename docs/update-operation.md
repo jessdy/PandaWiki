@@ -55,7 +55,7 @@ docker logs panda-wiki-consumer 2>&1 | head -1
 | `ERROR: 已开启 IAST 但 IAST_SERVER_IP 无效或仍为占位符…以普通版启动` | 开关为 true 但 IP 没填对；为保证业务可用会以普通版启动，改好 IP 再重建 |
 | `WARN: 已开启 IAST，但镜像不含插桩版二进制…` | 镜像不是 arm64 插桩构建 |
 
-开启后确认：雳鉴【插桩 Agent】在线（tag 为 `panda-wiki-api`、`panda-wiki-consumer`）；前台用真实 IP/域名可访问；`tgt` / 授权链接可登录。
+开启后确认：雳鉴【插桩 Agent】在线（tag 为 `panda-wiki-api`、`panda-wiki-consumer`）；前台用真实 IP/域名可访问；`tgt` 可登录。
 
 ### 高级：完整 agent toml
 

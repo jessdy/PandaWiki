@@ -117,7 +117,7 @@ export default function LoginModal() {
 
   /**
    * 企业认证（含原用户名密码源）统一引导完整登录页：
-   * 密码直登已下线，保留 tgt / user_link / LDAP / 第三方跳转。
+   * 密码 / Base64 授权链接直登已下线，保留 tgt / LDAP / 第三方跳转。
    */
   const showEnterpriseRedirect =
     authLoaded &&
@@ -186,7 +186,7 @@ export default function LoginModal() {
             <Box>
               <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
                 {showEnterpriseRedirect
-                  ? '请通过平台会话（tgt）或授权链接登录；已禁用用户名密码直登。'
+                  ? '请通过平台会话（tgt）登录；已禁用用户名密码与授权链接直登。'
                   : '请在登录页完成认证。'}
               </Typography>
               <Button fullWidth variant='contained' onClick={goFullLoginPage}>

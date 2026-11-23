@@ -13,7 +13,6 @@ import { postShareV1AuthGithub } from '@/request/ShareAuth';
 import {
   getShareV1AuthGet,
   postShareV1AuthLoginSimple,
-  postShareV1AuthLoginUserLink,
   postShareV1AuthLoginTgt,
 } from '@/request/ShareAuth';
 import { getShareV1NodeList } from '@/request/ShareNode';
@@ -81,7 +80,7 @@ export default function Login() {
   }>({ username: '', email: '', avatar_url: '' });
   const [loading, setLoading] = useState(false);
   const [linkLoggingIn, setLinkLoggingIn] = useState(() =>
-    Boolean(searchParams.get('user') || searchParams.get('tgt')),
+    Boolean(searchParams.get('tgt')),
   );
   const linkLoginStarted = useRef(false);
   const [authType, setAuthType] = useState<ConstsAuthType>();
@@ -94,7 +93,6 @@ export default function Login() {
     typeof window !== 'undefined'
       ? `${window.location.origin}${basePath}${decodeURIComponent(searchParams.get('redirect') || '')}`
       : '';
-  const userLink = searchParams.get('user') || '';
   const tgt = searchParams.get('tgt') || '';
 
   useEffect(() => {
@@ -264,38 +262,31 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if ((!userLink && !tgt) || linkLoginStarted.current) return;
+    if (!tgt || linkLoginStarted.current) return;
     const kbId = resolveKbId();
     if (!kbId) return;
     linkLoginStarted.current = true;
-    const loginByLink = async () => {
+    const loginByTgt = async () => {
       setLinkLoggingIn(true);
       try {
         clearCookie();
-        if (tgt) {
-          await postShareV1AuthLoginTgt(
-            { tgt },
-            { headers: { 'X-KB-ID': kbId } },
-          );
-        } else {
-          await postShareV1AuthLoginUserLink(
-            { user: userLink },
-            { headers: { 'X-KB-ID': kbId } },
-          );
-        }
+        await postShareV1AuthLoginTgt(
+          { tgt },
+          { headers: { 'X-KB-ID': kbId } },
+        );
         const nodes = await getShareV1NodeList();
         setNodeList?.((nodes as never) ?? []);
         window.open(redirectUrl, '_self');
       } catch (error: unknown) {
         linkLoginStarted.current = false;
         message.error(
-          (error as { message?: string })?.message || '链接登录失败，请重试',
+          (error as { message?: string })?.message || '会话登录失败，请重试',
         );
         setLinkLoggingIn(false);
       }
     };
-    void loginByLink();
-  }, [kbDetail, redirectUrl, searchParams, setNodeList, tgt, userLink]);
+    void loginByTgt();
+  }, [kbDetail, redirectUrl, searchParams, setNodeList, tgt]);
 
   useEffect(() => {
     getShareV1AuthGet({}).then(res => {
@@ -573,7 +564,7 @@ export default function Login() {
                       color='text.secondary'
                       sx={{ textAlign: 'center', px: 1 }}
                     >
-                      请通过平台会话（tgt）或授权链接登录，已禁用用户名密码直登。
+                      请通过平台会话（tgt）登录，已禁用用户名密码与授权链接直登。
                     </Typography>
                   )}
                 </>

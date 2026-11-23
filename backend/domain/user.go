@@ -48,5 +48,8 @@ type UserAccessTime struct {
 // 不是加密密钥；命名避免 *Key 以免静态扫描误报。
 const AuthUserSlot = "pw_auth_user"
 
+// AuditSubjectAccountSlot 登录类接口在鉴权成功后写入的账号，供审计中间件作为客体标识（勿写入口令/tgt）。
+const AuditSubjectAccountSlot = "pw_audit_subject_account"
+
 // AuthTokenCookieName 管理端 JWT 的 HttpOnly Cookie 名（避免 localStorage 被 XSS 读取）
 const AuthTokenCookieName = "panda_wiki_token"

@@ -1,31 +1,39 @@
 #!/usr/bin/env bash
-# 打包交付用源码包（7z）。
+# 打包交付用源码包（7z / zip）。
 #
 # 用法：
-#   scripts/pack-source.sh                         # 输出到 /opt/packages 或 ./packages
-#   scripts/pack-source.sh --out /path/to/dir
-#   OUT=/data/packages scripts/pack-source.sh
+#   scripts/pack-source.sh                         # 默认 7z → /opt/packages 或 ./packages
+#   scripts/pack-source.sh --format zip
+#   scripts/pack-source.sh --format zip --out /path/to/dir
+#   OUT=/data/packages scripts/pack-source.sh --format zip
 #
 # ========== 源码打包规则（必须遵守）==========
 # 1. 去掉构建产物：node_modules、.next、web/*/dist、.turbo、*.tsbuildinfo、.DS_Store、.git
 # 2. 去掉密钥：*.key、ssl 下 *.crt（ssl/README.md 可保留）
 # 3. 去掉 Dockerfile（Dockerfile、Dockerfile.*、*.Dockerfile）——交付源码不带镜像构建文件
 # 4. 去掉 SQL 文件（*.sql）——交付源码不含数据库迁移/脚本
-# 5. 去掉发布产物目录：packages/、images/、*.7z、*.tar、*.tar.gz、panda-wiki-*-deploy/
+# 5. 去掉发布产物目录：packages/、images/、*.7z、*.zip、*.tar、*.tar.gz、*.dump、panda-wiki-*-deploy/
 # 6. 保留 backend/iast/go-active-linux-arm64、arm/iast/go-active-linux-arm64（插桩构建需要）
-# 7. 包根写入 SOURCE_COMMIT；归档名 panda-wiki-src-<commit>.7z
+# 7. 包根写入 SOURCE_COMMIT；归档名 panda-wiki-src-<commit>.{7z|zip}
 # ===========================================
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-}"
+FORMAT="7z"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
+    --format) FORMAT="$2"; shift 2 ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 1 ;;
   esac
 done
+
+case "$FORMAT" in
+  7z|zip) ;;
+  *) echo "不支持的格式: $FORMAT（仅 7z|zip）" >&2; exit 1 ;;
+esac
 
 if [[ -z "$OUT" ]]; then
   if [[ -d /opt/packages ]]; then
@@ -36,19 +44,24 @@ if [[ -z "$OUT" ]]; then
 fi
 mkdir -p "$OUT"
 
-command -v 7z >/dev/null || { echo "需要 7z" >&2; exit 1; }
 command -v rsync >/dev/null || { echo "需要 rsync" >&2; exit 1; }
+if [[ "$FORMAT" == "7z" ]]; then
+  command -v 7z >/dev/null || { echo "需要 7z" >&2; exit 1; }
+else
+  command -v zip >/dev/null || { echo "需要 zip" >&2; exit 1; }
+fi
 
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M)"
 echo "$COMMIT" > "$ROOT/SOURCE_COMMIT"
 
 NAME="panda-wiki-src-${COMMIT}"
-ARCHIVE="${OUT}/${NAME}.7z"
-STAGE="${OUT}/.pack-src-$$/PandaWiki"
-rm -rf "${OUT}/.pack-src-$$"
+ARCHIVE="${OUT}/${NAME}.${FORMAT}"
+STAGE_ROOT="${OUT}/.pack-src-$$"
+STAGE="${STAGE_ROOT}/PandaWiki"
+rm -rf "$STAGE_ROOT"
 mkdir -p "$STAGE"
 
-# 先按规则过滤到暂存目录，再 7z（避免 7z 排除模式在不同版本下不一致）
+# 先按规则过滤到暂存目录，再归档（避免排除模式在不同工具下不一致）
 rsync -a \
   --exclude '.git/' \
   --exclude 'node_modules/' \
@@ -68,6 +81,7 @@ rsync -a \
   --exclude 'packages/' \
   --exclude 'images/' \
   --exclude '*.7z' \
+  --exclude '*.zip' \
   --exclude '*.tar' \
   --exclude '*.tar.gz' \
   --exclude '*.dump' \
@@ -75,18 +89,28 @@ rsync -a \
   --exclude '.pack-src-*/' \
   "$ROOT"/ "$STAGE"/
 
+rm -f "$ARCHIVE"
 (
-  cd "${OUT}/.pack-src-$$"
-  rm -f "$ARCHIVE"
-  7z a -mx5 -bd "$ARCHIVE" PandaWiki >/dev/null
+  cd "$STAGE_ROOT"
+  if [[ "$FORMAT" == "7z" ]]; then
+    7z a -mx5 -bd "$ARCHIVE" PandaWiki >/dev/null
+  else
+    # -X 去掉 macOS 扩展属性；-r 递归；-q 安静
+    zip -qrX "$ARCHIVE" PandaWiki
+  fi
 )
 
-rm -rf "${OUT}/.pack-src-$$"
+rm -rf "$STAGE_ROOT"
 sha256sum "$ARCHIVE" | tee "${ARCHIVE}.sha256"
 ls -lh "$ARCHIVE"
 
 # 抽检：包内不应再出现 Dockerfile / .sql
-hits="$(7z l "$ARCHIVE" | grep -Ei '(^|[[:space:]])Dockerfile(\.|$)|\.sql$' || true)"
+if [[ "$FORMAT" == "7z" ]]; then
+  list_cmd=(7z l "$ARCHIVE")
+else
+  list_cmd=(zipinfo -1 "$ARCHIVE")
+fi
+hits="$("${list_cmd[@]}" 2>/dev/null | grep -Ei '(^|/|[[:space:]])Dockerfile(\.|$)|\.sql$' || true)"
 if [[ -n "$hits" ]]; then
   echo "ERROR: 包内仍含 Dockerfile 或 .sql，请检查排除规则" >&2
   echo "$hits" | head -20 >&2

@@ -72,6 +72,10 @@ type auditRule struct {
 var auditRules = []auditRule{
 	{method: http.MethodPost, exact: "/api/v1/user/login", category: "auth", action: "login", event: "用户登录", object: "user"},
 	{method: http.MethodPost, exact: "/api/v1/user/logout", category: "auth", action: "logout", event: "用户登出", object: "user"},
+	{method: http.MethodPost, exact: "/share/v1/auth/login/tgt", category: "auth", action: "tgt_login", event: "TGT会话登录", object: "user"},
+	{method: http.MethodPost, exact: "/share/v1/auth/login/simple", category: "auth", action: "simple_login", event: "简单口令登录", object: "user"},
+	{method: http.MethodPost, exact: "/share/pro/v1/auth/logout", category: "auth", action: "logout", event: "前台用户登出", object: "user"},
+	{method: http.MethodPost, exact: "/share/v1/auth/logout", category: "auth", action: "logout", event: "前台用户登出", object: "user"},
 	{method: http.MethodPost, exact: "/api/v1/user/create", category: "user", action: "create", event: "创建用户", object: "user"},
 	{method: http.MethodDelete, exact: "/api/v1/user/delete", category: "user", action: "delete", event: "删除用户", object: "user"},
 	{method: http.MethodPut, exact: "/api/v1/user/reset_password", category: "user", action: "reset_password", event: "重置密码", object: "user"},
@@ -257,14 +261,24 @@ func extractAuditObject(rule *auditRule, c echo.Context, body map[string]any) (o
 			objectID = id
 		}
 	}
-	if rule.action == "login" || rule.action == "logout" {
+	if strings.Contains(rule.action, "login") || rule.action == "logout" {
 		if body != nil {
 			if account, ok := body["account"].(string); ok {
 				objectID = account
 			}
 		}
+		// 勿从 body 取 tgt；由 handler 写入 AuditSubjectAccountSlot
+		if subject, ok := c.Get(domain.AuditSubjectAccountSlot).(string); ok && strings.TrimSpace(subject) != "" {
+			objectID = strings.TrimSpace(subject)
+		}
 		if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil && objectID == "" {
 			objectID = user.Account
+		}
+		if kbID := strings.TrimSpace(c.Request().Header.Get("X-KB-ID")); kbID != "" {
+			if detail != "" {
+				detail += ","
+			}
+			detail += "kb_id=" + kbID
 		}
 	}
 	return objectID, detail
