@@ -95,7 +95,7 @@ func (h *BackupHandler) SaveSetting(c echo.Context) error {
 
 func (h *BackupHandler) Create(c echo.Context) error {
 	actor := ""
-	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+	if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil {
 		actor = user.Account
 	}
 	info, err := h.usecase.Create(c.Request().Context(), domain.BackupTriggerManual, actor)
@@ -117,7 +117,7 @@ func (h *BackupHandler) Restore(c echo.Context) error {
 		return h.NewResponseWithError(c, "请输入 RESTORE 确认恢复操作", nil)
 	}
 	actor := ""
-	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+	if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil {
 		actor = user.Account
 	}
 	if err := h.usecase.Restore(c.Request().Context(), req.Name, actor); err != nil {

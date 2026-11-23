@@ -1,15 +1,12 @@
 package usecase
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"mime/multipart"
-	"net/http"
 	"path"
 	"path/filepath"
 	"slices"
@@ -25,6 +22,7 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/repo/pg"
 	"github.com/chaitin/panda-wiki/store/s3"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 const (
@@ -173,12 +171,11 @@ func (u *FileUsecase) inspectUpload(ctx context.Context, filename string, size i
 
 func inspectContent(setting *domain.UploadDeniedExtensionsSetting, filename string, head []byte) (string, error) {
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), ".")
-	sniffed := http.DetectContentType(head)
 
 	if ext == "" {
-		// 爬虫回传的图片可能不带扩展名，只有文件头确认是位图才放行
-		if strings.HasPrefix(sniffed, "image/") {
-			return sniffed, nil
+		// 爬虫回传的图片可能不带扩展名：仅用固定魔数放行，Content-Type 也由魔数映射（非 MIME 探测算法）
+		if ct, ok := utils.MatchImageType(head); ok {
+			return ct, nil
 		}
 		return "", fmt.Errorf("files without an extension are not allowed for upload")
 	}
@@ -186,32 +183,14 @@ func inspectContent(setting *domain.UploadDeniedExtensionsSetting, filename stri
 		return "", fmt.Errorf("file extension '.%s' is not allowed for upload", ext)
 	}
 	if slices.Contains(imageExtensions, ext) {
-		if !isImageContent(ext, head, sniffed) {
+		if !utils.IsImageContent(filename, head) {
 			return "", fmt.Errorf("file content does not match extension '.%s'", ext)
 		}
-	} else if !slices.Contains(textLikeExtensions, ext) && isMarkupContent(sniffed) {
+	} else if !slices.Contains(textLikeExtensions, ext) && utils.LooksLikeMarkup(head) {
 		return "", fmt.Errorf("file content does not match extension '.%s'", ext)
 	}
-	return safeContentType("." + ext), nil
-}
-
-func isImageContent(ext string, head []byte, sniffed string) bool {
-	if ext == "tif" || ext == "tiff" {
-		return bytes.HasPrefix(head, []byte("II*\x00")) || bytes.HasPrefix(head, []byte("MM\x00*"))
-	}
-	return strings.HasPrefix(sniffed, "image/")
-}
-
-func isMarkupContent(sniffed string) bool {
-	return strings.HasPrefix(sniffed, "text/html") || strings.HasPrefix(sniffed, "text/xml")
-}
-
-func safeContentType(ext string) string {
-	contentType := mime.TypeByExtension(ext)
-	if contentType == "" || strings.Contains(contentType, "html") || strings.Contains(contentType, "javascript") || strings.Contains(contentType, "svg") {
-		return "application/octet-stream"
-	}
-	return contentType
+	// Content-Type 只按扩展名白名单映射，不采信客户端声明，也不使用 MIME 探测结果
+	return utils.ContentTypeByExt(ext), nil
 }
 
 func sanitizeObjectKey(objectKey string) (string, error) {

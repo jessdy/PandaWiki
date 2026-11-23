@@ -101,7 +101,7 @@ func (h *AuditHandler) Export(c echo.Context) error {
 		return h.NewResponseWithError(c, "invalid request", err)
 	}
 	exporterAccount := ""
-	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+	if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil {
 		exporterAccount = user.Account
 	}
 	file, err := h.usecase.Export(c.Request().Context(), req, exporterAccount)

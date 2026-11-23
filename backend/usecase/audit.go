@@ -62,7 +62,7 @@ func (u *AuditUsecase) AppendFromEcho(c echo.Context, category, action, event, o
 		StatusCode: statusCode,
 		Message:    message,
 	}
-	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+	if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil {
 		entry.UserID = user.ID
 		entry.Account = user.Account
 		entry.Role = string(user.Role)

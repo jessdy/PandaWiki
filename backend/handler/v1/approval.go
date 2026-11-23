@@ -40,7 +40,7 @@ func NewApprovalHandler(
 }
 
 func (h *ApprovalHandler) actor(c echo.Context) (usecase.ApprovalActor, error) {
-	user, ok := c.Get(domain.AuthUserKey).(*domain.User)
+	user, ok := c.Get(domain.AuthUserSlot).(*domain.User)
 	if !ok || user == nil {
 		return usecase.ApprovalActor{}, echo.ErrUnauthorized
 	}

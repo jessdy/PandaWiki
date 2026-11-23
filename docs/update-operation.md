@@ -72,6 +72,32 @@ docker logs panda-wiki-consumer 2>&1 | head -1
 
 ---
 
+## 源码打包规则
+
+交付用源码包统一用 `scripts/pack-source.sh`（输出 `panda-wiki-src-<commit>.7z`）：
+
+```bash
+# 默认写到 /opt/packages（无则 ./packages）
+scripts/pack-source.sh
+scripts/pack-source.sh --out /opt/packages
+```
+
+**必须排除：**
+
+| 规则 | 说明 |
+| --- | --- |
+| 构建产物 | `node_modules`、`.next`、`web/*/dist`、`.turbo`、`*.tsbuildinfo`、`.DS_Store`、`.git` |
+| 密钥 | `*.key`、`ssl/*.crt` |
+| **Dockerfile** | 所有 `Dockerfile` / `Dockerfile.*` / `*.Dockerfile`（交付源码不带镜像构建文件） |
+| **SQL** | 所有 `*.sql`（交付源码不含迁移/脚本） |
+| 发布产物 | `packages/`、`images/`、`*.7z`、`*.tar`、`*.tar.gz`、`*.dump`、`panda-wiki-*-deploy/` |
+
+**应保留：** `backend/iast/go-active-linux-arm64`、`arm/iast/go-active-linux-arm64`（插桩构建需要，不在 git 内时需事先拷入）。
+
+打包后脚本会抽检：若包内仍出现 Dockerfile 或 `.sql` 则失败退出。
+
+---
+
 ## 构建镜像（开发侧）
 
 插桩版需要雳鉴编译器 `go-active-linux-arm64`（不入 git），构建前放到 `backend/iast/`：

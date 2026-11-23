@@ -12,7 +12,7 @@ import (
 )
 
 func (h *KnowledgeBaseHandler) approvalActor(c echo.Context) (usecase.ApprovalActor, error) {
-	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+	if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil {
 		return usecase.ApprovalActor{ID: user.ID, Account: user.Account, Role: user.Role}, nil
 	}
 	return usecase.ApprovalActor{}, fmt.Errorf("unauthorized")

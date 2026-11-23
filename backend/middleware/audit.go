@@ -263,7 +263,7 @@ func extractAuditObject(rule *auditRule, c echo.Context, body map[string]any) (o
 				objectID = account
 			}
 		}
-		if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil && objectID == "" {
+		if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil && objectID == "" {
 			objectID = user.Account
 		}
 	}

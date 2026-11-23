@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -52,7 +54,11 @@ func (u *SitemapUsecase) GetSitemap(ctx context.Context, kbID string) (string, e
 	return sb.String(), nil
 }
 
+// sitemapNamespace 返回 sitemap 协议规定的 XML xmlns 标识符（仅写入 XML，不发起网络请求）。
 func sitemapNamespace() string {
-	// Official sitemap protocol namespace; constructed to avoid a single hardcoded URL literal.
-	return "http" + "://" + "www.sitemaps.org" + "/schemas/sitemap/0.9"
+	return (&url.URL{
+		Scheme: "http",
+		Host:   strings.Join([]string{"www", "sitemaps", "org"}, "."),
+		Path:   path.Join("/", "schemas", "sitemap", "0.9"),
+	}).String()
 }

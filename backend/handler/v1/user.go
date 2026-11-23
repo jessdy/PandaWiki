@@ -89,7 +89,7 @@ func NewUserHandler(e *echo.Echo, baseHandler *handler.BaseHandler, logger *log.
 //	@Success		200		{object}	domain.Response{data=v1.CreateUserResp}
 //	@Router			/api/v1/user/create [post]
 func (h *UserHandler) approvalActor(c echo.Context) (usecase.ApprovalActor, error) {
-	if user, ok := c.Get(domain.AuthUserKey).(*domain.User); ok && user != nil {
+	if user, ok := c.Get(domain.AuthUserSlot).(*domain.User); ok && user != nil {
 		return usecase.ApprovalActor{ID: user.ID, Account: user.Account, Role: user.Role}, nil
 	}
 	authInfo := domain.GetAuthInfoFromCtx(c.Request().Context())
@@ -178,7 +178,7 @@ func (h *UserHandler) Login(c echo.Context) error {
 	}
 
 	if user, lookupErr := h.usecase.GetUserByAccount(ctx, req.Account); lookupErr == nil {
-		c.Set(domain.AuthUserKey, user)
+		c.Set(domain.AuthUserSlot, user)
 	}
 
 	go func() {

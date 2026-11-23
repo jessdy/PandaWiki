@@ -187,9 +187,6 @@ func UploadImage(ctx context.Context, minioClient *s3.MinioClient, imageURL stri
 		if err != nil {
 			return "", fmt.Errorf("failed to read image data: %v", err)
 		}
-
-		// 获取 Content-Type
-		contentType = resp.Header.Get("Content-Type")
 	} else {
 		// 从本地文件系统读取图片
 		var err error
@@ -216,20 +213,25 @@ func UploadImage(ctx context.Context, minioClient *s3.MinioClient, imageURL stri
 	if len(head) > 512 {
 		head = head[:512]
 	}
-	sniffed := http.DetectContentType(head)
-	if !strings.HasPrefix(sniffed, "image/") && !IsImageContent(decodedName, head) {
+	// Content-Type 不采信响应头，也不使用 MIME 探测算法；仅固定魔数校验 + 扩展名映射
+	matchedType, ok := MatchImageType(head)
+	if !ok {
 		return "", fmt.Errorf("content is not a valid image")
 	}
 	allowedImgExt := map[string]bool{
 		".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
 		".bmp": true, ".webp": true, ".ico": true, ".tif": true, ".tiff": true,
 	}
-	if ext != "" && !allowedImgExt[ext] {
-		return "", fmt.Errorf("image extension %s is not allowed", ext)
-	}
-	contentType = sniffed
-	if contentType == "" || strings.Contains(contentType, "html") || strings.Contains(contentType, "svg") {
-		contentType = "application/octet-stream"
+	if ext != "" {
+		if !allowedImgExt[ext] {
+			return "", fmt.Errorf("image extension %s is not allowed", ext)
+		}
+		if !IsImageContent(decodedName, head) {
+			return "", fmt.Errorf("content is not a valid image")
+		}
+		contentType = ContentTypeByExt(ext)
+	} else {
+		contentType = matchedType
 	}
 	imgName := fmt.Sprintf("%s/%s%s", kbID, uuid.New().String(), ext)
 

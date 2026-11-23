@@ -131,7 +131,7 @@ func (m *JWTMiddleware) Authorize(next echo.HandlerFunc) echo.HandlerFunc {
 				m.logger.Warn("jwt role mismatch", log.String("user_id", userID), log.String("claim", claimRole), log.String("db", string(user.Role)))
 				return unauthorized(c)
 			}
-			c.Set(domain.AuthUserKey, user)
+			c.Set(domain.AuthUserSlot, user)
 			if !roleAllowsRequest(user.Role, c.Request().Method, c.Request().URL.Path) {
 				return c.JSON(http.StatusForbidden, domain.PWResponse{
 					Success: false,
@@ -156,7 +156,7 @@ func (m *JWTMiddleware) Authorize(next echo.HandlerFunc) echo.HandlerFunc {
 func (m *JWTMiddleware) ValidateExactRole(roles ...consts.UserRole) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			user, ok := c.Get(domain.AuthUserKey).(*domain.User)
+			user, ok := c.Get(domain.AuthUserSlot).(*domain.User)
 			if !ok || user == nil || !slices.Contains(roles, user.Role) {
 				return c.JSON(http.StatusForbidden, domain.PWResponse{
 					Success: false,
