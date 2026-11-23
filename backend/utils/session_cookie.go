@@ -12,8 +12,9 @@ import (
 	"github.com/chaitin/panda-wiki/domain"
 )
 
-// CookieSecure 默认开启 Secure；仅当显式 COOKIE_SECURE=false 时关闭（本地明文 HTTP 调试）。
-// 若未设置 COOKIE_SECURE，则在 TLS 或 X-Forwarded-Proto=https 时置 Secure。
+// CookieSecure 决定会话 Cookie 是否带 Secure。
+// 优先级：COOKIE_SECURE 显式开关 > 当前请求是否 HTTPS（TLS / X-Forwarded-Proto）>
+// 无请求上下文时默认 false（避免中间件初始化阶段把 Secure 写死，导致 HTTP 站点浏览器丢弃 Cookie）。
 func CookieSecure(c echo.Context) bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("COOKIE_SECURE"))) {
 	case "false", "0", "off":
@@ -22,17 +23,25 @@ func CookieSecure(c echo.Context) bool {
 		return true
 	}
 	if c != nil && c.Request() != nil {
-		if c.Request().TLS != nil || strings.EqualFold(c.Request().Header.Get("X-Forwarded-Proto"), "https") {
+		proto := strings.ToLower(strings.TrimSpace(c.Request().Header.Get("X-Forwarded-Proto")))
+		if i := strings.IndexByte(proto, ','); i >= 0 {
+			proto = strings.TrimSpace(proto[:i])
+		}
+		if c.Request().TLS != nil || proto == "https" {
 			return true
 		}
+		if proto == "http" {
+			return false
+		}
+		// 无转发头且非 TLS：按明文 HTTP 处理，否则浏览器会静默丢弃 Secure Cookie
+		return false
 	}
-	// 生产部署默认强制 Secure，防止明文 Cookie
-	return os.Getenv("APP_ENV") != "dev" && os.Getenv("APP_ENV") != "development"
+	return false
 }
 
 func SessionCookieOptions(c echo.Context) *sessions.Options {
 	return &sessions.Options{
-		Path:     "/",
+		Path: "/",
 		// 会话级 Cookie，避免永久 Cookie 存储敏感会话信息
 		MaxAge:   0,
 		HttpOnly: true,

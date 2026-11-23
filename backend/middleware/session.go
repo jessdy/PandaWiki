@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/boj/redistore"
@@ -58,8 +57,8 @@ func NewSessionMiddleware(logger *log.Logger, config *config.Config, cache *cach
 		MaxAge:   0,
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
-		// 默认 Secure；COOKIE_SECURE=false 时关闭（见 utils.CookieSecure）
-		Secure: utils.CookieSecure(nil) || os.Getenv("COOKIE_SECURE") == "true",
+		// 实际 Secure 以每次 Save 时 SessionCookieOptions(c) 为准（按请求是否 HTTPS）
+		Secure: utils.CookieSecure(nil),
 	}
 
 	return &SessionMiddleware{

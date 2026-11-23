@@ -12,10 +12,10 @@ import { Controller, useForm } from 'react-hook-form';
 type UpdateMemberProps = {
   user: V1UserListItemResp;
   refresh: () => void;
-  type: 'reset' | 'update';
+  type?: 'update';
 };
 
-const MemberUpdate = ({ user, refresh, type }: UpdateMemberProps) => {
+const MemberUpdate = ({ user, refresh }: UpdateMemberProps) => {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [password, setPassword] = useState('');
@@ -59,12 +59,8 @@ const MemberUpdate = ({ user, refresh, type }: UpdateMemberProps) => {
   };
 
   useEffect(() => {
-    if (type === 'reset') {
-      const password = generatePassword();
-      setPassword(password);
-    }
     setUpdateOpen(true);
-  }, [user, type]);
+  }, [user]);
 
   return (
     <>
@@ -95,7 +91,7 @@ const MemberUpdate = ({ user, refresh, type }: UpdateMemberProps) => {
         </Card>
       </Modal>
       <Modal
-        title={type === 'reset' ? '重置密码？' : '修改密码'}
+        title='修改密码'
         open={updateOpen}
         onOk={handleSubmit(onSumbit)}
         onCancel={close}

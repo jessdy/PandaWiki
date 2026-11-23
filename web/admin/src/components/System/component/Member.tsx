@@ -99,7 +99,7 @@ const Member = ({ tableHeight = '338px' }: { tableHeight?: string }) => {
   const [loading, setLoading] = useState(false);
   const [userList, setUserList] = useState<V1UserListItemResp[]>([]);
   const [curUser, setCurUser] = useState<V1UserListItemResp | null>(null);
-  const [curType, setCurType] = useState<'delete' | 'reset-password' | null>(
+  const [curType, setCurType] = useState<'delete' | 'change-password' | null>(
     null,
   );
 
@@ -152,20 +152,20 @@ const Member = ({ tableHeight = '338px' }: { tableHeight?: string }) => {
       width: 140,
       render: (_, record) => (
         <Stack direction={'row'} gap={2}>
-          <Button
-            size='small'
-            sx={{ p: 0, minWidth: 'auto' }}
-            color='primary'
-            disabled={
-              record.role === 'admin' && !isAdmin && user.id !== record.id
-            }
-            onClick={() => {
-              setCurUser(record);
-              setCurType('reset-password');
-            }}
-          >
-            {user?.id === record.id ? '修改密码' : '重置密码'}
-          </Button>
+          {/* 已取消管理员为他人重置密码；仅本人可改密 */}
+          {user?.id === record.id && (
+            <Button
+              size='small'
+              sx={{ p: 0, minWidth: 'auto' }}
+              color='primary'
+              onClick={() => {
+                setCurUser(record);
+                setCurType('change-password');
+              }}
+            >
+              修改密码
+            </Button>
+          )}
           {user?.id !== record.id &&
             hasUserManage &&
             (isAdmin || record.role !== 'admin') && (
@@ -258,12 +258,8 @@ const Member = ({ tableHeight = '338px' }: { tableHeight?: string }) => {
           )
         }
       />
-      {curUser && curType === 'reset-password' && (
-        <MemberUpdate
-          user={curUser}
-          refresh={getData}
-          type={user?.id === curUser.id ? 'update' : 'reset'}
-        />
+      {curUser && curType === 'change-password' && (
+        <MemberUpdate user={curUser} refresh={getData} />
       )}
       <MemberDelete
         open={!!curUser && curType === 'delete'}

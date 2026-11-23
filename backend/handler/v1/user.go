@@ -301,31 +301,12 @@ func (h *UserHandler) ResetPassword(c echo.Context) error {
 		return h.NewResponseWithError(c, "this api not support token call", nil)
 	}
 
-	user, err := h.usecase.GetUser(ctx, authInfo.UserId)
-	if err != nil {
-		return h.NewResponseWithError(c, "failed to get user", err)
+	// 已取消管理员为他人重置密码；仅允许修改自己的密码
+	if req.ID == "" || req.ID != authInfo.UserId {
+		return h.NewResponseWithError(c, "不允许重置其他用户密码", nil)
 	}
 
-	// 非超级管理员没有改密码权限
-	if user.Role != consts.UserRoleAdmin {
-		return h.NewResponseWithErrCode(c, domain.ErrCodePermissionDenied)
-	}
-
-	// 获取目标用户信息
-	targetUser, err := h.usecase.GetUser(ctx, req.ID)
-	if err != nil {
-		return h.NewResponseWithError(c, "failed to get target user", err)
-	}
-
-	// 超级管理员可以修改任何用户的密码（包括自己和其他管理员）
-	// 允许 admin 用户修改自己的密码
-	if targetUser.Role == consts.UserRoleAdmin && targetUser.ID != authInfo.UserId {
-		// 超级管理员不能改其他超级管理员密码（除了自己）
-		return h.NewResponseWithError(c, "无法修改其他超级管理员密码", nil)
-	}
-
-	err = h.usecase.ResetPassword(c.Request().Context(), &req)
-	if err != nil {
+	if err := h.usecase.ResetPassword(c.Request().Context(), &req); err != nil {
 		return h.NewResponseWithError(c, "failed to reset password", err)
 	}
 
@@ -489,18 +470,9 @@ func (h *UserHandler) UpdateGuestUser(c echo.Context) error {
 		return h.NewResponseWithError(c, "只能更新访客用户", nil)
 	}
 
-	// 更新密码
-	if req.Password != nil && *req.Password != "" {
-		if err := utils.ValidatePasswordComplexity(*req.Password); err != nil {
-			return h.NewResponseWithError(c, err.Error(), nil)
-		}
-		err = h.usecase.ResetPassword(c.Request().Context(), &v1.ResetPasswordReq{
-			ID:          userID,
-			NewPassword: *req.Password,
-		})
-		if err != nil {
-			return h.NewResponseWithError(c, "failed to update password", err)
-		}
+	// 已取消管理员重置/修改他人密码；访客更新仅允许改地区等非口令字段
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		return h.NewResponseWithError(c, "不允许重置其他用户密码", nil)
 	}
 
 	if req.Region != nil {

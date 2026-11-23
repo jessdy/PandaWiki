@@ -86,7 +86,13 @@ export default function Login() {
   const [authType, setAuthType] = useState<ConstsAuthType>();
   const [licenseEdition, setLicenseEdition] = useState<ConstsLicenseEdition>();
   const [sourceType, setSourceType] = useState<ConstsSourceType>();
-  const { kbDetail, themeMode, mobile = false, setNodeList } = useStore();
+  const {
+    kbDetail,
+    themeMode,
+    mobile = false,
+    setNodeList,
+    persistClientAuthInfo,
+  } = useStore();
   const basePath = useBasePath();
 
   const redirectUrl =
@@ -269,14 +275,25 @@ export default function Login() {
     const loginByTgt = async () => {
       setLinkLoggingIn(true);
       try {
-        clearCookie();
-        await postShareV1AuthLoginTgt(
+        // 不在此用 document.cookie 清 HttpOnly 会话（清不掉，还可能干扰 Set-Cookie）
+        const data = await postShareV1AuthLoginTgt(
           { tgt },
           { headers: { 'X-KB-ID': kbId } },
         );
+        // 登录态在服务端 HttpOnly Cookie `_pw_auth_session`；内存里先写入身份供首屏展示
+        if (data?.username) {
+          persistClientAuthInfo?.({
+            username: data.username,
+            email: data.username,
+            avatar_url: '',
+          });
+        }
         const nodes = await getShareV1NodeList();
         setNodeList?.((nodes as never) ?? []);
-        window.open(redirectUrl, '_self');
+        // 用 assign 保留本次响应写入的 Cookie，再由 layout 的 /auth/info 确认会话
+        window.location.assign(
+          redirectUrl || `${window.location.origin}${basePath || '/'}`,
+        );
       } catch (error: unknown) {
         linkLoginStarted.current = false;
         message.error(
@@ -286,7 +303,15 @@ export default function Login() {
       }
     };
     void loginByTgt();
-  }, [kbDetail, redirectUrl, searchParams, setNodeList, tgt]);
+  }, [
+    basePath,
+    kbDetail,
+    persistClientAuthInfo,
+    redirectUrl,
+    searchParams,
+    setNodeList,
+    tgt,
+  ]);
 
   useEffect(() => {
     getShareV1AuthGet({}).then(res => {

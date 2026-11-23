@@ -1,5 +1,4 @@
-import { generatePassword } from '@/utils';
-import { Box, Button, Stack, TextField, Autocomplete } from '@mui/material';
+import { Box, Stack, TextField, Autocomplete } from '@mui/material';
 import { FormItem } from '@/components/Form';
 import { Modal, message } from '@ctzhian/ui';
 import { V1UserListItemResp } from '@/request/types';
@@ -33,15 +32,8 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
   const [allGroups, setAllGroups] = useState<AuthGroupOption[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [initialGroups, setInitialGroups] = useState<AuthGroupOption[]>([]);
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue,
-  } = useForm({
+  const { control, handleSubmit, reset, setValue } = useForm({
     defaultValues: {
-      password: '',
       region: user.region || '',
       groups: [] as AuthGroupOption[],
     },
@@ -118,8 +110,7 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
       return;
     }
 
-    // 检查是否有实际变化
-    const hasPasswordChange = !!data.password;
+    // 已取消管理员重置他人密码；此处仅可改地区/用户组
     const hasRegionChange =
       (data.region || '').trim() !== (user.region || '').trim();
     const currentGroupIds = (data.groups || []).map(g => g.id).sort();
@@ -127,23 +118,14 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
     const hasGroupChange =
       JSON.stringify(currentGroupIds) !== JSON.stringify(initialGroupIds);
 
-    if (!hasPasswordChange && !hasGroupChange && !hasRegionChange) {
-      message.warning('请至少修改密码、地区或用户组');
+    if (!hasGroupChange && !hasRegionChange) {
+      message.warning('请至少修改地区或用户组');
       return;
     }
 
     setLoading(true);
 
     const promises: Promise<unknown>[] = [];
-
-    if (hasPasswordChange) {
-      promises.push(
-        putApiV1UserGuestId({
-          id: user.id,
-          body: { password: data.password },
-        }),
-      );
-    }
 
     if (hasRegionChange) {
       promises.push(
@@ -206,39 +188,7 @@ const UserUpdate = ({ user, refresh, onClose }: UserUpdateProps) => {
       >
         {user.account}
       </Box>
-      <FormItem label='新密码'>
-        <Stack direction={'row'} alignItems={'center'} gap={2}>
-          <Controller
-            control={control}
-            name='password'
-            rules={{
-              minLength: {
-                value: 8,
-                message: '密码长度至少 8 位',
-              },
-            }}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                fullWidth
-                autoFocus
-                size='small'
-                placeholder='留空则不修改密码'
-                error={!!errors.password}
-                helperText={errors.password?.message || '留空则不修改密码'}
-              />
-            )}
-          />
-          <Button
-            size='small'
-            variant='outlined'
-            onClick={() => setValue('password', generatePassword())}
-          >
-            生成
-          </Button>
-        </Stack>
-      </FormItem>
-      <FormItem label='地区' sx={{ mt: 2 }}>
+      <FormItem label='地区'>
         <Controller
           control={control}
           name='region'

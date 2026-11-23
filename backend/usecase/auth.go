@@ -191,7 +191,17 @@ func (u *AuthUsecase) SaveNewSession(c echo.Context, auth *domain.Auth) error {
 		return err
 	}
 
-	c.Logger().Info("session_saved:", newSess.Values)
+	secure := false
+	if newSess.Options != nil {
+		secure = newSess.Options.Secure
+	}
+	u.logger.Info("session_saved",
+		"user_id", auth.ID,
+		"kb_id", auth.KBID,
+		"cookie_secure", secure,
+		"proto", c.Request().Header.Get("X-Forwarded-Proto"),
+		"host", c.Request().Host,
+	)
 	return nil
 }
 
