@@ -165,6 +165,8 @@ func (h *ShareAuthHandler) AuthLoginSimple(c echo.Context) error {
 	if kbID == "" {
 		return h.NewResponseWithError(c, "kb_id is required", nil)
 	}
+	// 简单口令没有个人账号，用知识库作为唯一主体，成功和失败都记审计。
+	c.Set(domain.AuditSubjectAccountSlot, "kb:"+kbID+":simple-auth")
 
 	if err := h.rejectIfLoginLocked(c); err != nil {
 		return err

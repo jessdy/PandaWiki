@@ -94,23 +94,23 @@ func createApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	authRepo := pg2.NewAuthRepo(db, logger, cacheCache)
+	fieldCipher, err := pg2.NewFieldCipher(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	authRepo := pg2.NewAuthRepo(db, logger, cacheCache, fieldCipher)
 	authUsecase, err := usecase.NewAuthUsecase(authRepo, logger, knowledgeBaseRepository, cacheCache)
 	if err != nil {
 		return nil, err
 	}
 	approvalRepo := pg2.NewApprovalRepo(db, logger)
 	conversationRepository := pg2.NewConversationRepository(db, logger)
-	fieldCipher, err := pg2.NewFieldCipher(configConfig)
-	if err != nil {
-		return nil, err
-	}
 	modelRepository := pg2.NewModelRepository(db, fieldCipher, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
 	standardTermUsecase := usecase.NewStandardTermUsecase(systemSettingRepo)
 	testEnvUsecase := usecase.NewTestEnvUsecase(systemSettingRepo)
 	llmUsecase := usecase.NewLLMUsecase(configConfig, ragService, conversationRepository, knowledgeBaseRepository, nodeRepository, modelRepository, promptRepo, categoryPromptRepo, methodRuleRepo, standardTermUsecase, testEnvUsecase, logger)
-	appRepository := pg2.NewAppRepository(db, logger)
+	appRepository := pg2.NewAppRepository(db, fieldCipher, logger)
 	minioClient, err := s3.NewMinioClient(configConfig)
 	if err != nil {
 		return nil, err

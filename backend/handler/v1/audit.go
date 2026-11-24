@@ -108,13 +108,14 @@ func (h *AuditHandler) Export(c echo.Context) error {
 	if err != nil {
 		return h.NewResponseWithError(c, "export audit logs failed", err)
 	}
+	c.Set(domain.AuditDetailSlot, fmt.Sprintf("format=%s,count=%d,exporter=%s", file.Format, file.Count, exporterAccount))
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="audit-export-%s.json"`, file.CreatedAt.Format("20060102150405")))
 	return c.JSON(http.StatusOK, domain.PWResponse{Success: true, Data: file})
 }
 
 type auditExportVerifyReq struct {
-	Password string                   `json:"password" validate:"max=72"`
-	File     *domain.AuditExportFile  `json:"file" validate:"required"`
+	Password string                  `json:"password" validate:"max=72"`
+	File     *domain.AuditExportFile `json:"file" validate:"required"`
 }
 
 func (h *AuditHandler) VerifyExport(c echo.Context) error {

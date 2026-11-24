@@ -1,6 +1,6 @@
 'use client';
 import { useStore } from '@/provider';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getImagePath } from '@/utils/getImagePath';
 import { useBasePath } from '@/hooks';
 
@@ -28,33 +28,62 @@ export const FooterProvider = ({
   const customStyle = kbDetail?.settings?.web_app_custom_style;
 
   return (
-    <Footer
-      mobile={mobile}
-      catalogWidth={catalogWidth}
-      showBrand={showBrand}
-      isDocPage={isDocPage}
-      logo='https://release.baizhi.cloud/panda-wiki/icon.png'
-      docWidth={docWidth}
-      footerSetting={
-        footerSetting
-          ? {
-              ...footerSetting,
-              brand_logo: getImagePath(footerSetting?.brand_logo, basePath),
-            }
-          : undefined
-      }
-      customStyle={{
-        ...customStyle,
-        social_media_accounts: customStyle?.social_media_accounts?.map(
-          (item: any) => ({
-            ...item,
-            icon: getImagePath(item.icon, basePath),
-          }),
-        ),
-      }}
-    />
+    <>
+      <Footer
+        mobile={mobile}
+        catalogWidth={catalogWidth}
+        showBrand={showBrand}
+        isDocPage={isDocPage}
+        logo='https://release.baizhi.cloud/panda-wiki/icon.png'
+        docWidth={docWidth}
+        footerSetting={
+          footerSetting
+            ? {
+                ...footerSetting,
+                brand_logo: getImagePath(footerSetting?.brand_logo, basePath),
+              }
+            : undefined
+        }
+        customStyle={{
+          ...customStyle,
+          social_media_accounts: customStyle?.social_media_accounts?.map(
+            (item: any) => ({
+              ...item,
+              icon: getImagePath(item.icon, basePath),
+            }),
+          ),
+        }}
+      />
+      <AppVersion />
+    </>
   );
 };
+
+function AppVersion() {
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    fetch('/api/v1/system/info')
+      .then(r => r.json())
+      .then(body => {
+        const data = body?.data ?? body;
+        if (data?.version) setVersion(String(data.version));
+      })
+      .catch(() => undefined);
+  }, []);
+  if (!version) return null;
+  return (
+    <div
+      style={{
+        textAlign: 'center',
+        fontSize: 12,
+        opacity: 0.65,
+        padding: '4px 0 8px',
+      }}
+    >
+      版本 {version}
+    </div>
+  );
+}
 
 export const WelcomeFooter = ({
   showBrand = true,
@@ -66,31 +95,34 @@ export const WelcomeFooter = ({
   const footerSetting = kbDetail?.settings?.footer_settings;
   const customStyle = kbDetail?.settings?.web_app_custom_style;
   return (
-    <WelcomeFooterComponent
-      mobile={mobile}
-      catalogWidth={catalogWidth}
-      showBrand={showBrand}
-      isDocPage={false}
-      logo='https://release.baizhi.cloud/panda-wiki/icon.png'
-      docWidth='full'
-      footerSetting={
-        footerSetting
-          ? {
-              ...footerSetting,
-              brand_logo: getImagePath(footerSetting?.brand_logo, basePath),
-            }
-          : undefined
-      }
-      customStyle={{
-        ...customStyle,
-        social_media_accounts: customStyle?.social_media_accounts?.map(
-          (item: any) => ({
-            ...item,
-            icon: getImagePath(item.icon, basePath),
-          }),
-        ),
-      }}
-    />
+    <>
+      <WelcomeFooterComponent
+        mobile={mobile}
+        catalogWidth={catalogWidth}
+        showBrand={showBrand}
+        isDocPage={false}
+        logo='https://release.baizhi.cloud/panda-wiki/icon.png'
+        docWidth='full'
+        footerSetting={
+          footerSetting
+            ? {
+                ...footerSetting,
+                brand_logo: getImagePath(footerSetting?.brand_logo, basePath),
+              }
+            : undefined
+        }
+        customStyle={{
+          ...customStyle,
+          social_media_accounts: customStyle?.social_media_accounts?.map(
+            (item: any) => ({
+              ...item,
+              icon: getImagePath(item.icon, basePath),
+            }),
+          ),
+        }}
+      />
+      <AppVersion />
+    </>
   );
 };
 

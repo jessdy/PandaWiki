@@ -81,14 +81,14 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	statRepository := pg2.NewStatRepository(db, cacheCache)
-	appRepository := pg2.NewAppRepository(db, logger)
+	appRepository := pg2.NewAppRepository(db, fieldCipher, logger)
 	ipdbIPDB, err := ipdb.NewIPDB(configConfig, logger)
 	if err != nil {
 		return nil, err
 	}
 	ipAddressRepo := ipdb2.NewIPAddressRepo(ipdbIPDB, logger)
 	geoRepo := cache2.NewGeoCache(cacheCache, db, logger)
-	authRepo := pg2.NewAuthRepo(db, logger, cacheCache)
+	authRepo := pg2.NewAuthRepo(db, logger, cacheCache, fieldCipher)
 	statUseCase := usecase.NewStatUseCase(statRepository, nodeRepository, conversationRepository, appRepository, ipAddressRepo, geoRepo, authRepo, knowledgeBaseRepository, logger)
 	userRepository := pg2.NewUserRepository(db, logger)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)

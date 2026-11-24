@@ -3,11 +3,14 @@ package share
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -139,6 +142,9 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 		log.String("cloud_auth_host", cloudAuthHost(baseURL)),
 		log.Int("tgt_len", len(tgt)),
 	)
+	// 验证失败时还没有登录名，用令牌摘要作为唯一主体，不记录令牌原文。
+	tokenSum := sha256.Sum256([]byte(kbID + "\n" + tgt))
+	c.Set(domain.AuditSubjectAccountSlot, "tgt:"+kbID+":"+hex.EncodeToString(tokenSum[:6]))
 	sessionUser, err := client.loginVerify(c.Request().Context(), tgt, ip)
 	if err != nil {
 		h.rateLimiter.LockAttempt(c.Request().Context(), c.RealIP(), "")
@@ -151,6 +157,7 @@ func (h *ShareAuthHandler) AuthLoginTgt(c echo.Context) error {
 		return h.NewResponseWithError(c, publicCloudAuthMessage(err, "会话验证失败"), err)
 	}
 	c.Set(domain.AuditSubjectAccountSlot, sessionUser.LoginName)
+	c.Set(domain.AuditSubjectUserIDSlot, strconv.FormatInt(sessionUser.UserID, 10))
 	h.logger.Info("tgt login verify ok",
 		log.String("kb_id", kbID),
 		log.String("ip", ip),

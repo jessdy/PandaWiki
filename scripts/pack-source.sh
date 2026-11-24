@@ -16,9 +16,10 @@
 # 4. 去掉 SQL 文件（*.sql）——交付源码不含数据库迁移/脚本
 # 5. 去掉发布产物目录：packages/、images/、*.7z、*.zip、*.tar、*.tar.gz、*.dump、panda-wiki-*-deploy/
 # 6. 去掉 arm/ 目录（交付源码不带 ARM 部署目录）
-# 7. 去掉名为 .env 的文件（任意目录；.env.example 保留）
-# 8. 保留 backend/iast/go-active-linux-arm64（插桩构建需要）
-# 9. 包根写入 SOURCE_COMMIT；归档名 panda-wiki-src-<commit>.{7z|zip}
+# 7. 去掉仓库根目录 docs/、scripts/（backend/docs、web/**/scripts 保留，编译需要）
+# 8. 去掉名为 .env 的文件（任意目录；.env.example 保留）
+# 9. 保留 backend/iast/go-active-linux-arm64（插桩构建需要）
+# 10. 包根写入 SOURCE_COMMIT；归档名 panda-wiki-src-<commit>.{7z|zip}
 # ===========================================
 set -euo pipefail
 
@@ -29,7 +30,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
     --format) FORMAT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 1 ;;
   esac
 done
@@ -99,6 +100,8 @@ rsync -a \
   --exclude 'panda-wiki-*-deploy/' \
   --exclude '.pack-src-*/' \
   --exclude '/arm/' \
+  --exclude '/docs/' \
+  --exclude '/scripts/' \
   --exclude '.env' \
   "$ROOT"/ "$STAGE"/
 
@@ -117,16 +120,16 @@ rm -rf "$STAGE_ROOT"
 sha256sum "$ARCHIVE" | tee "${ARCHIVE}.sha256"
 ls -lh "$ARCHIVE"
 
-# 抽检：包内不应再出现 Docker 文件 / .sql / arm/ / .env
+# 抽检：包内不应再出现 Docker 文件 / .sql / arm/ / 根目录 docs、scripts / .env
 if [[ "$FORMAT" == "7z" ]]; then
   list_cmd=(7z l "$ARCHIVE")
 else
   list_cmd=(zipinfo -1 "$ARCHIVE")
 fi
-hits="$("${list_cmd[@]}" 2>/dev/null | grep -Ei '(^|/|[[:space:]])Dockerfile(\.|$)|\.sql$|(^|/|[[:space:]])arm/|(^|/|[[:space:]])\.env$|(^|/|[[:space:]])docker-compose[^/]*\.(yml|yaml)$|(^|/|[[:space:]])compose\.(yml|yaml)$|(^|/|[[:space:]])\.dockerignore$' || true)"
+hits="$("${list_cmd[@]}" 2>/dev/null | grep -Ei '(^|/|[[:space:]])Dockerfile(\.|$)|\.sql$|(^|/|[[:space:]])arm/|(^|/|[[:space:]])\.env$|(^|/|[[:space:]])docker-compose[^/]*\.(yml|yaml)$|(^|/|[[:space:]])compose\.(yml|yaml)$|(^|/|[[:space:]])\.dockerignore$|(^|[[:space:]])PandaWiki/(docs|scripts)/' || true)"
 if [[ -n "$hits" ]]; then
-  echo "ERROR: 包内仍含 Docker 文件、.sql、arm/ 或 .env，请检查排除规则" >&2
+  echo "ERROR: 包内仍含 Docker 文件、.sql、arm/、docs/、scripts/ 或 .env，请检查排除规则" >&2
   echo "$hits" | head -20 >&2
   exit 1
 fi
-echo "OK: 已排除 Docker 文件、*.sql、arm/ 与 .env -> $ARCHIVE"
+echo "OK: 已排除 Docker 文件、*.sql、arm/、docs/、scripts/ 与 .env -> $ARCHIVE"

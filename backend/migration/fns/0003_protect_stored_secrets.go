@@ -49,6 +49,50 @@ func (m *MigrationProtectStoredSecrets) Execute(tx *gorm.DB) error {
 	if err := m.hashSimpleAuthPasswords(tx); err != nil {
 		return fmt.Errorf("hash simple auth passwords: %w", err)
 	}
+	if err := m.encryptIntegrationSecrets(tx); err != nil {
+		return fmt.Errorf("encrypt integration secrets: %w", err)
+	}
+	return nil
+}
+
+func (m *MigrationProtectStoredSecrets) encryptIntegrationSecrets(tx *gorm.DB) error {
+	var configs []domain.AuthConfig
+	if err := tx.Find(&configs).Error; err != nil {
+		return err
+	}
+	for i := range configs {
+		secret := configs[i].AuthSetting.ClientSecret
+		if !m.cipher.NeedsReencrypt(secret) {
+			continue
+		}
+		if err := pg.SealSecret(m.cipher, &configs[i].AuthSetting.ClientSecret); err != nil {
+			m.logger.Error("skip auth client secret that cannot be encrypted", log.Any("id", configs[i].ID), log.Error(err))
+			continue
+		}
+		if err := tx.Model(&domain.AuthConfig{}).Where("id = ?", configs[i].ID).Update("auth_setting", configs[i].AuthSetting).Error; err != nil {
+			return err
+		}
+	}
+
+	var apps []domain.App
+	if err := tx.Find(&apps).Error; err != nil {
+		return err
+	}
+	for i := range apps {
+		sealed := apps[i].Settings
+		if err := pg.SealAppSettings(m.cipher, &sealed); err != nil {
+			m.logger.Error("skip app settings that cannot be encrypted", log.String("app_id", apps[i].ID), log.Error(err))
+			continue
+		}
+		rawBefore, _ := json.Marshal(apps[i].Settings)
+		rawAfter, _ := json.Marshal(sealed)
+		if string(rawBefore) == string(rawAfter) {
+			continue
+		}
+		if err := tx.Model(&domain.App{}).Where("id = ?", apps[i].ID).Update("settings", sealed).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

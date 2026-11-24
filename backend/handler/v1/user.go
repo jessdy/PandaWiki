@@ -177,6 +177,9 @@ func (h *UserHandler) Login(c echo.Context) error {
 
 	token, user, err := h.usecase.VerifyUserAndGenerateToken(ctx, req)
 	if err != nil {
+		if existing, lookupErr := h.usecase.GetUserByAccount(ctx, strings.TrimSpace(req.Account)); lookupErr == nil && existing != nil {
+			c.Set(domain.AuditSubjectUserIDSlot, existing.ID)
+		}
 		h.rateLimiter.LockAttempt(ctx, ip, req.Account)
 		// 入口不匹配时返回明确文案；口令错误仍统一模糊提示
 		msg := "用户名或密码错误"

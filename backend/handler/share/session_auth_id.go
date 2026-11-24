@@ -11,6 +11,20 @@ import (
 	"github.com/chaitin/panda-wiki/domain"
 )
 
+// shareSessionMatchesKB 判断当前请求是否已通过该知识库的前台登录。
+// 简单口令只写入 kb_id，企业认证还会写入 user_id。
+func shareSessionMatchesKB(c echo.Context, kbID string) bool {
+	if kbID == "" {
+		return false
+	}
+	sess, err := echosession.Get(domain.SessionName, c)
+	if err != nil || sess == nil {
+		return false
+	}
+	sessionKBID, ok := sessionKbIDString(sess)
+	return ok && sessionKBID == kbID
+}
+
 // shareAuthUserID 优先读取中间件注入的用户 ID；普通用户名密码登录在未开启企业认证时，
 // 中间件不会注入该值，因此还需从已校验知识库归属的 Share Session 中读取。
 func shareAuthUserID(c echo.Context, kbID string) (uint, bool) {

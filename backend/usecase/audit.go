@@ -23,9 +23,9 @@ import (
 )
 
 type AuditUsecase struct {
-	repo   *pg.AuditRepo
+	repo    *pg.AuditRepo
 	setting *pg.SystemSettingRepo
-	logger *log.Logger
+	logger  *log.Logger
 }
 
 func NewAuditUsecase(repo *pg.AuditRepo, setting *pg.SystemSettingRepo, logger *log.Logger) *AuditUsecase {
@@ -80,6 +80,29 @@ func (u *AuditUsecase) AppendFromEcho(c echo.Context, category, action, event, o
 		} else if objectID != "" && (action == "login" || strings.Contains(action, "login")) {
 			entry.Account = objectID
 		}
+	}
+	if strings.TrimSpace(entry.UserID) == "" {
+		if id, ok := c.Get(domain.AuditSubjectUserIDSlot).(string); ok && strings.TrimSpace(id) != "" {
+			entry.UserID = strings.TrimSpace(id)
+		}
+	}
+	if extra, ok := c.Get(domain.AuditDetailSlot).(string); ok && strings.TrimSpace(extra) != "" {
+		if entry.Detail != "" {
+			entry.Detail += ","
+		}
+		entry.Detail += strings.TrimSpace(extra)
+	}
+	// 登录失败且账号在库中不存在时，主体无法对应 userId，在明细标明未知账号。
+	if (action == "login" || strings.Contains(action, "login")) &&
+		strings.TrimSpace(entry.UserID) == "" &&
+		strings.TrimSpace(entry.Account) != "" &&
+		!strings.HasPrefix(entry.Account, "kb:") &&
+		!strings.HasPrefix(entry.Account, "tgt:") &&
+		!strings.Contains(entry.Detail, "未知账号") {
+		if entry.Detail != "" {
+			entry.Detail += ","
+		}
+		entry.Detail += "未知账号"
 	}
 	u.Append(c.Request().Context(), entry)
 }

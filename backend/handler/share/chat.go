@@ -116,7 +116,9 @@ func (h *ShareChatHandler) ChatMessage(c echo.Context) error {
 		return h.sendErrMsg(c, "invalid app type")
 	}
 	ctx := c.Request().Context()
-	if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
+	// 前台已登录（简单口令或企业认证）后再提问，不再要求一次性验证码。
+	// 未登录请求仍必须携带有效 captcha token。
+	if !shareSessionMatchesKB(c, req.KBID) && !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
 		return h.sendErrMsg(c, "failed to validate captcha")
 	}
 
@@ -473,7 +475,7 @@ func (h *ShareChatHandler) ChatSearch(c echo.Context) error {
 		return h.NewResponseWithError(c, "validate request failed", err)
 	}
 	ctx := c.Request().Context()
-	if !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
+	if !shareSessionMatchesKB(c, req.KBID) && !h.Captcha.ValidateToken(ctx, req.CaptchaToken) {
 		return h.NewResponseWithError(c, "invalid captcha token", nil)
 	}
 

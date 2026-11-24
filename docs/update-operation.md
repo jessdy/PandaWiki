@@ -92,11 +92,12 @@ scripts/pack-source.sh --out /opt/packages
 | **SQL** | 所有 `*.sql`（交付源码不含迁移/脚本） |
 | 发布产物 | `packages/`、`images/`、`*.7z`、`*.tar`、`*.tar.gz`、`*.dump`、`panda-wiki-*-deploy/` |
 | **arm 目录** | 仓库根目录 `arm/`（交付源码不带 ARM 部署目录） |
+| **docs / scripts** | 仓库根目录 `docs/`、`scripts/`。`backend/docs` 与 `web/**/scripts` 保留，编译需要 |
 | **.env** | 任意目录下名为 `.env` 的文件（`.env.example` 保留） |
 
 **应保留：** `backend/iast/go-active-linux-arm64`（插桩构建需要，不在 git 内时需事先拷入 `backend/iast/`）。
 
-打包后脚本会抽检：若包内仍出现 Docker 文件、`.sql`、`arm/` 或 `.env` 则失败退出。
+打包后脚本会抽检：若包内仍出现 Docker 文件、`.sql`、`arm/`、根目录 `docs/`、`scripts/` 或 `.env` 则失败退出。
 
 ---
 

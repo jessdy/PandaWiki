@@ -17,15 +17,12 @@ export function clearAuth() {
 }
 
 export function isAuthed(): boolean {
-  return (
-    sessionStorage.getItem(AUTH_FLAG) === '1' ||
-    !!localStorage.getItem(LEGACY_TOKEN_STORAGE_ITEM)
-  );
+  return sessionStorage.getItem(AUTH_FLAG) === '1';
 }
 
-/** 兼容旧版 localStorage token；新登录仅依赖 Cookie */
+/** 不再从 localStorage 读取 JWT。保留函数是为了现有调用点；登录时会清掉旧值。 */
 export function getLegacyBearerToken(): string {
-  return localStorage.getItem(LEGACY_TOKEN_STORAGE_ITEM) || '';
+  return '';
 }
 
 export function setLoginPortal(portal: LoginPortal) {

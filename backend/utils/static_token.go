@@ -18,7 +18,7 @@ import (
 // HttpOnly Cookie，凭证只能读文件，不能调用其他接口。
 const (
 	StaticAccessCookie = "pw_static_token"
-	StaticAccessTTL    = 12 * time.Hour
+	StaticAccessTTL    = 8 * time.Hour
 	staticNonceLen     = 8
 )
 

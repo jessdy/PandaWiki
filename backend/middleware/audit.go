@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 	"sync"
 
@@ -233,9 +236,106 @@ func defaultAuditRule(method, path string) *auditRule {
 
 var bodyPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
+// recordDocumentDownload 记录文档输出。页面里的图片、音视频内联加载不记，避免把审计日志打满。
+// 返回 handled=true 表示这条请求已由这里处理，外层不要再包一层响应体缓冲。
+func (m *AuditMiddleware) recordDocumentDownload(c echo.Context, next echo.HandlerFunc) (bool, error) {
+	reqPath := c.Request().URL.Path
+	if m.recorder == nil || c.Request().Method != http.MethodGet {
+		return false, nil
+	}
+	signed := strings.HasPrefix(reqPath, "/static-file-signed/")
+	plain := strings.HasPrefix(reqPath, "/static-file/")
+	if !signed && !plain {
+		return false, nil
+	}
+
+	err := next(c)
+	status := c.Response().Status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	header := c.Response().Header()
+	disposition := header.Get("Content-Disposition")
+	contentType := header.Get("Content-Type")
+	key := staticDownloadKey(c)
+	failed := err != nil || status >= 400
+	if !shouldAuditStaticDownload(signed, disposition, contentType, key, failed) {
+		return true, err
+	}
+
+	result := domain.AuditResultSuccess
+	if failed {
+		result = domain.AuditResultFailure
+	}
+	name := filenameFromDisposition(disposition)
+	if name == "" && key != "" {
+		name = path.Base(key)
+	}
+	objectID := name
+	if objectID == "" {
+		objectID = key
+	}
+	detail := "key=" + key
+	if name != "" {
+		detail += ",filename=" + name
+	}
+	if signed {
+		detail += ",signed=1"
+	}
+	event := "下载文档"
+	if failed {
+		event = "下载文档失败"
+	}
+	m.recorder.AppendFromEcho(c, "file", "download", event, "document", objectID, detail, result, status, "")
+	return true, err
+}
+
+func shouldAuditStaticDownload(signed bool, disposition, contentType, key string, failed bool) bool {
+	if signed || strings.Contains(strings.ToLower(disposition), "attachment") {
+		return true
+	}
+	if isInlineMedia(contentType, key) {
+		return false
+	}
+	return failed || key != ""
+}
+
+func isInlineMedia(contentType, key string) bool {
+	mediaType, _, _ := mime.ParseMediaType(contentType)
+	if mediaType == "" {
+		mediaType = mime.TypeByExtension(strings.ToLower(path.Ext(key)))
+	}
+	return strings.HasPrefix(mediaType, "image/") ||
+		strings.HasPrefix(mediaType, "video/") ||
+		strings.HasPrefix(mediaType, "audio/")
+}
+
+func staticDownloadKey(c echo.Context) string {
+	raw := c.Param("*")
+	if unescaped, err := url.PathUnescape(raw); err == nil {
+		raw = unescaped
+	}
+	key := strings.TrimPrefix(path.Clean("/"+raw), "/")
+	if key == "." {
+		return ""
+	}
+	return key
+}
+
+func filenameFromDisposition(disposition string) string {
+	_, params, err := mime.ParseMediaType(disposition)
+	if err != nil {
+		return ""
+	}
+	return params["filename"]
+}
+
 func (m *AuditMiddleware) Record() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if handled, err := m.recordDocumentDownload(c, next); handled {
+				return err
+			}
 			rule, ok := shouldAuditRequest(c.Request().Method, c.Request().URL.Path)
 			if !ok || m.recorder == nil {
 				return next(c)

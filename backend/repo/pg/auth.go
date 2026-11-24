@@ -14,19 +14,22 @@ import (
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/store/cache"
 	"github.com/chaitin/panda-wiki/store/pg"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type AuthRepo struct {
 	db     *pg.DB
 	logger *log.Logger
 	cache  *cache.Cache
+	cipher *utils.FieldCipher
 }
 
-func NewAuthRepo(db *pg.DB, logger *log.Logger, cache *cache.Cache) *AuthRepo {
+func NewAuthRepo(db *pg.DB, logger *log.Logger, cache *cache.Cache, cipher *utils.FieldCipher) *AuthRepo {
 	return &AuthRepo{
 		db:     db,
 		logger: logger,
 		cache:  cache,
+		cipher: cipher,
 	}
 }
 
@@ -199,6 +202,11 @@ func (r *AuthRepo) DeleteAuth(ctx context.Context, kbID string, authId int64) er
 }
 
 func (r *AuthRepo) CreateAuthConfig(ctx context.Context, authConfig *domain.AuthConfig) error {
+	plain := authConfig.AuthSetting.ClientSecret
+	if err := protectField(r.cipher, &authConfig.AuthSetting.ClientSecret); err != nil {
+		return err
+	}
+	defer func() { authConfig.AuthSetting.ClientSecret = plain }()
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing domain.AuthConfig
 		err := tx.Model(&domain.AuthConfig{}).
@@ -251,6 +259,10 @@ func (r *AuthRepo) GetAuthConfig(ctx context.Context, kbID string, sourceType co
 		Limit(1).
 		First(&authConfig).Error; err != nil {
 		return nil, err
+	}
+	if err := revealField(r.cipher, &authConfig.AuthSetting.ClientSecret); err != nil {
+		r.logger.Error("decrypt auth client secret failed", log.String("kb_id", kbID), log.Error(err))
+		authConfig.AuthSetting.ClientSecret = ""
 	}
 	return &authConfig, nil
 }

@@ -34,8 +34,12 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	logger := log.NewLogger(configConfig)
+	fieldCipher, err := pg2.NewFieldCipher(configConfig)
+	if err != nil {
+		return nil, err
+	}
 	nodeRepository := pg2.NewNodeRepository(db, logger)
-	appRepository := pg2.NewAppRepository(db, logger)
+	appRepository := pg2.NewAppRepository(db, fieldCipher, logger)
 	mqProducer, err := mq.NewMQProducer(configConfig, logger)
 	if err != nil {
 		return nil, err
@@ -48,10 +52,6 @@ func createApp() (*App, error) {
 	}
 	knowledgeBaseRepository := pg2.NewKnowledgeBaseRepository(db, configConfig, logger, ragService)
 	conversationRepository := pg2.NewConversationRepository(db, logger)
-	fieldCipher, err := pg2.NewFieldCipher(configConfig)
-	if err != nil {
-		return nil, err
-	}
 	modelRepository := pg2.NewModelRepository(db, fieldCipher, logger)
 	promptRepo := pg2.NewPromptRepo(db, logger)
 	categoryPromptRepo := pg2.NewCategoryPromptRepo(db, logger)
@@ -68,7 +68,7 @@ func createApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	authRepo := pg2.NewAuthRepo(db, logger, cacheCache)
+	authRepo := pg2.NewAuthRepo(db, logger, cacheCache, fieldCipher)
 	modelUsecase := usecase.NewModelUsecase(modelRepository, nodeRepository, ragRepository, ragService, logger, configConfig, knowledgeBaseRepository, systemSettingRepo, fieldCipher)
 	nodeUsecase := usecase.NewNodeUsecase(nodeRepository, appRepository, ragRepository, userRepository, knowledgeBaseRepository, llmUsecase, ragService, logger, minioClient, modelRepository, authRepo, modelUsecase)
 	kbRepo := cache2.NewKBRepo(cacheCache)

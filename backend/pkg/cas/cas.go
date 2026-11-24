@@ -154,7 +154,7 @@ func (c *Client) ValidateTicket(ticket, state string) (*UserInfo, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	c.logger.Info("CAS validation response", log.String("response", string(body)))
+	c.logger.Debug("CAS validation response", log.Int("bytes", len(body)))
 
 	// 根据CAS版本解析不同的响应格式
 	switch c.config.Version {

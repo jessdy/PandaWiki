@@ -11,17 +11,20 @@ import (
 	"github.com/chaitin/panda-wiki/domain"
 	"github.com/chaitin/panda-wiki/log"
 	"github.com/chaitin/panda-wiki/store/pg"
+	"github.com/chaitin/panda-wiki/utils"
 )
 
 type AppRepository struct {
 	db     *pg.DB
 	logger *log.Logger
+	cipher *utils.FieldCipher
 }
 
-func NewAppRepository(db *pg.DB, logger *log.Logger) *AppRepository {
+func NewAppRepository(db *pg.DB, cipher *utils.FieldCipher, logger *log.Logger) *AppRepository {
 	return &AppRepository{
 		db:     db,
 		logger: logger.WithModule("repo.pg.app"),
+		cipher: cipher,
 	}
 }
 
@@ -33,6 +36,7 @@ func (r *AppRepository) GetAppDetail(ctx context.Context, id string) (*domain.Ap
 		First(app).Error; err != nil {
 		return nil, err
 	}
+	r.openApp(app)
 	return app, nil
 }
 
@@ -42,9 +46,22 @@ func (r *AppRepository) UpdateApp(ctx context.Context, id, kbId string, appReque
 		updateMap["name"] = appRequest.Name
 	}
 	if appRequest.Settings != nil {
-		updateMap["settings"] = appRequest.Settings
+		sealed := *appRequest.Settings
+		if err := SealAppSettings(r.cipher, &sealed); err != nil {
+			return err
+		}
+		updateMap["settings"] = &sealed
 	}
 	return r.db.WithContext(ctx).Model(&domain.App{}).Where("id = ? and kb_id = ?", id, kbId).Updates(updateMap).Error
+}
+
+func (r *AppRepository) openApp(app *domain.App) {
+	if app == nil {
+		return
+	}
+	if err := openAppSettings(r.cipher, &app.Settings); err != nil {
+		r.logger.Error("decrypt app settings failed", log.String("app_id", app.ID), log.Error(err))
+	}
 }
 
 func (r *AppRepository) DeleteApp(ctx context.Context, id, kbId string) error {
@@ -74,6 +91,7 @@ func (r *AppRepository) GetOrCreateAppByKBIDAndType(ctx context.Context, kbID st
 	}); err != nil {
 		return nil, err
 	}
+	r.openApp(app)
 	return app, nil
 }
 
@@ -86,6 +104,9 @@ func (r *AppRepository) GetAppsByTypes(ctx context.Context, appTypes []domain.Ap
 		Find(&apps).Error; err != nil {
 		return nil, err
 	}
+	for _, app := range apps {
+		r.openApp(app)
+	}
 	return apps, nil
 }
 
@@ -96,6 +117,9 @@ func (r *AppRepository) GetAppList(ctx context.Context, kbID string) (map[string
 		Where("kb_id = ?", kbID).
 		Find(&apps).Error; err != nil {
 		return nil, err
+	}
+	for _, app := range apps {
+		r.openApp(app)
 	}
 	return lo.SliceToMap(apps, func(app *domain.App) (string, *domain.App) {
 		return app.ID, app
